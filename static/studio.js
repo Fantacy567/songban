@@ -53,6 +53,7 @@ const state = {
   needProfile: false,
   issuedCode: "",
   wechatNote: "",
+  wechatTicket: "",
   menuOpen: false,
   chats: {},
   contestDraft: null,
@@ -215,16 +216,19 @@ function editorBoxes() {
 }
 
 function viewSignup() {
-  return `<div class="reg-wrap"><h2>注册</h2>
-    <p class="muted">先填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。</p>
+  const wechat = !!state.wechatTicket;
+  return `<div class="reg-wrap"><h2>${wechat ? "微信已扫码" : "注册"}</h2>
+    <p class="muted">${wechat ? "微信已经确认是你。再填写名字、画像和目前做得到的事，才会进入。" : "先填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。"}</p>
     <form id="reg-form" data-act="enter" class="card">
-      <label for="reg-phone">手机号</label>
-      <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="6 到 20 位数字">
-      <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
-      <p id="reg-code-note" class="muted" hidden>没有短信服务。验证码只显示在这里，没有发送，也没有花钱。</p>
-      <p id="reg-issued" class="code" hidden></p>
-      <label for="reg-code">验证码</label>
-      <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
+      <div id="reg-phone-block" ${wechat ? "hidden" : ""}>
+        <label for="reg-phone">手机号</label>
+        <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="6 到 20 位数字">
+        <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
+        <p id="reg-code-note" class="muted" hidden></p>
+        <p id="reg-issued" class="code" hidden></p>
+        <label for="reg-code">验证码</label>
+        <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
+      </div>
       <div id="reg-profile" hidden>
         <label for="reg-name">名字</label>
         <input id="reg-name" name="name" maxlength="40" autocomplete="name">
@@ -232,12 +236,12 @@ function viewSignup() {
         <textarea id="reg-about" name="profile" placeholder="例如：高二，产品设计。会整理讨论和演示。"></textarea>
         <label for="reg-skills">目前做得到的事</label>
         <input id="reg-skills" name="skills" placeholder="例如：需求、流程图、路演">
-        <p class="muted">只在第一次问。验证码还没通过时，填了也不会进入。</p>
+        <p class="muted">只在第一次问。验证还没通过时，填了也不会进入。</p>
       </div>
-      <button class="btn" type="submit">验证并进入</button>
+      <button class="btn" type="submit">${wechat ? "完成注册" : "验证并进入"}</button>
     </form>
-    <div class="card">
-      <button class="btn ghost" type="button" data-act="wechat">微信注册还缺开放平台网站应用和正式域名</button>
+    <div class="card" ${wechat ? "hidden" : ""}>
+      <button class="btn ghost" type="button" data-act="wechat">用微信登录</button>
       <p id="reg-wechat" class="muted" hidden></p>
     </div>
     <p id="reg-status" hidden></p></div>`;
@@ -285,7 +289,7 @@ function viewSettings() {
     </div>
     <div class="card">
       <p class="kicker">微信</p>
-      <p>还没有接通。需要微信开放平台的网站应用 AppID，以及可公网回调的正式域名。127.0.0.1 完不成微信登录，这里不会编一个头像把人放进去。</p>
+      <p>微信登录要你本人用微信扫码注册开放平台，等网站应用审核通过，还要一个已备案的 https 域名。这三样还没办好时，按钮不会放人进去，也不会编头像。</p>
     </div>
     <div class="card">
       <p class="kicker">本机标记</p>
@@ -697,7 +701,10 @@ function paintSignupStatus() {
     const show = !!state.issuedCode;
     note.hidden = !show;
     issued.hidden = !show;
-    if (show) issued.textContent = state.issuedCode;
+    if (show) {
+      issued.textContent = state.issuedCode;
+      note.textContent = "这组数字没有发到手机。填进下面的验证码。";
+    }
   }
   const profile = document.getElementById("reg-profile");
   if (profile) profile.hidden = !state.needProfile;
@@ -746,7 +753,7 @@ function renderRail() {
   const buttons = sideGroups().map(([title, items]) => `<p class="rail-label">${title}</p>${items.map(([id, label]) => `<button type="button" data-go="${id}" class="${state.screen === id ? "on" : ""}">${label}</button>`).join("")}`).join("");
   const initial = (state.me?.name || "我").slice(0, 1);
   const squadName = state.squad?.squad?.name ? `<p class="rail-squad">${esc(state.squad.squad.name)}</p>` : "";
-  rail.innerHTML = `<div class="brand">松伴${squadName}</div><div class="rail-scroll">${buttons}</div><div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}"><span class="avatar">${esc(initial)}</span><span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || "")}</span></span></button></div>`;
+  rail.innerHTML = `<div class="brand">松伴${squadName}</div><div class="rail-scroll">${buttons}</div><div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}"><span class="avatar">${esc(initial)}</span><span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || (state.me?.wechat ? "微信登录" : ""))}</span></span></button></div>`;
 }
 
 function render() {
@@ -817,6 +824,7 @@ async function adopt(data, phone) {
   state.accounts[phone] = { token: data.token, name: data.name };
   state.needProfile = false;
   state.issuedCode = "";
+  state.wechatTicket = "";
   saveSession();
   state.me = await api("GET", "/api/studio/me");
   state.squad = null;
@@ -838,12 +846,17 @@ const actions = {
     const form = button.closest("form");
     const phone = form.phone.value.trim();
     const data = await api("POST", "/api/studio/codes", { phone });
-    state.issuedCode = data.code;
+    state.issuedCode = data.sent ? "" : (data.code || "");
     state.note = data.notice;
     state.error = "";
   },
-  wechat() {
-    state.wechatNote = "还缺微信开放平台的网站应用 AppID，以及可公网回调的正式域名。127.0.0.1 完不成微信登录。没有进入，也没有头像。";
+  async wechat() {
+    const data = await api("GET", "/api/studio/connect");
+    if (data.wechat && data.wechat.ready) {
+      window.location.assign("/api/studio/wechat/start");
+      return;
+    }
+    state.wechatNote = ((data.wechat && data.wechat.missing) || []).join("");
     state.error = "";
     state.token = "";
   },
@@ -875,6 +888,16 @@ const actions = {
     await reload();
   },
   async enter(form) {
+    if (state.wechatTicket) {
+      const data = await api("POST", "/api/studio/wechat/finish", {
+        ticket: state.wechatTicket,
+        name: val(form, "name").trim(),
+        profile: val(form, "profile").trim(),
+        skills: val(form, "skills").trim(),
+      });
+      await adopt(data, data.phone || `微信·${data.name}`);
+      return;
+    }
     const phone = form.phone.value.trim();
     const body = { phone, code: form.code.value.trim() };
     if (state.needProfile) {
@@ -1179,6 +1202,27 @@ document.addEventListener("submit", async (event) => {
 });
 
 async function boot() {
+  const ticket = new URLSearchParams(location.search).get("wechat_ticket");
+  if (ticket) {
+    history.replaceState({}, "", "/");
+    state.wechatTicket = ticket;
+    state.token = "";
+    try {
+      const data = await api("POST", "/api/studio/wechat/finish", { ticket });
+      await adopt(data, data.phone || `微信·${data.name}`);
+    } catch (error) {
+      state.token = "";
+      if (error.code === "profile_required") {
+        state.needProfile = true;
+        state.note = error.message;
+      } else {
+        state.wechatTicket = "";
+        state.error = error.message;
+      }
+    }
+    render();
+    return;
+  }
   if (!state.token) { render(); return; }
   try {
     state.me = await api("GET", "/api/studio/me");

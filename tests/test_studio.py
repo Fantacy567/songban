@@ -191,6 +191,20 @@ class StudioFlowTests(unittest.TestCase):
         home = self.client.get("/api/studio/me", headers=ca).json()
         self.assertEqual(home["contests"][0]["submissions"], contest["submissions"])
 
+    def test_wechat_stays_closed_without_the_account_holders_app(self):
+        status = self.client.get("/api/studio/connect")
+        self.assertEqual(status.status_code, 200, status.text)
+        body = status.json()
+        self.assertFalse(body["wechat"]["ready"])
+        self.assertIn("扫码", "".join(body["wechat"]["missing"]))
+        self.assertNotIn("APP_SECRET", status.text)
+        start = self.client.get("/api/studio/wechat/start")
+        self.assertEqual(start.status_code, 409, start.text)
+        self.assertNotIn("token", start.text)
+        denied = self.client.post("/api/studio/wechat/finish", json={"ticket": "nope", "name": "甲", "profile": "做过产品和演示", "skills": "路演"})
+        self.assertEqual(denied.status_code, 401, denied.text)
+        self.assertNotIn("token", denied.json())
+
     def test_homepage_is_the_team_flow(self):
         page = self.client.get("/")
         self.assertEqual(page.status_code, 200)

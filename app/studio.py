@@ -1,11 +1,18 @@
-"""Local stand-in for the locked team flow. No SMS, OAuth, or paid model calls."""
+"""Local team flow. Phone codes can leave through this Mac's Messages app.
+WeChat login uses only the account holder's approved website app."""
+import hashlib
 import json
+import os
 import re
 import secrets
+import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Header
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
@@ -68,6 +75,12 @@ CREATE TABLE IF NOT EXISTS squad_log (
 CREATE TABLE IF NOT EXISTS phone_codes (
  phone TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS wechat_states (
+ state TEXT PRIMARY KEY, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS wechat_tickets (
+ ticket TEXT PRIMARY KEY, openid TEXT NOT NULL, name TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+);
 """
 
 SUBMISSION_RULES = (
@@ -83,6 +96,92 @@ LABEL = "离线规则 · 非大模型"
 
 def ensure_schema(con):
     con.executescript(SCHEMA)
+    columns = {row[1] for row in con.execute("PRAGMA table_info(people)")}
+    if "wechat_openid" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN wechat_openid TEXT")
+    if "phone_real" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN phone_real INTEGER NOT NULL DEFAULT 1")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_wechat_openid ON people(wechat_openid) WHERE wechat_openid IS NOT NULL")
+
+
+def wechat_status():
+    app_id = os.environ.get("WECHAT_APP_ID", "").strip()
+    app_secret = os.environ.get("WECHAT_APP_SECRET", "").strip()
+    public = os.environ.get("PUBLIC_BASE_URL", "").strip()
+    missing = []
+    if not app_id or not app_secret:
+        missing.append("用你自己的微信打开 open.weixin.qq.com 注册开放平台，等网站应用审核通过。这一步要你本人扫码，不能由别人代注册。")
+    if not public.startswith("https://"):
+        missing.append("准备一个已在中国备案、可以用 https 打开的域名，填进授权回调域名。127.0.0.1 微信不接受。备案要用你的身份证，通常要几天。")
+    return {"ready": not missing, "missing": missing}
+
+
+def imessage_handle(phone):
+    if len(phone) == 11 and phone.startswith("1"):
+        return "+86" + phone
+    return "+" + phone
+
+
+def send_imessage(phone, code):
+    handle = imessage_handle(phone)
+    text = f"松伴验证码 {code}。10 分钟内有效。如果不是你在注册，请忽略。"
+    script = """on run argv
+set targetHandle to item 1 of argv
+set msg to item 2 of argv
+tell application "Messages"
+set iService to first service whose service type = iMessage
+set iBuddy to participant targetHandle of iService
+send msg to iBuddy
+end tell
+end run"""
+    try:
+        result = subprocess.run(["osascript", "-e", script, handle, text], capture_output=True, text=True, timeout=12)
+    except (OSError, subprocess.TimeoutExpired):
+        return False, "信息 App 没有在时限内响应"
+    detail = (result.stderr or result.stdout or "").replace(code, "******").strip()
+    if result.returncode != 0:
+        return False, detail[:160] or "信息 App 没有把这条发出去"
+    return True, ""
+
+
+def deliver_login_code(phone, code):
+    if os.environ.get("SONGBAI_IMESSAGE") == "1":
+        sent, detail = send_imessage(phone, code)
+        if sent:
+            return True, "验证码已从这台 Mac 的「信息」发到这个号码。页面上不再显示数字。对方需要能收 iMessage。"
+        reason = detail or "信息没有登录，或这个号码不是 iMessage"
+        return False, f"这台 Mac 没有把验证码发出去（{reason}）。数字先留在这一页，没有假装发送成功。"
+    return False, "没有短信服务商。这 6 位验证码只显示在这一页，没有发送。"
+
+
+def public_phone(user):
+    if int(user.get("phone_real") or 0):
+        return user["phone"]
+    return ""
+
+
+def exchange_wechat_code(code):
+    app_id = os.environ.get("WECHAT_APP_ID", "").strip()
+    app_secret = os.environ.get("WECHAT_APP_SECRET", "").strip()
+    query = urllib.parse.urlencode({"appid": app_id, "secret": app_secret, "code": code, "grant_type": "authorization_code"})
+    try:
+        with urllib.request.urlopen("https://api.weixin.qq.com/sns/oauth2/access_token?" + query, timeout=8) as response:
+            data = json.loads(response.read().decode())
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError("微信没有连上") from exc
+    if data.get("errcode") or not data.get("openid") or not data.get("access_token"):
+        raise RuntimeError("微信没有接受这次登录")
+    name = "微信用户"
+    info_query = urllib.parse.urlencode({"access_token": data["access_token"], "openid": data["openid"], "lang": "zh_CN"})
+    try:
+        with urllib.request.urlopen("https://api.weixin.qq.com/sns/userinfo?" + info_query, timeout=8) as response:
+            info = json.loads(response.read().decode())
+        nickname = str(info.get("nickname") or "").strip()
+        if nickname:
+            name = nickname[:40]
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        pass
+    return data["openid"], name
 
 
 def normalize_phone(value):
@@ -308,13 +407,16 @@ def register_studio(api, db, problem, now, uid, digest):
         if not phone:
             raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
         code, expires = issue_code(phone)
+        sent, notice = deliver_login_code(phone, code)
         with db(True) as con:
             con.execute("""INSERT INTO phone_codes(phone,code_hash,expires_at,created_at) VALUES(?,?,?,?)
                 ON CONFLICT(phone) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, created_at=excluded.created_at""",
                         (phone, digest(f"{phone}:{code}"), expires, now()))
             created = con.execute("SELECT 1 FROM people WHERE phone=?", (phone,)).fetchone()
-        return {"phone": phone, "code": code, "expires_at": expires, "sent": False, "account_exists": bool(created),
-                "notice": "没有短信服务。这 6 位验证码只显示在这一页，没有发送，也没有花钱。"}
+        payload = {"phone": phone, "expires_at": expires, "sent": sent, "account_exists": bool(created), "notice": notice}
+        if not sent:
+            payload["code"] = code
+        return payload
 
     @api.post("/api/studio/register")
     def register(body: dict):
@@ -346,7 +448,98 @@ def register_studio(api, db, problem, now, uid, digest):
             con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
             return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "skills": skills[:500],
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
-                    "notice": "验证码正确，账号已建立。没有发送短信。"}
+                    "notice": "验证码正确，账号已建立。"}
+
+    @api.get("/api/studio/connect")
+    def connect_status():
+        return {"wechat": wechat_status(), "imessage": os.environ.get("SONGBAI_IMESSAGE") == "1"}
+
+    @api.get("/api/studio/wechat/start")
+    def wechat_start():
+        status = wechat_status()
+        if not status["ready"]:
+            raise problem(409, "wechat_unavailable", status["missing"][0])
+        state = secrets.token_urlsafe(18)
+        with db(True) as con:
+            con.execute("INSERT INTO wechat_states(state, created_at) VALUES(?,?)", (state, now()))
+        redirect = os.environ["PUBLIC_BASE_URL"].rstrip("/") + "/api/studio/wechat/callback"
+        url = "https://open.weixin.qq.com/connect/qrconnect?" + urllib.parse.urlencode({
+            "appid": os.environ["WECHAT_APP_ID"].strip(),
+            "redirect_uri": redirect,
+            "response_type": "code",
+            "scope": "snsapi_login",
+            "state": state,
+        }) + "#wechat_redirect"
+        return RedirectResponse(url)
+
+    @api.get("/api/studio/wechat/callback")
+    def wechat_callback(code: str = "", state: str = ""):
+        if not wechat_status()["ready"]:
+            return PlainTextResponse("微信登录还没配好。没有进入。", status_code=409)
+        with db(True) as con:
+            saved = con.execute("SELECT created_at FROM wechat_states WHERE state=?", (state,)).fetchone()
+            if not saved:
+                return PlainTextResponse("这次微信登录已经失效，请回到松伴再点一次。没有进入。", status_code=400)
+            created = datetime.fromisoformat(saved["created_at"])
+            current = datetime.fromisoformat(now())
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            if current.tzinfo is None:
+                current = current.replace(tzinfo=timezone.utc)
+            con.execute("DELETE FROM wechat_states WHERE state=?", (state,))
+            if current - created > timedelta(minutes=10):
+                return PlainTextResponse("这次微信登录已经过期，请回到松伴再点一次。没有进入。", status_code=400)
+        try:
+            openid, nickname = exchange_wechat_code(code)
+        except RuntimeError as exc:
+            return PlainTextResponse(f"{exc}。没有进入。", status_code=401)
+        ticket = secrets.token_urlsafe(24)
+        expires = (datetime.fromisoformat(now()) + timedelta(minutes=10)).isoformat()
+        with db(True) as con:
+            con.execute("INSERT INTO wechat_tickets(ticket,openid,name,expires_at,created_at) VALUES(?,?,?,?,?)", (ticket, openid, nickname, expires, now()))
+        public = os.environ["PUBLIC_BASE_URL"].rstrip("/")
+        return RedirectResponse(f"{public}/?wechat_ticket={urllib.parse.quote(ticket)}")
+
+    @api.post("/api/studio/wechat/finish")
+    def wechat_finish(body: dict):
+        ticket = str(body.get("ticket") or "")
+        with db(True) as con:
+            row = con.execute("SELECT * FROM wechat_tickets WHERE ticket=?", (ticket,)).fetchone()
+            if not row:
+                raise problem(401, "wechat_ticket", "这次微信登录已经失效，请再点一次用微信登录。")
+            expires = datetime.fromisoformat(row["expires_at"])
+            current = datetime.fromisoformat(now())
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if current.tzinfo is None:
+                current = current.replace(tzinfo=timezone.utc)
+            if current > expires:
+                con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
+                raise problem(401, "wechat_ticket", "这次微信登录已经过期，请再点一次用微信登录。")
+            existing = con.execute("SELECT * FROM people WHERE wechat_openid=?", (row["openid"],)).fetchone()
+            if existing:
+                token_clear = secrets.token_urlsafe(24)
+                con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), existing["id"]))
+                con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
+                existing = dict(existing)
+                return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": existing["name"],
+                        "phone": public_phone(existing), "skills": existing["skills"], "profile": existing["profile"],
+                        "growth": existing["growth"], "github_linked": bool(existing["github_linked"]),
+                        "feishu_linked": bool(existing["feishu_linked"]), "wechat": True,
+                        "notice": "微信身份对上了。画像保持你上次填的。"}
+            name = str(body.get("name") or row["name"] or "").strip()
+            profile = str(body.get("profile") or "").strip()
+            skills = str(body.get("skills") or "").strip()
+            if not name or not profile or not skills:
+                raise problem(422, "profile_required", "微信扫码已经通过。第一次还要填写名字、画像和目前做得到的事。")
+            phone = "9" + f"{int(hashlib.sha256(row['openid'].encode()).hexdigest()[:12], 16) % 10**12:012d}"
+            pid, token_clear = uid(), secrets.token_urlsafe(24)
+            con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at,wechat_openid,phone_real)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (pid, phone, name[:40], profile[:2000], skills[:500], 0, 0, digest(token_clear), now(), row["openid"], 0))
+            con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
+            return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "phone": "",
+                    "skills": skills[:500], "profile": profile[:2000], "growth": "", "github_linked": False,
+                    "feishu_linked": False, "wechat": True, "notice": "微信登录已完成。头像仍用名字的第一个字。"}
 
     @api.patch("/api/studio/me")
     def update_me(body: dict, authorization: str = Header(default="")):
@@ -392,11 +585,14 @@ def register_studio(api, db, problem, now, uid, digest):
             contests = [dict(row) for row in con.execute("SELECT id, name, deadline, submissions, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC", (user["id"],))]
             for contest in contests:
                 contest["submissions"] = json.loads(contest["submissions"])
-            friends = [dict(row) for row in con.execute("""SELECT p.id AS user_id, p.name, p.phone FROM friendships f
+            friends = [dict(row) for row in con.execute("""SELECT p.id AS user_id, p.name, p.phone, p.phone_real FROM friendships f
                 JOIN people p ON p.id=f.friend_id WHERE f.user_id=?""", (user["id"],))]
-            return {"id": user["id"], "name": user["name"], "phone": user["phone"], "profile": user["profile"], "skills": user["skills"],
+            for friend in friends:
+                if not friend.pop("phone_real"):
+                    friend["phone"] = ""
+            return {"id": user["id"], "name": user["name"], "phone": public_phone(user), "profile": user["profile"], "skills": user["skills"],
                     "growth": user["growth"], "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
-                    "squads": squads, "contests": contests, "friends": friends}
+                    "wechat": bool(user.get("wechat_openid")), "squads": squads, "contests": contests, "friends": friends}
 
     @api.post("/api/studio/friends")
     def add_friend(body: dict, authorization: str = Header(default="")):
