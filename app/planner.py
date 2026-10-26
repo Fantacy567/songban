@@ -1,6 +1,7 @@
 """Explicit local templates and a configurable, server-side model adapter."""
 import json
 import os
+import re
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -71,16 +72,122 @@ class ModelResult(dict):
     pass
 
 
+TASK_PREFIX = re.compile(r"^\s*(?:[-*•]\s*)?(?:\[\s?\]\s*|(?:任务|待办|分工|TODO|todo|Todo)\s*[:：]\s*)")
+HOURS = re.compile(r"[（(]?\s*(\d+(?:\.\d+)?)\s*(?:h|H|小时|个小时)\s*[)）]?")
+OPTIONAL = ("可选", "加分", "有时间再", "如果有时间", "nice to have", "选做")
+INTEGRATION = ("联调", "集成", "整体测试", "端到端")
+DELIVERY = ("路演", "ppt", "PPT", "提交", "演示视频", "答辩")
+SKILL_GROUPS = [
+    ("后端", "backend", "接口", "api", "数据库", "服务器", "python", "部署", "fastapi", "flask", "模型"),
+    ("前端", "frontend", "页面", "界面", "ui", "交互", "javascript", "react", "vue", "小程序"),
+    ("设计", "视觉", "海报", "原型", "figma", "logo", "配色", "插画"),
+    ("产品", "文档", "调研", "ppt", "路演", "演示", "视频", "答辩", "文案"),
+]
+
+
+def _tagged(lines, *tags):
+    found = []
+    for line in lines:
+        text = line.strip()
+        for tag in tags:
+            if text.startswith(tag) and text[len(tag):].strip():
+                found.append(text[len(tag):].strip()[:500])
+    return found[:12]
+
+
+def _groups(text):
+    text = text.lower()
+    return {i for i, words in enumerate(SKILL_GROUPS) if any(w in text for w in words)}
+
+
+def _extract_tasks(discussion, members):
+    """Explicit task lines only: '任务：', '待办：', 'TODO:', '- [ ]', '分工：'."""
+    found = []
+    for line in discussion["body"].splitlines():
+        match = TASK_PREFIX.match(line)
+        if not match or not line[match.end():].strip():
+            continue
+        text = line[match.end():].strip()
+        owner = None
+        for m in sorted(members, key=lambda m: -len(m["name"])):
+            name = m["name"]
+            if f"@{name}" in text or f"{name}负责" in text or f"（{name}）" in text or f"({name})" in text:
+                owner = m["id"]
+                text = text.replace(f"@{name}", "").replace(f"（{name}）", "").replace(f"({name})", "").replace(f"{name}负责", "")
+                break
+        hours = HOURS.search(text)
+        estimate = min(max(float(hours.group(1)), 0.25), 48.0) if hours else None
+        if hours:
+            text = text[:hours.start()] + text[hours.end():]
+        title = re.sub(r"\s+", " ", text).strip(" ，,。;；:：-") or line[match.end():].strip()
+        found.append({"title": title[:120], "owner": owner, "hours": estimate, "optional": any(w in line for w in OPTIONAL), "quote": line.strip()[:300]})
+    return found[:11]
+
+
+def _assign(tasks, members):
+    remaining = {m["id"]: float(m["available_hours"]) for m in members}
+    profile = {m["id"]: _groups(m["role"] + " " + m["skills"]) for m in members}
+    for task in tasks:
+        task["hours"] = task["hours"] or 1.5
+        if not task["owner"]:
+            wanted = _groups(task["title"])
+            task["owner"] = max(members, key=lambda m: (len(wanted & profile[m["id"]]), remaining[m["id"]]))["id"]
+        remaining[task["owner"]] -= task["hours"]
+    return remaining
+
+
 def local_plan(context):
-    """A deliberately labelled template, never claimed to be LLM understanding."""
+    """Offline rule engine; always labelled as non-LLM output."""
     sources, members = context["sources"], context["members"]
     discussion = next(s for s in sources if s["kind"] == "discussion")
     rules = next(s for s in sources if s["kind"] == "rules")
-    lines = discussion["body"].splitlines()
+    lines = [line for s in sources if s["kind"] == "discussion" for line in s["body"].splitlines()]
+    extracted = [t for s in sources if s["kind"] == "discussion" for t in [{**x, "source_id": s["id"]} for x in _extract_tasks(s, members)]][:11]
+    remaining = (datetime.fromisoformat(context["project"]["deadline"]) - datetime.fromisoformat(context["now"])).total_seconds() / 3600
+    goal = (_tagged(lines, "目标：", "目标:") or [f"完成{context['project']['name']}的一个可验收核心流程"])[0]
+    decisions = _tagged(lines, "决定：", "决定:", "结论：", "结论:")
+    questions = _tagged(lines, "待确认：", "待确认:", "问题：", "问题:")
+    questions += [l.strip()[:500] for l in lines if l.strip().endswith(("？", "?")) and l.strip()[:500] not in questions][:max(0, 12 - len(questions))]
+    if extracted:
+        return _extracted_plan(context, extracted, rules, goal, decisions, questions, remaining)
+    return _template_plan(context, discussion, rules, goal, decisions, questions, remaining)
 
-    def tagged(tag):
-        return [line[len(tag):].strip()[:500] for line in lines if line.startswith(tag) and line[len(tag):].strip()][:12]
 
+def _extracted_plan(context, extracted, rules, goal, decisions, questions, remaining_hours):
+    members = context["members"]
+    names = {m["id"]: m["name"] for m in members}
+    if not any(any(w in t["title"] for w in DELIVERY) for t in extracted):
+        rule_line = next((l.strip() for l in rules["body"].splitlines() if any(w in l for w in ("提交", "截止", "交付", "必须"))), rules["body"].strip().splitlines()[0])
+        extracted.append({"title": "对照赛规核对提交清单", "owner": None, "hours": 0.5, "optional": False, "quote": rule_line[:300], "source_id": rules["id"], "delivery": True})
+    left = _assign(extracted, members)
+    tasks, keys = [], []
+    for i, item in enumerate(extracted, 1):
+        key = f"T{i}"
+        title = item["title"]
+        if any(w in title for w in INTEGRATION):
+            build = [(k, t) for k, t in zip(keys, tasks) if t["priority"] == "must" and not any(w in t["title"] for w in INTEGRATION + DELIVERY)]
+            depends = [k for k, t in build if _groups(t["title"]) & {0, 1}] or [k for k, _ in build]
+        elif item.get("delivery") or any(w in title for w in DELIVERY):
+            depends = [k for k, t in zip(keys, tasks) if any(w in t["title"] for w in INTEGRATION)]
+        else:
+            depends = []
+        tasks.append({"key": key, "title": title, "owner_id": item["owner"], "estimated_hours": round(item["hours"], 2),
+                      "acceptance": f"另一位成员能按原文要求核对“{title[:40]}”的成果；附可打开的地址、截图或说明。",
+                      "priority": "should" if item["optional"] else "must", "due_at": context["project"]["deadline"],
+                      "depends_on": depends, "evidence": [{"source_id": item["source_id"], "quote": item["quote"]}]})
+        keys.append(key)
+    if not any(t["priority"] == "must" for t in tasks):
+        tasks[0]["priority"] = "must"
+    risks = [f"离线规则引擎从讨论中提取了 {len(extracted)} 项任务；负责人按“@成员/某某负责”或角色关键词匹配，估时未写明时按 1.5 小时计，均需队长核对。",
+             f"距赛事截止约 {remaining_hours:.1f} 小时，确认前检查范围与工时预算。"]
+    over = [f"{names[mid]} 超出 {-v:.1f} 小时" for mid, v in left.items() if v < -1e-8]
+    if over:
+        risks.append("工时超出：" + "；".join(over) + "。请减少任务、改为可选或调整负责人。")
+    return {"goal": goal, "decisions": decisions, "open_questions": questions[:12] or ["请队长核对提取的任务、负责人和估时是否符合本次分工。"], "risks": risks, "tasks": tasks}
+
+
+def _template_plan(context, discussion, rules, goal, decisions, questions, remaining):
+    members = context["members"]
     backend = next((m for m in members if any(k in (m["role"] + m["skills"]).lower() for k in ("后端", "backend", "python"))), members[0])
     frontend = next((m for m in members if m["id"] != backend["id"] and any(k in (m["role"] + m["skills"]).lower() for k in ("前端", "frontend", "javascript"))), next(m for m in members if m["id"] != backend["id"]))
     evidence = [{"source_id": discussion["id"], "quote": discussion["body"][:100]}]
@@ -93,12 +200,11 @@ def local_plan(context):
     ]
     for task in tasks:
         task.update(priority="must", due_at=context["project"]["deadline"])
-    remaining = (datetime.fromisoformat(context["project"]["deadline"]) - datetime.fromisoformat(context["now"])).total_seconds() / 3600
     return {
-        "goal": (tagged("目标：") or [f"完成{context['project']['name']}的一个可验收核心流程"])[0],
-        "decisions": tagged("决定："),
-        "open_questions": tagged("待确认：") or ["请队长核对模板任务是否与本次项目、赛规和成员能力相符。"],
-        "risks": ["本方案是本地角色模板，估时和任务均需人工核对，不能作为已验证的科学分工。", f"距赛事截止约 {remaining:.1f} 小时，确认前检查范围与工时预算。"],
+        "goal": goal,
+        "decisions": decisions,
+        "open_questions": questions[:12] or ["请队长核对模板任务是否与本次项目、赛规和成员能力相符。"],
+        "risks": ["讨论中没有“任务：/待办：/- [ ]”等任务行，本方案使用角色模板，估时和任务均需人工核对。", f"距赛事截止约 {remaining:.1f} 小时，确认前检查范围与工时预算。"],
         "tasks": tasks,
     }
 

@@ -230,7 +230,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     def proposal(row):
         value = dict(row)
         value["content"] = json.loads(value["content"])
-        value["source_label"] = "本地规则演练 · 角色模板，非大模型" if value["mode"] == "local_rules" else "模型生成建议 · " + (value.get("model_display_name") or value.get("model_id") or "未记录模型名") + " · " + (value.get("model_id") or "未知 ID") + " · 待人工核对"
+        value["source_label"] = "离线规则引擎 · 按讨论中的任务行与角色提取，非大模型" if value["mode"] == "local_rules" else "模型生成建议 · " + (value.get("model_display_name") or value.get("model_id") or "未记录模型名") + " · " + (value.get("model_id") or "未知 ID") + " · 待人工核对"
         return value
 
     def draft_row(con, pid, did):
