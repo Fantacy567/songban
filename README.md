@@ -18,6 +18,8 @@ python3 -m venv .venv
 - Swagger 调试页：http://127.0.0.1:8886/api/docs（其页面资源需能访问 jsDelivr）
 - 健康检查：http://127.0.0.1:8886/health
 
+**同一 Wi-Fi 下队友一起用：**用 `--host 0.0.0.0` 启动，在 `.env` 设置 `PUBLIC_BASE_URL=http://<本机局域网IP>:8886`（`ipconfig getifaddr en0` 可查 IP），重启后“成员入口”复制出的链接队友就能打开。只在可信网络里这样做，入口链接等同成员钥匙。
+
 端口占用时换一个空闲端口，不要停止别的服务。服务终端按 Ctrl+C 结束。`requirements.txt` 是直接依赖；`requirements.lock.txt` 是本次实际安装的完整版本清单。
 
 ## 第一次使用
@@ -43,9 +45,23 @@ python3 -m venv .venv
 
 预设与协议依据：[DeepSeek 首次调用](https://api-docs.deepseek.com/quick_start/agent_integrations/)、[模型列表](https://api-docs.deepseek.com/api/list-models/)、[Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)（2026-10-26 核对）。
 
-**当前实测状态（2026-10-26）：** 运行环境已有 DeepSeek 凭据；官方 `/models` 读取成功，返回 DeepSeek-V4-Pro / `deepseek-v4-pro`。生成请求被服务商以 HTTP 402“余额不足”拒绝，真实生成尚未通过。已补充明确的余额错误，不自动重复重试。需要可用余额或其他有效密钥才能继续真实生成验收。
+**当前实测状态（2026-10-26，0.2 时记录；0.3 未再调用付费接口）：** 运行环境已有 DeepSeek 凭据；官方 `/models` 读取成功，返回 DeepSeek-V4-Pro / `deepseek-v4-pro`。生成请求被服务商以 HTTP 402“余额不足”拒绝，真实生成尚未通过。已补充明确的余额错误，不自动重复重试。需要可用余额或其他有效密钥才能继续真实生成验收。
 
-本地规则演练是显式标签提取和角色模板，页面不会把它标成 AI 理解。接口模拟测试能验证请求与校验逻辑，不能证明真实模型的建议质量、延迟或成本。真实模型失败时不会静默切换成规则结果。
+**没有模型额度也能用（0.3）：**“离线规则生成”会读取讨论里的任务行，例如：
+
+```text
+任务：搭建 FastAPI 接口和数据库 3h
+任务：@胡方耀 做任务看板页面 2.5小时
+- [ ] 设计 logo 和海报
+待办：前后端联调 1h
+TODO: 加分项：暗黑模式
+```
+
+`@成员` 或“某某负责”指定负责人，否则按角色和技能匹配；`2h`、`3小时` 是估时（默认 1.5 小时）；“可选/加分项”标为可选；联调任务自动依赖前面的前后端任务；讨论里没有提交相关任务时，会引用赛规中的提交条款，补一项“对照赛规核对提交清单”。以问号结尾的句子会列为待确认问题。没有任务行时使用原来的角色模板。
+
+“模型优先生成”（接口 `mode: "auto"`）先调用模型；未配置、余额不足、超时、限流或输出不合格时，自动改用离线规则，并在草案和过程记录里写明原因。页面始终标注“离线规则引擎 · 非大模型”，不冒充 AI。接口 `mode: "model"` 仍然只用模型，失败就报错。接口模拟测试能验证请求与校验逻辑，不能证明真实模型的建议质量、延迟或成本。
+
+**自动同步：**页面每 8 秒检查一次 `GET /api/projects/{id}/pulse`，队友有新操作时自动刷新；正在输入时不打断，只提示有新进度。任务页顶部的“我的下一步”列出等你验收、进行中、被阻塞和可以开始的任务。
 
 ## 给胡的前端接入
 
@@ -70,7 +86,8 @@ node scripts/e2e.cjs
 
 - 数据默认在 `data/collab.sqlite3`；可用 `DATABASE_PATH` 指向持久磁盘。SQLite、WAL、`.env`、虚拟环境和测试截图均被 `.gitignore` 忽略。
 - 用 `.venv/bin/python scripts/backup_database.py` 创建一致性快照；不要在运行中仅复制主数据库文件而忽略 WAL。
-- 部署命令：`.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1`。需配置 HTTPS 入口、持久磁盘、模型环境变量和明确 CORS；本轮只本地运行。
+- 部署命令：`.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1`。需配置 HTTPS 入口、持久磁盘、模型环境变量、`PUBLIC_BASE_URL` 和明确 CORS；本轮只本地运行。
+- 容器：`docker build -t hackathon-collab .`，`docker run -p 8000:8000 -v hc-data:/data --env-file .env hackathon-collab`。数据库在 `/data`，必须挂持久卷；只能单进程（`--workers 1`），因为模型设置和自带密钥保存在进程内存。Dockerfile 尚未在本机构建验证（本机没有 Docker）。
 - 健康检查：`GET /health`，预期 200 且 `status=ok`。健康正常不代表真实模型质量已测。
 - 更新前备份数据库与当前代码版本。在新目录验证后切换服务；失败时停止本项目服务，恢复旧代码并使用备份数据库，再以相同命令启动。首版没有破坏性自动迁移，不自动覆盖数据库。
 - 这是本地协作原型，未实现公开注册、完整账号恢复、组织管理或公网滥用防护；对外正式服务需单独完成这些工作。

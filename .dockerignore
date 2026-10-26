@@ -1,0 +1,12 @@
+.venv/
+.browser-cache/
+.env
+data/
+artifacts/
+docs/
+scripts/
+tests/
+.git/
+__pycache__/
+*.pyc
+*.sqlite*

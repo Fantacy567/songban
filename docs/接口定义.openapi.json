@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "赛内协作助手 API",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/health": {
@@ -61,6 +61,53 @@
       "get": {
         "summary": "Get Workspace",
         "operationId": "get_workspace_api_projects__pid__get",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{pid}/pulse": {
+      "get": {
+        "summary": "Pulse",
+        "operationId": "pulse_api_projects__pid__pulse_get",
         "parameters": [
           {
             "name": "pid",
@@ -789,7 +836,8 @@
             "type": "string",
             "enum": [
               "local_rules",
-              "model"
+              "model",
+              "auto"
             ],
             "title": "Mode"
           }

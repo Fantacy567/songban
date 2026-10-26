@@ -30,7 +30,7 @@ def load_env():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 name, value = line.split("=", 1)
-                if name.strip() in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH"}:
+                if name.strip() in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL"}:
                     os.environ.setdefault(name.strip(), value.strip().strip("\"'"))
 
 
@@ -152,12 +152,15 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     finally:
         initial.close()
 
-    api = FastAPI(title="赛内协作助手 API", version="0.2.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    api = FastAPI(title="赛内协作助手 API", version="0.3.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     api.state.db_path = path
     configured_origins = [s.strip() for s in os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",") if s.strip()]
     if "*" in configured_origins:
         raise ValueError("ALLOWED_ORIGINS 必须列出明确地址，不允许星号")
     api.add_middleware(CORSMiddleware, allow_origins=configured_origins, allow_methods=["GET", "POST", "PUT"], allow_headers=["Authorization", "Content-Type"], allow_credentials=False)
+    public_base_url = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if public_base_url and not public_base_url.startswith(("http://", "https://")):
+        raise ValueError("PUBLIC_BASE_URL 必须以 http:// 或 https:// 开头")
     model_slots = threading.BoundedSemaphore(2)
     settings_lock = threading.Lock()
     custom_models, discoveries, model_versions = {}, {}, {}
@@ -318,7 +321,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 con.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
         except sqlite3.Error:
             raise Problem(503, "database_unavailable", "数据库暂不可用。") from None
-        return {"status": "ok", "service": "hackathon-collab", "version": "0.2.0", "model_configured": bool(model_configured())}
+        return {"status": "ok", "service": "hackathon-collab", "version": "0.3.0", "model_configured": bool(model_configured())}
 
     @api.post("/api/projects", status_code=201)
     def create_project(body: ProjectInput):
@@ -346,7 +349,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 draft["capacity_warnings"] = validate_draft(con, p, Draft.model_validate(draft["content"]))
             events = [dict(r) for r in con.execute("SELECT * FROM (SELECT * FROM events WHERE project_id=? ORDER BY sequence DESC LIMIT 200) ORDER BY sequence", (pid,))]
             info = model_info(pid)
-            return {"project": {**p, "phase": phase(p, items)}, "me": {k: v for k, v in me.items() if k != "token_hash"}, "members": members(con, pid), "sources": sources(con, pid), "proposals": drafts, "tasks": items, "events": events, "model_configured": info["key_configured"], "current_model": info}
+            return {"project": {**p, "phase": phase(p, items)}, "me": {k: v for k, v in me.items() if k != "token_hash"}, "members": members(con, pid), "sources": sources(con, pid), "proposals": drafts, "tasks": items, "events": events, "model_configured": info["key_configured"], "current_model": info, "public_base_url": public_base_url}
 
     @api.get("/api/projects/{pid}/pulse")
     def pulse(pid: str, authorization: str = Header(default="")):

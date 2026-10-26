@@ -313,7 +313,7 @@ function bindModel() {
   });};
 }
 
-function inviteUrl(token) {return `${location.origin}/#project=${encodeURIComponent(session.project)}&token=${encodeURIComponent(token)}`;}
+function inviteUrl(token) {return `${workspace?.public_base_url||location.origin}/#project=${encodeURIComponent(session.project)}&token=${encodeURIComponent(token)}`;}
 async function copy(text) {try {await navigator.clipboard.writeText(text);notify('入口已复制，请私下发送给对应成员。');}catch{notify('浏览器未允许复制。请允许此页面使用剪贴板后重试。',true);}}
 function showEntries() {
   $('#entries').innerHTML=workspace.members.map(m=>`<div class="entry-row"><div><h3>${esc(m.name)} ${m.captain?'<span class="badge gray">队长</span>':''}</h3><small>${esc(m.role)}</small></div><button class="ghost small" data-entry="${esc(m.id)}">${m.id===workspace.me.id||invites.has(m.id)?'复制成员入口':'重发入口（旧入口失效）'}</button></div>`).join('');

@@ -1,7 +1,9 @@
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -35,6 +37,15 @@ class PulseTests(unittest.TestCase):
         self.assertGreater(after, before)
         workspace = self.client.get(f"/api/projects/{self.pid}", headers={"Authorization": "Bearer " + self.tokens[1]}).json()
         self.assertEqual(max(e["sequence"] for e in workspace["events"]), after)
+
+    def test_public_base_url_exposed_for_invites_and_validated(self):
+        headers = {"Authorization": "Bearer " + self.tokens[0]}
+        self.assertEqual(self.client.get(f"/api/projects/{self.pid}", headers=headers).json()["public_base_url"], "")
+        db = Path(self.temp.name) / "t.sqlite3"
+        with patch.dict(os.environ, {"PUBLIC_BASE_URL": "http://192.168.1.20:8886/"}), TestClient(create_app(db)) as client:
+            self.assertEqual(client.get(f"/api/projects/{self.pid}", headers=headers).json()["public_base_url"], "http://192.168.1.20:8886")
+        with patch.dict(os.environ, {"PUBLIC_BASE_URL": "javascript:alert(1)"}), self.assertRaises(ValueError):
+            create_app(db)
 
     def test_pulse_requires_member_of_project(self):
         self.assertEqual(self.client.get(f"/api/projects/{self.pid}/pulse").status_code, 401)
