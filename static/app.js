@@ -226,7 +226,14 @@ function bindPlan() {
 function taskView() {
   if(!workspace.tasks.length) return '<section class="panel"><h2>还没有正式任务</h2><p class="muted" style="margin-top:12px">请先由队长在“分工确认”中核对并确认草案。</p></section>';
   const lanes=[['待开始',['todo']],['推进中',['in_progress','blocked']],['待验收',['review']],['已通过',['accepted']]];
-  return `${nextStepView()}<div class="section-head"><div><h2>一起推进，交叉验收</h2><p class="muted">负责人提交成果后，由另一成员验收；页面每 8 秒自动同步队友进度。</p></div><span class="badge gray">${workspace.tasks.filter(t=>t.status==='accepted').length} / ${workspace.tasks.length} 已通过</span></div><div class="board">${lanes.map(([name,states])=>{const items=workspace.tasks.filter(t=>states.includes(t.status));return `<section class="lane"><div class="lane-head">${name}<span>${items.length}</span></div>${items.length?items.map(taskCard).join(''):'<div class="quiet">暂无任务</div>'}</section>`;}).join('')}</div>`;
+  return `${scopeView()}${nextStepView()}<div class="section-head"><div><h2>一起推进，交叉验收</h2><p class="muted">负责人提交成果后，由另一成员验收；页面每 8 秒自动同步队友进度。</p></div><span class="badge gray">${workspace.tasks.filter(t=>t.status==='accepted').length} / ${workspace.tasks.length} 已通过</span></div><div class="board">${lanes.map(([name,states])=>{const items=workspace.tasks.filter(t=>states.includes(t.status));return `<section class="lane"><div class="lane-head">${name}<span>${items.length}</span></div>${items.length?items.map(taskCard).join(''):'<div class="quiet">暂无任务</div>'}</section>`;}).join('')}</div>`;
+}
+
+function scopeView() {
+  const s=workspace.scope;
+  if(!s||!s.applicable) return '';
+  const line=(items,label)=>items.length?`<p><strong>${label}</strong>${items.map(t=>`${esc(t.task_key)} ${esc(t.title)}（${t.estimated_hours}h）`).join('、')}</p>`:'';
+  return `<section class="panel scope-card" data-scope-advice><h2>${s.tight?'时间不够，先收范围':'按估时，时间还够'}</h2><div class="note ${s.tight?'warning':''}">距截止约 ${s.remaining_hours} 小时，未完成的必须任务约 ${s.unfinished_must_hours} 小时。${esc(s.note)}</div>${line(s.drop,'建议先不做：')}${line(s.narrow,'建议先收窄：')}<p class="muted">${esc(s.source_label)}</p></section>`;
 }
 
 function nextStepView() {
@@ -272,10 +279,18 @@ async function sendAction(task,action,note) {
   $('#action-dialog').close();pendingAction=null;await refresh();notify('任务状态已保存，队友刷新后可看到。');
 }
 
+function rubricBlock() {
+  const r=recap&&recap.rubric;
+  if(!r) return '';
+  const label={covered:'已有验收成果',pending:'有任务，尚未验收',missing:'还没有对应成果',manual:'请人工核对'};
+  const items=r.items.map(item=>`<div class="check-item" data-rubric="${esc(item.status)}"><span class="check-dot ${item.status==='covered'?'yes':''}">${item.status==='covered'?'✓':'·'}</span><div><h3>${esc(item.quote)} <span class="muted">${label[item.status]||''}</span></h3>${item.task_title?`<p class="muted">对应任务：${esc(item.task_title)}</p>`:''}${item.gap?`<p class="muted">${esc(item.gap)}</p>`:''}</div></div>`).join('');
+  return `<h3 style="margin-top:24px">赛规对照</h3><p class="muted">${esc(r.source_label)} ${esc(r.note)}</p>${items||'<p class="muted">没有识别到可自动对照的条款。</p>'}`;
+}
+
 function recapView() {
   if(!recap)return '<section class="panel"><h2>正在读取复盘…</h2></section>';
   const s=recap.stats;
-  return `<section class="panel"><div class="section-head"><div><h2>${recap.ready?'核心成果，已通过验收。':'先把必须任务推进到验收。'}</h2><p class="muted">${esc(recap.source_label)}</p></div><button id="export" class="ghost">导出 Markdown</button></div><div class="note ${recap.ready?'':'warning'}">${recap.ready?'所有必须任务已通过；请继续人工核对赛规、提交文件和入口。':'当前尚不可交付。提交成果后，还需要另一成员通过验收。'}</div><div class="metrics"><div class="metric"><strong>${s.must_accepted}/${s.must_total}</strong><small>必须任务已验收</small></div><div class="metric"><strong>${s.accepted}/${s.total}</strong><small>全部任务已验收</small></div><div class="metric"><strong>${s.block_events}</strong><small>阻塞记录次数</small></div><div class="metric"><strong>${s.return_events}</strong><small>验收退回次数</small></div></div><h3>交付核对清单</h3>${recap.checklist.map(t=>`<div class="check-item"><span class="check-dot ${t.accepted?'yes':''}">${t.accepted?'✓':'·'}</span><div><h3>${esc(t.title)} <span class="muted">${t.required?'必须':'可选'}</span></h3><p class="muted">验收：${esc(t.acceptance)}</p><p class="muted">成果：${esc(t.deliverable||'尚未提交')}</p></div></div>`).join('')}<h3 style="margin-top:24px">根据本次记录，下一次可以练什么</h3><ul class="suggestions">${recap.suggestions.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></section>`;
+  return `<section class="panel"><div class="section-head"><div><h2>${recap.ready?'核心成果，已通过验收。':'先把必须任务推进到验收。'}</h2><p class="muted">${esc(recap.source_label)}</p></div><button id="export" class="ghost">导出 Markdown</button></div><div class="note ${recap.ready?'':'warning'}">${recap.ready?'所有必须任务已通过；请继续人工核对赛规、提交文件和入口。':'当前尚不可交付。提交成果后，还需要另一成员通过验收。'}</div><div class="metrics"><div class="metric"><strong>${s.must_accepted}/${s.must_total}</strong><small>必须任务已验收</small></div><div class="metric"><strong>${s.accepted}/${s.total}</strong><small>全部任务已验收</small></div><div class="metric"><strong>${s.block_events}</strong><small>阻塞记录次数</small></div><div class="metric"><strong>${s.return_events}</strong><small>验收退回次数</small></div></div><h3>交付核对清单</h3>${recap.checklist.map(t=>`<div class="check-item"><span class="check-dot ${t.accepted?'yes':''}">${t.accepted?'✓':'·'}</span><div><h3>${esc(t.title)} <span class="muted">${t.required?'必须':'可选'}</span></h3><p class="muted">验收：${esc(t.acceptance)}</p><p class="muted">成果：${esc(t.deliverable||'尚未提交')}</p></div></div>`).join('')}${rubricBlock()}${rubricBlock()}<h3 style="margin-top:24px">根据本次记录，下一次可以练什么</h3><ul class="suggestions">${recap.suggestions.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></section>`;
 }
 
 async function exportReport() {

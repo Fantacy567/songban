@@ -5,3 +5,5 @@
 
 .next-step{margin-bottom:22px}.next-step h2{margin-bottom:12px}.next-row{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.7}.next-row:first-of-type{border-top:0}.next-row .badge{flex:none}
 @media(max-width:440px){.next-row{flex-direction:column;gap:4px}}
+
+.scope-card{margin-bottom:22px}.scope-card h2{margin-bottom:12px}.scope-card p{margin:8px 0 0}
