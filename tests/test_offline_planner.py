@@ -5,10 +5,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.planner import local_plan
+from app.planner import local_plan, model_plan
 
 MEMBERS = [
     {"id": "a", "name": "孔祥梨", "role": "产品 / 后端", "skills": "Python、PPT", "available_hours": 6.0},
@@ -77,7 +78,8 @@ class OfflinePlannerApiTests(unittest.TestCase):
         self.env = patch.dict(os.environ, {k: "" for k in ["DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME"]})
         self.env.start()
         self.temp = tempfile.TemporaryDirectory()
-        self.client = TestClient(create_app(Path(self.temp.name) / "t.sqlite3"))
+        self.db = Path(self.temp.name) / "t.sqlite3"
+        self.client = TestClient(create_app(self.db))
         members = [{k: v for k, v in m.items() if k != "id"} for m in MEMBERS]
         created = self.client.post("/api/projects", json={"name": "离线引擎", "deadline": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(), "members": members}).json()
         self.pid, self.headers = created["project_id"], {"Authorization": "Bearer " + created["invites"][0]["access_token"]}
@@ -98,6 +100,56 @@ class OfflinePlannerApiTests(unittest.TestCase):
         confirmed = self.client.post(f"/api/projects/{self.pid}/proposals/{draft['id']}/confirm", json={"expected_version": draft["version"]}, headers=self.headers)
         self.assertEqual(confirmed.status_code, 200, confirmed.text)
         self.assertEqual(len(confirmed.json()["tasks"]), 6)
+
+    def add_sources(self, client=None):
+        for kind, body in [("rules", RULES), ("discussion", DISCUSSION)]:
+            (client or self.client).post(f"/api/projects/{self.pid}/sources", json={"kind": kind, "title": kind, "body": body}, headers=self.headers)
+
+    def generate(self, client, mode="auto", expected=201):
+        result = client.post(f"/api/projects/{self.pid}/proposals", json={"mode": mode}, headers=self.headers)
+        self.assertEqual(result.status_code, expected, result.text)
+        return result
+
+    def test_auto_without_model_key_falls_back_with_visible_reason(self):
+        self.add_sources()
+        draft = self.generate(self.client).json()
+        self.assertEqual(draft["mode"], "local_rules")
+        self.assertEqual(draft["fallback_reason"], "未配置模型密钥")
+        self.assertIn("已自动回退", draft["source_label"])
+        self.assertIn("非大模型", draft["source_label"])
+        events = self.client.get(f"/api/projects/{self.pid}", headers=self.headers).json()["events"]
+        self.assertIn("已改用离线规则引擎", events[-1]["detail"])
+
+    def test_auto_falls_back_on_insufficient_balance_without_leaking_provider_detail(self):
+        self.add_sources()
+        def insufficient(_request):
+            return httpx.Response(402, json={"error": {"message": "FAKE_TEST_ONLY_KEY private-provider-detail"}})
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "FAKE_TEST_ONLY_KEY"}), TestClient(create_app(self.db, model_runner=lambda c: model_plan(c, httpx.MockTransport(insufficient)))) as client:
+            result = self.generate(client)
+            self.assertNotIn("FAKE_TEST_ONLY_KEY", result.text)
+            self.assertNotIn("private-provider-detail", result.text)
+            self.assertEqual(result.json()["fallback_reason"], "模型账户余额不足")
+            self.assertEqual(result.json()["mode"], "local_rules")
+            self.assertIsNone(result.json()["model_id"])
+            self.generate(client, mode="model", expected=503)
+
+    def test_auto_falls_back_when_model_output_fails_validation(self):
+        self.add_sources()
+        def hallucinated(context):
+            plan = local_plan(context)
+            plan["tasks"][0]["evidence"][0]["quote"] = "不存在的原文"
+            return plan
+        with TestClient(create_app(self.db, model_runner=hallucinated)) as client:
+            draft = self.generate(client).json()
+            self.assertEqual(draft["fallback_reason"], "模型输出未通过校验")
+            self.generate(client, mode="model", expected=502)
+
+    def test_auto_uses_model_when_it_succeeds(self):
+        self.add_sources()
+        with TestClient(create_app(self.db, model_runner=local_plan)) as client:
+            draft = self.generate(client).json()
+        self.assertEqual(draft["mode"], "model")
+        self.assertIsNone(draft["fallback_reason"])
 
 
 if __name__ == "__main__":

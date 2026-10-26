@@ -53,6 +53,19 @@ def encode(value):
     return json.dumps(value, ensure_ascii=False, allow_nan=False)
 
 
+FALLBACK_REASONS = {
+    "model_not_configured": "未配置模型密钥",
+    "model_insufficient_balance": "模型账户余额不足",
+    "model_auth_failed": "模型密钥无效或无权限",
+    "model_rate_limited": "模型服务限流",
+    "model_timeout": "模型请求超时",
+    "model_busy": "模型正忙",
+    "model_invalid_output": "模型输出未通过校验",
+    "model_config_invalid": "模型配置不正确",
+    "model_unavailable": "模型服务不可用",
+}
+
+
 class Problem(Exception):
     def __init__(self, status, code, message, details=None):
         self.status, self.code, self.message, self.details = status, code, message, details
@@ -132,7 +145,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
         initial.execute("PRAGMA journal_mode=WAL")
         initial.executescript(SCHEMA)
         columns = {row[1] for row in initial.execute("PRAGMA table_info(proposals)")}
-        for column in ("model_id", "model_display_name", "response_model_id"):
+        for column in ("model_id", "model_display_name", "response_model_id", "fallback_reason"):
             if column not in columns:
                 initial.execute(f"ALTER TABLE proposals ADD COLUMN {column} TEXT")
         initial.commit()
@@ -230,7 +243,10 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     def proposal(row):
         value = dict(row)
         value["content"] = json.loads(value["content"])
-        value["source_label"] = "离线规则引擎 · 按讨论中的任务行与角色提取，非大模型" if value["mode"] == "local_rules" else "模型生成建议 · " + (value.get("model_display_name") or value.get("model_id") or "未记录模型名") + " · " + (value.get("model_id") or "未知 ID") + " · 待人工核对"
+        offline = "离线规则引擎 · 按讨论中的任务行与角色提取，非大模型"
+        if value.get("fallback_reason"):
+            offline = f"离线规则引擎（{value['fallback_reason']}，已自动回退）· 非大模型"
+        value["source_label"] = offline if value["mode"] == "local_rules" else "模型生成建议 · " + (value.get("model_display_name") or value.get("model_id") or "未记录模型名") + " · " + (value.get("model_id") or "未知 ID") + " · 待人工核对"
         return value
 
     def draft_row(con, pid, did):
@@ -412,21 +428,31 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
             if not {"rules", "discussion"}.issubset({s["kind"] for s in originals}):
                 raise Problem(422, "sources_required", "请至少录入一份赛事规则和一份讨论记录。")
             context = {"project": {"name": p["name"], "deadline": p["deadline"]}, "members": members(con, pid), "sources": originals, "now": now()}
+        config = selected_model(pid)
+        mode, raw, content, fallback = body.mode, None, None, None
+        if mode == "auto":
+            mode = "model" if (model_runner or config["api_key"]) else "local_rules"
+            if mode == "local_rules":
+                fallback = FALLBACK_REASONS["model_not_configured"]
         acquired = False
         try:
-            if body.mode == "model":
+            if mode == "model":
                 acquired = model_slots.acquire(blocking=False)
                 if not acquired:
                     raise Problem(429, "model_busy", "服务正在生成其他方案，请稍后重试。")
-                config = selected_model(pid)
                 raw = model_runner(context) if model_runner else model_plan(context, config=config)
             else:
                 raw = local_plan(context)
             content = Draft.model_validate(raw)
-        except PlannerError as exc:
-            raise Problem(exc.status, exc.code, exc.message) from None
-        except ValidationError:
-            raise Problem(502, "model_invalid_output", "生成结果不符合任务结构，未创建正式任务。") from None
+        except (PlannerError, Problem, ValidationError) as exc:
+            code = getattr(exc, "code", "model_invalid_output")
+            if body.mode != "auto":
+                if isinstance(exc, PlannerError):
+                    raise Problem(exc.status, exc.code, exc.message) from None
+                if isinstance(exc, Problem):
+                    raise
+                raise Problem(502, "model_invalid_output", "生成结果不符合任务结构，未创建正式任务。") from None
+            fallback = FALLBACK_REASONS.get(code, FALLBACK_REASONS["model_unavailable"])
         finally:
             if acquired:
                 model_slots.release()
@@ -435,15 +461,26 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
             preparing(current)
             if current["context_version"] != p["context_version"]:
                 raise Problem(409, "context_changed", "生成期间资料有更新，请重新生成以使用最新资料。")
-            try:
-                warnings = validate_draft(con, current, content, budget=body.mode == "model")
-            except Problem as exc:
-                if body.mode == "model":
-                    raise Problem(502, "model_invalid_output", "模型方案的引用、成员、工时或依赖未通过校验，请重新生成。") from None
-                raise exc
+            warnings = None
+            if content is not None:
+                try:
+                    warnings = validate_draft(con, current, content, budget=mode == "model")
+                except Problem as exc:
+                    if mode != "model":
+                        raise exc
+                    if body.mode != "auto":
+                        raise Problem(502, "model_invalid_output", "模型方案的引用、成员、工时或依赖未通过校验，请重新生成。") from None
+                    fallback = FALLBACK_REASONS["model_invalid_output"]
+            if content is None and mode != "model":
+                raise Problem(502, "plan_invalid_output", "离线规则未能生成有效方案，请检查原文后重试。")
+            if fallback and mode == "model":
+                mode, raw = "local_rules", local_plan(context)
+                content = Draft.model_validate(raw)
+                warnings = validate_draft(con, current, content)
+            used_model = mode == "model"
             did = uid()
-            con.execute("INSERT INTO proposals(id,project_id,context_version,mode,content,created_at,model_id,model_display_name,response_model_id) VALUES(?,?,?,?,?,?,?,?,?)", (did, pid, p["context_version"], body.mode, content.model_dump_json(), now(), config["model_id"] if body.mode == "model" else None, config["name"] if body.mode == "model" else None, getattr(raw, "response_model_id", None)))
-            event(con, pid, me["id"], "proposal_generated", did, "生成本地规则草案。" if body.mode == "local_rules" else "生成模型建议草案，尚未确认。")
+            con.execute("INSERT INTO proposals(id,project_id,context_version,mode,content,created_at,model_id,model_display_name,response_model_id,fallback_reason) VALUES(?,?,?,?,?,?,?,?,?,?)", (did, pid, p["context_version"], mode, content.model_dump_json(), now(), config["model_id"] if used_model else None, config["name"] if used_model else None, getattr(raw, "response_model_id", None), fallback))
+            event(con, pid, me["id"], "proposal_generated", did, "生成模型建议草案，尚未确认。" if used_model else f"{fallback}，已改用离线规则引擎生成草案。" if fallback else "生成离线规则草案。")
             result = proposal(draft_row(con, pid, did))
             result.update(stale=False, capacity_warnings=warnings)
         return result

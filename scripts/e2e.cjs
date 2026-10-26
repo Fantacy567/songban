@@ -76,14 +76,15 @@ async function action(page,key,kind,note=''){
   if(!currentWorkspace.model_configured){
   const missing=captainPage.waitForResponse(r=>r.url().endsWith('/proposals')&&r.request().method()==='POST');
   await captainPage.locator('#generate-model').click();
-  assert.equal((await missing).status(),503);
-  await captainPage.locator('#notice').filter({hasText:'真实模型尚未配置'}).waitFor();
-  step('F02：未配置模型时显示错误，保留原文，未伪装模型成功');
+  const fallback=await missing;assert.equal(fallback.status(),201);assert.equal((await fallback.json()).fallback_reason,'未配置模型密钥');
+  await captainPage.locator('#notice').filter({hasText:'已改用离线规则'}).waitFor();
+  await captainPage.locator('#content').getByText('不是大模型建议').waitFor();
+  step('F02：未配置模型时自动改用离线规则，并在草案上标注原因，未伪装模型成功');
   }else{steps.push({name:'未配置模型分支',result:'跳过：已有真实配置，自动化不调用付费服务'});}
   const generation=captainPage.waitForResponse(r=>r.url().endsWith('/proposals')&&r.request().method()==='POST');
   await captainPage.locator('#generate-rules').click();assert.equal((await generation).status(),201);
   await captainPage.locator('#draft-goal').waitFor();
-  assert.match(await captainPage.locator('#content').innerText(),/本地规则演练.*非大模型/);
+  assert.match(await captainPage.locator('#content').innerText(),/离线规则引擎.*非大模型/);
   await captainPage.locator('#draft-goal').fill('完成可共享、可交叉验收的赛内协作闭环');
   await captainPage.locator('[data-draft-task="T1"] [data-field="title"]').fill('交付后端接口与状态机');
   const saved=captainPage.waitForResponse(r=>r.request().method()==='PUT'&&r.url().includes('/proposals/'));

@@ -136,7 +136,7 @@ function bindSources() {
   });};
   $("#sample-sources").onclick = () => run(async()=>{
     if(workspace.sources.length && !confirm("将追加两份明确标注的演练原文，旧草案会失效。继续吗？")) return;
-    for(const source of [{kind:"rules",title:"演练示例 · 评分与交付",body:"【演练示例，非真实赛事公告】\n评分关注用户价值、创新和实现质量。需提交可运行演示与项目说明；演示必须清楚标明真实能力和替身。"},{kind:"discussion",title:"演练示例 · 团队讨论",body:"【演练示例，非自动监听结果】\n目标：让两名成员共同推进一个能验收的核心流程。\n决定：首版先完成资料录入、分工确认、共享任务和成员验收。\n待确认：实际前端与后端的请求字段需要双方确认。\n按成员填写的角色先提出接口、页面、联调、交付任务，工时和任务由队长核对。"}]) await api(`/api/projects/${session.project}/sources`,{method:"POST",body:JSON.stringify(source)});
+    for(const source of [{kind:"rules",title:"演练示例 · 评分与交付",body:"【演练示例，非真实赛事公告】\n评分关注用户价值、创新和实现质量。需提交可运行演示与项目说明；演示必须清楚标明真实能力和替身。"},{kind:"discussion",title:"演练示例 · 团队讨论",body:"【演练示例，非自动监听结果】\n目标：让两名成员共同推进一个能验收的核心流程。\n决定：首版先完成资料录入、分工确认、共享任务和成员验收。\n待确认：实际前端与后端的请求字段需要双方确认。\n任务：实现资料录入和任务状态接口 2h\n任务：完成分工确认和任务板页面 2h\n待办：前后端联调并走通一次完整流程 1h\nTODO: 加分项：截止前 2 小时提醒未完成任务\n演示时要不要现场录入一段真实讨论？"}]) await api(`/api/projects/${session.project}/sources`,{method:"POST",body:JSON.stringify(source)});
     await refresh();notify("两份演练原文已保存，来源标签会持续保留。");
   });
 }
@@ -144,11 +144,12 @@ function bindSources() {
 function planView() {
   const locked=!!workspace.project.active_proposal_id, captain=!!workspace.me.captain;
   const ready=workspace.sources.some(s=>s.kind==="rules")&&workspace.sources.some(s=>s.kind==="discussion");
-  const generate = !locked?`<section class="panel"><div class="section-head"><div><h2>先有建议，再共同确认</h2><p class="muted">队长核对目标、工时和依赖，确认后才生成正式任务。</p></div></div><div class="generation"><button id="generate-rules" ${!captain||!ready?'disabled':''}>生成规则演练方案<small>本地角色模板 · 不调用大模型</small></button><button id="generate-model" class="ghost" ${!captain||!ready?'disabled':''}>调用真实模型生成<small>${esc(workspace.current_model?.name||'DeepSeek-V4-Pro')} · ${esc(workspace.current_model?.model_id||'deepseek-v4-pro')}<br>${workspace.model_configured?'将本项目原文与成员信息发给该模型服务':'尚未配置密钥 · 请到“模型接入”设置'}</small></button></div><p class="muted">${!captain?'等待队长生成并确认；你可以查看原文和草案。':!ready?'请先各保存一份规则和讨论。':'本地规则仅提取显式标签并套用模板，任务与估时需人工修改。'}</p></section>`:'';
+  const generate = !locked?`<section class="panel"><div class="section-head"><div><h2>先有建议，再共同确认</h2><p class="muted">队长核对目标、工时和依赖，确认后才生成正式任务。</p></div></div><div class="generation"><button id="generate-rules" ${!captain||!ready?'disabled':''}>离线规则生成<small>读取讨论中的“任务：/待办：/- [ ]”行 · 不调用大模型</small></button><button id="generate-model" class="ghost" ${!captain||!ready?'disabled':''}>模型优先生成<small>${esc(workspace.current_model?.name||'DeepSeek-V4-Pro')} · ${esc(workspace.current_model?.model_id||'deepseek-v4-pro')}<br>${workspace.model_configured?'模型不可用时自动改用离线规则，并标注原因':'尚未配置密钥 · 将直接使用离线规则并标注'}</small></button></div><p class="muted">${!captain?'等待队长生成并确认；你可以查看原文和草案。':!ready?'请先各保存一份规则和讨论。':'讨论里按“任务：内容 @成员 2h”写，离线规则就能提取负责人和工时；没有任务行时使用角色模板。结果都需人工核对。'}</p></section>`:'';
   if(!draft) return `<div class="stack">${generate}<div class="note">尚无草案。正式任务会在队长确认后出现。</div></div>`;
   const disabled = locked||!captain||draft.stale;
   return `<div class="stack">${generate}<section class="panel"><div class="section-head"><div><h2>${locked?'已确认方案':'待确认草案'}</h2><p class="muted">${esc(draft.source_label)} · 版本 ${draft.version}</p></div><span class="badge ${draft.stale?'amber':''}">${draft.stale?'资料已更新，需重新生成':locked?'已确认':'需人工确认'}</span></div>
     ${draft.response_model_id?`<p class="muted" style="margin-bottom:15px">服务响应模型 ID：${esc(draft.response_model_id)}（服务商返回标识）</p>`:''}
+    ${draft.fallback_reason?`<div class="note warning" style="margin-bottom:20px">模型未生成本草案：${esc(draft.fallback_reason)}。以下为离线规则结果，不是大模型建议。</div>`:''}
     ${draft.stale?'<div class="note warning" style="margin-bottom:20px">这份草案引用的资料已过期，请重新生成，旧草案不可确认。</div>':''}
     ${draft.capacity_warnings?.length?`<div class="note warning" style="margin-bottom:20px">工时超出预算：${draft.capacity_warnings.map(w=>`${esc(w.member)} ${w.planned_hours}h / ${w.available_hours}h`).join("；")}。调整后才能确认。</div>`:''}
     <form id="draft-form"><fieldset ${disabled?'disabled':''} style="border:0;padding:0;margin:0"><div class="field"><label for="draft-goal">本次目标</label><textarea id="draft-goal" rows="2" maxlength="500" required>${esc(draft.content.goal)}</textarea></div><div class="draft-intro">${field('已决定（每行一项）',`<textarea id="draft-decisions" rows="3">${esc(draft.content.decisions.join("\n"))}</textarea>`)}${field('仍待确认（每行一项）',`<textarea id="draft-questions" rows="3">${esc(draft.content.open_questions.join("\n"))}</textarea>`)}</div>${field('风险与提醒（每行一项）',`<textarea id="draft-risks" rows="3">${esc(draft.content.risks.join("\n"))}</textarea>`)}<h3>任务建议 · ${draft.content.tasks.length} 项</h3><div id="draft-tasks">${draft.content.tasks.map(taskEditor).join("")}</div></fieldset>
@@ -180,10 +181,11 @@ async function saveDraft() {
 }
 
 function bindPlan() {
-  for(const [selector,mode] of [["#generate-rules","local_rules"],["#generate-model","model"]]) if($(selector)) $(selector).onclick=()=>run(async()=>{
-    if(mode==='model'&&workspace.model_configured&&!confirm("将把本项目的规则、讨论和成员信息发送给服务端配置的模型服务，生成建议。继续吗？")) return;
-    notify(mode==='model'?"正在请求模型，请等待，资料已保存。":"正在生成明确标注的规则模板草案。");
-    await api(`/api/projects/${session.project}/proposals`,{method:"POST",body:JSON.stringify({mode})});await refresh();notify("草案已生成，请核对后再确认。");
+  for(const [selector,mode] of [["#generate-rules","local_rules"],["#generate-model","auto"]]) if($(selector)) $(selector).onclick=()=>run(async()=>{
+    if(mode==='auto'&&workspace.model_configured&&!confirm("将把本项目的规则、讨论和成员信息发送给所选模型服务，生成建议。继续吗？")) return;
+    notify(mode==='auto'&&workspace.model_configured?"正在请求模型，请等待，资料已保存。":"正在用离线规则生成草案。");
+    const created=await(await api(`/api/projects/${session.project}/proposals`,{method:"POST",body:JSON.stringify({mode})})).json();await refresh();
+    notify(created.fallback_reason?`${created.fallback_reason}，已改用离线规则生成草案，请核对。`:"草案已生成，请核对后再确认。",!!created.fallback_reason);
   });
   if(!$("#save-draft")) return;
   $("#save-draft").onclick=()=>run(async()=>{if(!$("#draft-form").reportValidity())return;await saveDraft();await refresh();notify("草案已保存，尚未生成正式任务。");});

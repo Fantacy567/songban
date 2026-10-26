@@ -52,7 +52,7 @@ class SourceInput(Input):
 
 
 class GenerateInput(Input):
-    mode: Literal["local_rules", "model"]
+    mode: Literal["local_rules", "model", "auto"]
 
 
 class Evidence(Input):
