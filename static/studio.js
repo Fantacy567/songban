@@ -197,7 +197,7 @@ function viewSignup() {
     <p class="muted">手机号是本机登录名，没有短信。画像和技能只问这一次。换队友用右上角，不要重复注册，否则会换掉这个手机号已经打开的页面。</p>
     <form data-act="enter" class="card">
       <label for="phone">手机号</label>
-      <input id="phone" name="phone" inputmode="numeric" autocomplete="tel" placeholder="6 到 20 位数字" required>
+      <input id="phone" name="phone" inputmode="numeric" autocomplete="tel" placeholder="6 到 20 位数字" value="${esc(state.pendingPhone || "")}" required>
       ${state.needProfile ? `<label for="name">名字</label><input id="name" name="name" maxlength="40" required>
         <label for="profile">我是谁、做过什么</label><textarea id="profile" name="profile" required placeholder="例如：高二，产品设计。会整理讨论和演示，代码主要靠把需求说清楚。"></textarea>
         <label for="skills">目前做得到的事</label><input id="skills" name="skills" required placeholder="例如：需求、流程图、路演">
@@ -654,6 +654,7 @@ async function adopt(data, phone) {
 const actions = {
   async enter(form) {
     const phone = form.phone.value.trim();
+    state.pendingPhone = phone;
     if (state.needProfile) {
       const data = await api("POST", "/api/studio/register", {
         phone,

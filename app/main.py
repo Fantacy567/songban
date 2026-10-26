@@ -155,7 +155,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     finally:
         initial.close()
 
-    api = FastAPI(title="赛内协作助手 API", version="0.5.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    api = FastAPI(title="松伴 API", version="0.5.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     api.state.db_path = path
     configured_origins = [s.strip() for s in os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",") if s.strip()]
     if "*" in configured_origins:
@@ -324,7 +324,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 con.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
         except sqlite3.Error:
             raise Problem(503, "database_unavailable", "数据库暂不可用。") from None
-        return {"status": "ok", "service": "hackathon-collab", "version": "0.4.0", "model_configured": bool(model_configured())}
+        return {"status": "ok", "service": "hackathon-collab", "version": "0.5.0", "model_configured": bool(model_configured())}
 
     @api.post("/api/projects", status_code=201)
     def create_project(body: ProjectInput):

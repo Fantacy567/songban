@@ -195,7 +195,10 @@ def direction_reply(message, topic, trunk, submissions):
     return f"按已确认的题目和提交清单看，没有发现偏离。{LABEL}"
 
 
-def coach_reply(message, skills):
+def coach_reply(message, skills, topic=""):
+    if any(word in message for word in ("我们在做什么", "在做什么")):
+        named = f"题目是{topic}。" if topic else "题目还没确认。"
+        return f"「我们在做什么」请到团队空间或讨论里问团队方向。{named}私人教练只按你自己的水平讲做法。{LABEL}"
     if "流程图" in message:
         return "流程图可以用这句话排成方框。技术细节留在你自己的工具里。这是离线教练，没有读取旧对话。"
     if "多长" in message or "PPT" in message or "ppt" in message:
@@ -706,8 +709,8 @@ def register_studio(api, db, problem, now, uid, digest):
         message = str(body.get("message") or "").strip()
         with db() as con:
             user = person_from_header(con, authorization)
-            squad_of(con, sid, user["id"])
-            return {"reply": coach_reply(message, user["skills"]), "source_label": LABEL}
+            squad, _ = squad_of(con, sid, user["id"])
+            return {"reply": coach_reply(message, user["skills"], squad["topic"]), "source_label": LABEL}
 
     @api.post("/api/studio/squads/{sid}/direction")
     def direction(sid: str, body: dict, authorization: str = Header(default="")):

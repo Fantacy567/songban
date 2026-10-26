@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.studio import extract_submissions, skill_text, strategic_kind
+from app.studio import coach_reply, extract_submissions, skill_text, strategic_kind
 
 SOURCE = "主办方要求：可演示作品、宣传片、PPT、分工说明，以及 GitHub 仓库链接。"
 
@@ -20,6 +20,12 @@ class ExtractTests(unittest.TestCase):
     def test_strategic_kinds(self):
         self.assertEqual(strategic_kind("我们要改主干，必须任务加上登录"), "trunk")
         self.assertEqual(strategic_kind("海报晚上再做"), None)
+
+    def test_private_coach_sends_team_direction_questions_back(self):
+        reply = coach_reply("我们在做什么", "路演", "协作助手")
+        self.assertIn("团队方向", reply)
+        self.assertIn("协作助手", reply)
+        self.assertNotIn("必须任务加上", reply)
 
     def test_skill_file_is_identical_for_the_same_inputs(self):
         one = skill_text("协作助手", "做出能演示的一条", ["PPT", "GitHub 仓库"])
