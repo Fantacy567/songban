@@ -2,7 +2,7 @@
 import json
 import re
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Header
 from fastapi.responses import PlainTextResponse
@@ -64,6 +64,9 @@ CREATE TABLE IF NOT EXISTS shelf (
 CREATE TABLE IF NOT EXISTS squad_log (
  id INTEGER PRIMARY KEY AUTOINCREMENT, squad_id TEXT NOT NULL, actor_id TEXT,
  detail TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS phone_codes (
+ phone TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
 );
 """
 
@@ -280,32 +283,70 @@ def register_studio(api, db, problem, now, uid, digest):
                 "ideas": {"top": top, "rest": rest}, "tasks": tasks, "library": notes, "votes": votes, "shelf": shelf, "log": events,
                 "source_label": LABEL}
 
-    @api.post("/api/studio/register")
-    def register(body: dict, authorization: str = ""):
+    def issue_code(phone):
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        expires = (datetime.fromisoformat(now()) + timedelta(minutes=10)).isoformat()
+        return code, expires
+
+    def code_matches(con, phone, code):
+        row = con.execute("SELECT * FROM phone_codes WHERE phone=?", (phone,)).fetchone()
+        if not row or not re.fullmatch(r"\d{6}", code or ""):
+            return False
+        if row["code_hash"] != digest(f"{phone}:{code}"):
+            return False
+        expires = datetime.fromisoformat(row["expires_at"])
+        current = datetime.fromisoformat(now())
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        return current <= expires
+
+    @api.post("/api/studio/codes")
+    def request_code(body: dict):
         phone = normalize_phone(body.get("phone", ""))
         if not phone:
-            raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字，作为本机登录名。没有短信。")
+            raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
+        code, expires = issue_code(phone)
         with db(True) as con:
+            con.execute("""INSERT INTO phone_codes(phone,code_hash,expires_at,created_at) VALUES(?,?,?,?)
+                ON CONFLICT(phone) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, created_at=excluded.created_at""",
+                        (phone, digest(f"{phone}:{code}"), expires, now()))
+            created = con.execute("SELECT 1 FROM people WHERE phone=?", (phone,)).fetchone()
+        return {"phone": phone, "code": code, "expires_at": expires, "sent": False, "account_exists": bool(created),
+                "notice": "没有短信服务。这 6 位验证码只显示在这一页，没有发送，也没有花钱。"}
+
+    @api.post("/api/studio/register")
+    def register(body: dict):
+        phone = normalize_phone(body.get("phone", ""))
+        if not phone:
+            raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
+        code = str(body.get("code") or "").strip()
+        with db(True) as con:
+            if not code_matches(con, phone, code):
+                raise problem(401, "bad_code", "验证码不对。还在注册页，没有进入。")
             existing = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
             if existing:
                 token_clear = secrets.token_urlsafe(24)
                 con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), existing["id"]))
+                con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
                 existing = dict(existing)
                 return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": existing["name"],
                         "skills": existing["skills"], "profile": existing["profile"], "growth": existing["growth"],
                         "github_linked": bool(existing["github_linked"]), "feishu_linked": bool(existing["feishu_linked"]),
-                        "notice": "这个手机号已经注册。画像和技能保持第一次填写的，没有覆盖。"}
+                        "notice": "验证码正确。这个手机号已经注册，画像和技能保持第一次填写的，没有覆盖。"}
             name = str(body.get("name") or "").strip()
             profile = str(body.get("profile") or "").strip()
             skills = str(body.get("skills") or "").strip()
             if not name or not profile or not skills:
-                raise problem(422, "profile_required", "第一次进入要填写名字、画像和目前做得到的事。")
+                raise problem(422, "profile_required", "验证码对了。第一次还要填写名字、画像和目前做得到的事。")
             pid, token_clear = uid(), secrets.token_urlsafe(24)
             con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at)
                 VALUES(?,?,?,?,?,?,?,?,?)""", (pid, phone, name[:40], profile[:2000], skills[:500], int(bool(body.get("github"))), int(bool(body.get("feishu"))), digest(token_clear), now()))
+            con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
             return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "skills": skills[:500],
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
-                    "notice": "本机用手机号当作登录名，没有发送短信。"}
+                    "notice": "验证码正确，账号已建立。没有发送短信。"}
 
     @api.post("/api/studio/links")
     def links(body: dict, authorization: str = Header(default="")):

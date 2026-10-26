@@ -37,6 +37,8 @@ const state = {
   error: "",
   note: "",
   needProfile: false,
+  issuedCode: "",
+  wechatNote: "",
   chats: {},
   contestDraft: null,
   flow: "",
@@ -193,19 +195,32 @@ function editorBoxes() {
 }
 
 function viewSignup() {
-  return `<h2>首次注册</h2>
-    <p class="muted">手机号是本机登录名，没有短信。画像和技能只问这一次。换队友用右上角，不要重复注册，否则会换掉这个手机号已经打开的页面。</p>
-    <form data-act="enter" class="card">
-      <label for="phone">手机号</label>
-      <input id="phone" name="phone" inputmode="numeric" autocomplete="tel" placeholder="6 到 20 位数字" value="${esc(state.pendingPhone || "")}" required>
-      ${state.needProfile ? `<label for="name">名字</label><input id="name" name="name" maxlength="40" required>
-        <label for="profile">我是谁、做过什么</label><textarea id="profile" name="profile" required placeholder="例如：高二，产品设计。会整理讨论和演示，代码主要靠把需求说清楚。"></textarea>
-        <label for="skills">目前做得到的事</label><input id="skills" name="skills" required placeholder="例如：需求、流程图、路演">
-        <label class="check"><input type="checkbox" name="github"> 标成本机已绑定 GitHub。不会打开 GitHub。</label>
-        <label class="check"><input type="checkbox" name="feishu"> 标成本机已绑定飞书。不会打开飞书。</label>
-        <button class="btn" type="submit">注册并去选择比赛</button>` : `<button class="btn" type="submit">用这个手机号进入</button>
-        <p class="muted">第一次会接着问画像。已经注册过的，直接进入，不覆盖原来的画像。</p>`}
-    </form>`;
+  return `<h2>注册</h2>
+    <p class="muted">先填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。</p>
+    <form id="reg-form" data-act="enter" class="card">
+      <label for="reg-phone">手机号</label>
+      <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="6 到 20 位数字">
+      <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
+      <p id="reg-code-note" class="muted" hidden>没有短信服务。验证码只显示在这里，没有发送，也没有花钱。</p>
+      <p id="reg-issued" class="code" hidden></p>
+      <label for="reg-code">验证码</label>
+      <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
+      <div id="reg-profile" hidden>
+        <label for="reg-name">名字</label>
+        <input id="reg-name" name="name" maxlength="40" autocomplete="name">
+        <label for="reg-about">我是谁、做过什么</label>
+        <textarea id="reg-about" name="profile" placeholder="例如：高二，产品设计。会整理讨论和演示。"></textarea>
+        <label for="reg-skills">目前做得到的事</label>
+        <input id="reg-skills" name="skills" placeholder="例如：需求、流程图、路演">
+        <p class="muted">只在第一次问。验证码还没通过时，填了也不会进入。</p>
+      </div>
+      <button class="btn" type="submit">验证并进入</button>
+    </form>
+    <div class="card">
+      <button class="btn ghost" type="button" data-act="wechat">微信注册还缺开放平台网站应用和正式域名</button>
+      <p id="reg-wechat" class="muted" hidden></p>
+    </div>
+    <p id="reg-status" hidden></p>`;
 }
 
 function viewContest() {
@@ -585,10 +600,58 @@ const views = {
   growth: viewGrowth,
 };
 
+function isTypingTarget(target) {
+  const node = target instanceof Element ? target : target?.parentElement;
+  return !!node?.closest("input, textarea, select, option, label");
+}
+
+function paintSignupStatus() {
+  const status = document.getElementById("reg-status");
+  if (!status) return;
+  const text = state.error || state.note || "";
+  status.hidden = !text;
+  status.className = state.error ? "error" : "ok";
+  status.textContent = text;
+  const note = document.getElementById("reg-code-note");
+  const issued = document.getElementById("reg-issued");
+  if (note && issued) {
+    const show = !!state.issuedCode;
+    note.hidden = !show;
+    issued.hidden = !show;
+    if (show) issued.textContent = state.issuedCode;
+  }
+  const profile = document.getElementById("reg-profile");
+  if (profile) profile.hidden = !state.needProfile;
+  const wechat = document.getElementById("reg-wechat");
+  if (wechat && state.wechatNote) {
+    wechat.hidden = false;
+    wechat.textContent = state.wechatNote;
+  }
+}
+
+function renderSignup() {
+  const main = document.getElementById("main");
+  if (!document.getElementById("reg-phone")) main.innerHTML = viewSignup();
+  paintSignupStatus();
+}
+
 function render() {
+  const footer = document.querySelector("footer");
+  if (!state.token) {
+    state.screen = "signup";
+    document.getElementById("nav").innerHTML = "";
+    document.getElementById("switch").innerHTML = "";
+    document.getElementById("who").textContent = "";
+    if (footer) footer.hidden = true;
+    renderSignup();
+    clearInterval(state.tick);
+    state.tick = null;
+    return;
+  }
+  if (footer) footer.hidden = false;
   document.getElementById("nav").innerHTML = NAV.map(([id, label]) => `<button type="button" data-go="${id}" class="${state.screen === id ? "on" : ""}">${label}</button>`).join("");
   document.getElementById("switch").innerHTML = switcher();
-  document.getElementById("who").textContent = state.me ? `${state.me.name} · ${state.me.phone}` : "还没进入";
+  document.getElementById("who").textContent = state.me ? `${state.me.name} · ${state.me.phone}` : "";
   const view = views[state.screen] || viewSignup;
   document.getElementById("main").innerHTML = banners() + view();
   armCountdown();
@@ -616,6 +679,11 @@ function armCountdown() {
 }
 
 async function go(id) {
+  if (!state.token) {
+    state.screen = "signup";
+    render();
+    return;
+  }
   const gate = canOpen(id);
   if (gate !== true) {
     state.error = gate;
@@ -635,6 +703,7 @@ async function adopt(data, phone) {
   state.token = data.token;
   state.accounts[phone] = { token: data.token, name: data.name };
   state.needProfile = false;
+  state.issuedCode = "";
   saveSession();
   state.me = await api("GET", "/api/studio/me");
   state.squad = null;
@@ -652,28 +721,36 @@ async function adopt(data, phone) {
 }
 
 const actions = {
+  async requestCode(button) {
+    const form = button.closest("form");
+    const phone = form.phone.value.trim();
+    const data = await api("POST", "/api/studio/codes", { phone });
+    state.issuedCode = data.code;
+    state.note = data.notice;
+    state.error = "";
+  },
+  wechat() {
+    state.wechatNote = "还缺微信开放平台的网站应用，以及可回调的正式域名。127.0.0.1 完不成微信登录。没有进入，也没有头像。";
+    state.error = "";
+    state.token = "";
+  },
   async enter(form) {
     const phone = form.phone.value.trim();
-    state.pendingPhone = phone;
+    const body = { phone, code: form.code.value.trim() };
     if (state.needProfile) {
-      const data = await api("POST", "/api/studio/register", {
-        phone,
-        name: form.name.value,
-        profile: form.profile.value,
-        skills: form.skills.value,
-        github: form.github.checked,
-        feishu: form.feishu.checked,
-      });
-      await adopt(data, phone);
-      return;
+      body.name = form.name.value;
+      body.profile = form.profile.value;
+      body.skills = form.skills.value;
     }
     try {
-      const data = await api("POST", "/api/studio/register", { phone });
+      const data = await api("POST", "/api/studio/register", body);
       await adopt(data, phone);
     } catch (error) {
+      state.token = "";
       if (error.code === "profile_required") {
         state.needProfile = true;
-        state.note = "第一次进入。填写名字、画像，以及你现在做得到的事。下一场不用再填。";
+        state.error = "";
+        state.note = error.message;
         return;
       }
       throw error;
@@ -925,13 +1002,14 @@ const actions = {
 };
 
 document.addEventListener("click", async (event) => {
+  if (isTypingTarget(event.target)) return;
   const destination = event.target.closest("[data-go]");
   if (destination) {
     event.preventDefault();
     await go(destination.dataset.go);
     return;
   }
-  const button = event.target.closest("[data-act]");
+  const button = event.target.closest("button[data-act]");
   if (!button || button.type === "submit") return;
   event.preventDefault();
   state.error = "";

@@ -47,8 +47,19 @@ class StudioFlowTests(unittest.TestCase):
         self.temp.cleanup()
         self.env.stop()
 
+    def issue(self, phone):
+        result = self.client.post("/api/studio/codes", json={"phone": phone})
+        self.assertEqual(result.status_code, 200, result.text)
+        body = result.json()
+        self.assertFalse(body["sent"])
+        self.assertEqual(len(body["code"]), 6)
+        self.assertTrue(body["code"].isdigit())
+        self.assertEqual(self.client.get("/api/studio/me").status_code, 401)
+        return body["code"]
+
     def enter(self, phone, name, skills, profile="做过产品和演示"):
-        result = self.client.post("/api/studio/register", json={"phone": phone, "name": name, "skills": skills, "profile": profile, "github": True, "feishu": True})
+        code = self.issue(phone)
+        result = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "name": name, "skills": skills, "profile": profile, "github": True, "feishu": True})
         self.assertIn(result.status_code, (200, 201), result.text)
         return result.json()
 
@@ -62,8 +73,14 @@ class StudioFlowTests(unittest.TestCase):
         self.assertTrue(again["returning"])
         self.assertEqual(again["skills"], "产品、路演")
         self.assertEqual(again["name"], "孔祥梨")
-        missing = self.client.post("/api/studio/register", json={"phone": "13900002222"})
-        self.assertEqual(missing.status_code, 422)
+        issued = self.issue("13900002222")
+        wrong = "000000" if issued != "000000" else "111111"
+        rejected = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": wrong, "name": "新", "profile": "做过", "skills": "产品"})
+        self.assertEqual(rejected.status_code, 401, rejected.text)
+        self.assertNotIn("token", rejected.json())
+        missing = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": issued})
+        self.assertEqual(missing.status_code, 422, missing.text)
+        self.assertEqual(missing.json()["error"]["code"], "profile_required")
 
     def test_full_local_flow_without_external_accounts(self):
         captain = self.enter("13800001111", "孔祥梨", "产品、文档、路演")
@@ -172,7 +189,7 @@ class StudioFlowTests(unittest.TestCase):
     def test_homepage_is_the_team_flow(self):
         page = self.client.get("/")
         self.assertEqual(page.status_code, 200)
-        self.assertIn("/static/studio.js", page.text)
+        self.assertIn("/static/studio.js?v=", page.text)
         self.assertEqual(self.client.get("/static/studio.js").status_code, 200)
         self.assertEqual(self.client.get("/classic").status_code, 200)
         self.assertIn("不能自验", self.client.get("/workflow").text)
