@@ -55,8 +55,25 @@ async function run(action) {
   }
 }
 
+let lastEvent = 0, dirty = false, pulseNotified = 0;
+document.addEventListener("input", event => { if (app.contains(event.target)) dirty = true; });
+
+async function poll() {
+  if (!session || !workspace || busy || document.hidden || $("dialog[open]")) return;
+  let data;
+  try { data = await (await api(`/api/projects/${session.project}/pulse`)).json(); } catch { return; }
+  if (data.last_event <= lastEvent || busy) return;
+  if (dirty) {
+    if (pulseNotified !== data.last_event) { pulseNotified = data.last_event; notify("队友有新进度。保存当前编辑后点“刷新进度”查看。"); }
+    return;
+  }
+  await run(async () => { await refresh(); notify("队友有新进度，已自动更新。"); });
+}
+setInterval(poll, 8000);
+
 async function refresh() {
   workspace = await (await api(`/api/projects/${session.project}`)).json();
+  lastEvent = workspace.events.reduce((max, e) => Math.max(max, e.sequence), 0);
   const selected = workspace.project.active_proposal_id ? workspace.proposals.find(p => p.id === workspace.project.active_proposal_id) : workspace.proposals[0];
   draft = selected ? structuredClone(selected) : null;
   if (activeTab === "recap") recap = await (await api(`/api/projects/${session.project}/recap`)).json();
@@ -93,6 +110,7 @@ function memberEditor(i) {
 }
 
 function render() {
+  dirty = false;
   if (!workspace) {welcome(); return;}
   const p = workspace.project, locked = !!p.active_proposal_id;
   const hours = Math.max(0, (new Date(p.deadline) - Date.now()) / 3600000).toFixed(1);
@@ -208,7 +226,21 @@ function bindPlan() {
 function taskView() {
   if(!workspace.tasks.length) return '<section class="panel"><h2>还没有正式任务</h2><p class="muted" style="margin-top:12px">请先由队长在“分工确认”中核对并确认草案。</p></section>';
   const lanes=[['待开始',['todo']],['推进中',['in_progress','blocked']],['待验收',['review']],['已通过',['accepted']]];
-  return `<div class="section-head"><div><h2>一起推进，交叉验收</h2><p class="muted">负责人提交成果后，由另一成员验收；刷新读取团队最新状态。</p></div><span class="badge gray">${workspace.tasks.filter(t=>t.status==='accepted').length} / ${workspace.tasks.length} 已通过</span></div><div class="board">${lanes.map(([name,states])=>{const items=workspace.tasks.filter(t=>states.includes(t.status));return `<section class="lane"><div class="lane-head">${name}<span>${items.length}</span></div>${items.length?items.map(taskCard).join(''):'<div class="quiet">暂无任务</div>'}</section>`;}).join('')}</div>`;
+  return `${nextStepView()}<div class="section-head"><div><h2>一起推进，交叉验收</h2><p class="muted">负责人提交成果后，由另一成员验收；页面每 8 秒自动同步队友进度。</p></div><span class="badge gray">${workspace.tasks.filter(t=>t.status==='accepted').length} / ${workspace.tasks.length} 已通过</span></div><div class="board">${lanes.map(([name,states])=>{const items=workspace.tasks.filter(t=>states.includes(t.status));return `<section class="lane"><div class="lane-head">${name}<span>${items.length}</span></div>${items.length?items.map(taskCard).join(''):'<div class="quiet">暂无任务</div>'}</section>`;}).join('')}</div>`;
+}
+
+function nextStepView() {
+  const me=workspace.me.id, accepted=new Set(workspace.tasks.filter(t=>t.status==='accepted').map(t=>t.id));
+  const mine=workspace.tasks.filter(t=>t.owner_id===me);
+  const groups=[
+    ['等你验收',workspace.tasks.filter(t=>t.status==='review'&&t.owner_id!==me)],
+    ['进行中',mine.filter(t=>t.status==='in_progress')],
+    ['已阻塞',mine.filter(t=>t.status==='blocked')],
+    ['可以开始',mine.filter(t=>t.status==='todo'&&t.depends_on.every(id=>accepted.has(id)))],
+    ['等前置任务',mine.filter(t=>t.status==='todo'&&!t.depends_on.every(id=>accepted.has(id)))],
+  ].filter(([,items])=>items.length);
+  const body=groups.length?groups.map(([name,items])=>`<div class="next-row"><span class="badge ${name==='已阻塞'?'amber':name==='等前置任务'?'gray':''}">${name} · ${items.length}</span><span>${items.map(t=>`${esc(t.task_key)} ${esc(t.title)}`).join('；')}</span></div>`).join(''):'<p class="muted">你的任务都已通过，暂时没有需要你验收的成果。</p>';
+  return `<section class="panel next-step" data-next-step><h2>我的下一步</h2>${body}</section>`;
 }
 
 function taskCard(t) {

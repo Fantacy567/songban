@@ -348,6 +348,13 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
             info = model_info(pid)
             return {"project": {**p, "phase": phase(p, items)}, "me": {k: v for k, v in me.items() if k != "token_hash"}, "members": members(con, pid), "sources": sources(con, pid), "proposals": drafts, "tasks": items, "events": events, "model_configured": info["key_configured"], "current_model": info}
 
+    @api.get("/api/projects/{pid}/pulse")
+    def pulse(pid: str, authorization: str = Header(default="")):
+        with db() as con:
+            auth(con, pid, authorization)
+            last = con.execute("SELECT COALESCE(MAX(sequence),0) FROM events WHERE project_id=?", (pid,)).fetchone()[0]
+            return {"last_event": last, "model_version": model_versions.get(pid, 0)}
+
     @api.post("/api/projects/{pid}/model/discover")
     def model_discover(pid: str, body: ModelDiscovery, authorization: str = Header(default="")):
         with db() as con:
