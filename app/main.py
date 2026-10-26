@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
 
 from .advice import advice_markdown, rubric_coverage, scope_advice
+from .studio import ensure_schema, register_studio
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
@@ -145,6 +146,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     try:
         initial.execute("PRAGMA journal_mode=WAL")
         initial.executescript(SCHEMA)
+        ensure_schema(initial)
         columns = {row[1] for row in initial.execute("PRAGMA table_info(proposals)")}
         for column in ("model_id", "model_display_name", "response_model_id", "fallback_reason"):
             if column not in columns:
@@ -153,12 +155,12 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     finally:
         initial.close()
 
-    api = FastAPI(title="赛内协作助手 API", version="0.4.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    api = FastAPI(title="赛内协作助手 API", version="0.5.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     api.state.db_path = path
     configured_origins = [s.strip() for s in os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",") if s.strip()]
     if "*" in configured_origins:
         raise ValueError("ALLOWED_ORIGINS 必须列出明确地址，不允许星号")
-    api.add_middleware(CORSMiddleware, allow_origins=configured_origins, allow_methods=["GET", "POST", "PUT"], allow_headers=["Authorization", "Content-Type"], allow_credentials=False)
+    api.add_middleware(CORSMiddleware, allow_origins=configured_origins, allow_methods=["GET", "POST", "PUT", "PATCH"], allow_headers=["Authorization", "Content-Type"], allow_credentials=False)
     public_base_url = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
     if public_base_url and not public_base_url.startswith(("http://", "https://")):
         raise ValueError("PUBLIC_BASE_URL 必须以 http:// 或 https:// 开头")
@@ -610,11 +612,17 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
 
     @api.get("/", include_in_schema=False)
     def homepage():
-        return FileResponse(ROOT / "static" / "index.html")
+        return FileResponse(ROOT / "static" / "studio.html")
 
     @api.get("/workflow", include_in_schema=False)
     def workflow():
         return FileResponse(ROOT / "static" / "workflow.html")
+
+    register_studio(api, db, Problem, now, uid, digest)
+
+    @api.get("/classic", include_in_schema=False)
+    def classic():
+        return FileResponse(ROOT / "static" / "index.html")
 
     api.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
     return api
