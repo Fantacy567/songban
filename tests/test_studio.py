@@ -81,6 +81,11 @@ class StudioFlowTests(unittest.TestCase):
         missing = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": issued})
         self.assertEqual(missing.status_code, 422, missing.text)
         self.assertEqual(missing.json()["error"]["code"], "profile_required")
+        saved = self.client.patch("/api/studio/me", json={"name": "孔祥梨", "profile": "会整理讨论", "skills": "路演、文档"}, headers=self.auth(again["token"]))
+        self.assertEqual(saved.status_code, 200, saved.text)
+        noted = self.client.post("/api/studio/memory", json={"text": "路演可以独立完成"}, headers=self.auth(again["token"]))
+        self.assertEqual(noted.status_code, 200, noted.text)
+        self.assertIn("本人记下：路演可以独立完成", noted.json()["growth"])
 
     def test_full_local_flow_without_external_accounts(self):
         captain = self.enter("13800001111", "孔祥梨", "产品、文档、路演")

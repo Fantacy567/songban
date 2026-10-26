@@ -16,8 +16,22 @@ const NAV = [
   ["log", "更改记录"],
   ["growth", "赛后成长"],
 ];
-const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth"]);
-const COACH = new Set(["mine", "docs", "growth"]);
+const SIDE = [
+  ["teamspace", "团队空间"],
+  ["mine", "我的空间"],
+  ["home", "首页"],
+  ["talk", "讨论"],
+  ["topics", "选题空间"],
+  ["skill", "安装同一技能"],
+  ["vote", "团队表决"],
+  ["docs", "需求与流程图"],
+  ["team", "组队"],
+  ["contest", "选择比赛"],
+  ["log", "更改记录"],
+  ["growth", "赛后成长"],
+];
+const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth", "profile", "memory"]);
+const COACH = new Set(["mine", "docs", "growth", "profile", "memory"]);
 const NEED_SQUAD = new Set(["success", "home", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "log", "growth"]);
 const NEED_CONFIRMED = new Set(["success", "home", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth"]);
 const BRIEFS = {
@@ -39,6 +53,7 @@ const state = {
   needProfile: false,
   issuedCode: "",
   wechatNote: "",
+  menuOpen: false,
   chats: {},
   contestDraft: null,
   flow: "",
@@ -47,6 +62,11 @@ const state = {
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function val(form, name) {
+  const node = form.elements.namedItem(name);
+  return node && "value" in node ? String(node.value) : "";
 }
 
 function when(iso) {
@@ -195,7 +215,7 @@ function editorBoxes() {
 }
 
 function viewSignup() {
-  return `<h2>注册</h2>
+  return `<div class="reg-wrap"><h2>注册</h2>
     <p class="muted">先填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。</p>
     <form id="reg-form" data-act="enter" class="card">
       <label for="reg-phone">手机号</label>
@@ -220,7 +240,63 @@ function viewSignup() {
       <button class="btn ghost" type="button" data-act="wechat">微信注册还缺开放平台网站应用和正式域名</button>
       <p id="reg-wechat" class="muted" hidden></p>
     </div>
-    <p id="reg-status" hidden></p>`;
+    <p id="reg-status" hidden></p></div>`;
+}
+
+function viewProfile() {
+  const me = state.me || {};
+  return page(`<h2>编辑资料</h2>
+    <p class="muted">改的是你自己的名字、画像和目前做得到的事。不会编头像，也不会读取旧对话。</p>
+    <form data-act="saveProfile" class="card">
+      <label for="profile-name">名字</label>
+      <input id="profile-name" name="name" maxlength="40" value="${esc(me.name || "")}" required>
+      <label for="profile-about">我是谁、做过什么</label>
+      <textarea id="profile-about" name="profile" required>${esc(me.profile || "")}</textarea>
+      <label for="profile-skills">目前做得到的事</label>
+      <input id="profile-skills" name="skills" value="${esc(me.skills || "")}" required>
+      <button class="btn" type="submit">保存资料</button>
+    </form>`);
+}
+
+function viewMemory() {
+  const growth = state.me?.growth || "";
+  return page(`<h2>个人记忆与能力记录</h2>
+    <p class="muted">这里只记你写下来的，和每场比赛结束后教练按真实任务补上的。没有读取整段旧对话。</p>
+    <div class="card"><pre>${esc(growth || "还没有记录。")}</pre></div>
+    <form data-act="addMemory" class="card">
+      <label for="memory-text">记一句以后还用得上的</label>
+      <textarea id="memory-text" name="text" required placeholder="例如：路演可以独立完成，接口实现需要队友。"></textarea>
+      <button class="btn" type="submit">记入个人记忆</button>
+    </form>`);
+}
+
+function viewSettings() {
+  const me = state.me || {};
+  return `<h2>设置</h2>
+    <div class="card">
+      <p class="kicker">账号</p>
+      <p>${esc(me.name || "")}</p>
+      <p class="muted">手机号 ${esc(me.phone || "")}</p>
+      <p class="muted">验证码在注册页核对。这台电脑没有短信服务，验证码不会发到手机上。</p>
+      <div class="row">
+        <button class="btn" type="button" data-go="profile">编辑资料</button>
+        <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
+      </div>
+    </div>
+    <div class="card">
+      <p class="kicker">微信</p>
+      <p>还没有接通。需要微信开放平台的网站应用 AppID，以及可公网回调的正式域名。127.0.0.1 完不成微信登录，这里不会编一个头像把人放进去。</p>
+    </div>
+    <div class="card">
+      <p class="kicker">本机标记</p>
+      <p>GitHub：${me.github_linked ? "已标记" : "未标记"} · 飞书：${me.feishu_linked ? "已标记" : "未标记"}</p>
+      <p class="muted">只记在这台电脑上，不会打开 GitHub 或飞书。</p>
+      <div class="row">
+        <button class="btn ghost" type="button" data-act="markGithub" ${me.github_linked ? "disabled" : ""}>${me.github_linked ? "GitHub 已标记" : "标记已绑定 GitHub"}</button>
+        <button class="btn ghost" type="button" data-act="markFeishu">${me.feishu_linked ? "取消飞书标记" : "标记已绑定飞书"}</button>
+      </div>
+    </div>
+    <button class="btn ghost" type="button" data-act="logout">退出登录</button>`;
 }
 
 function viewContest() {
@@ -598,6 +674,9 @@ const views = {
   captain: viewCaptain,
   log: viewLog,
   growth: viewGrowth,
+  profile: viewProfile,
+  memory: viewMemory,
+  settings: viewSettings,
 };
 
 function isTypingTarget(target) {
@@ -635,24 +714,57 @@ function renderSignup() {
   paintSignupStatus();
 }
 
+const RAIL_GROUPS = [
+  ["空间", ["teamspace", "mine", "home"]],
+  ["比赛中", ["talk", "topics", "skill", "vote", "docs", "captain"]],
+  ["准备", ["team", "contest"]],
+  ["记录", ["log", "growth"]],
+];
+
+function sideGroups() {
+  const labels = Object.fromEntries([...SIDE, ["captain", "队长规划"]]);
+  return RAIL_GROUPS.map(([title, ids]) => {
+    const items = ids.filter((id) => id !== "captain" || state.squad?.me?.captain).map((id) => [id, labels[id]]);
+    return [title, items];
+  });
+}
+
+function menuHtml() {
+  return `<div class="popover" id="me-menu" role="menu">
+    <button type="button" data-go="settings">设置</button>
+    <button type="button" data-go="profile">编辑资料</button>
+    <button type="button" data-go="memory">个人记忆与能力记录</button>
+    <button type="button" data-act="logout">退出登录</button>
+    <a href="/classic">旧工作台</a>
+    ${switcher()}
+  </div>`;
+}
+
+function renderRail() {
+  const rail = document.getElementById("rail");
+  if (!rail) return;
+  const buttons = sideGroups().map(([title, items]) => `<p class="rail-label">${title}</p>${items.map(([id, label]) => `<button type="button" data-go="${id}" class="${state.screen === id ? "on" : ""}">${label}</button>`).join("")}`).join("");
+  const initial = (state.me?.name || "我").slice(0, 1);
+  const squadName = state.squad?.squad?.name ? `<p class="rail-squad">${esc(state.squad.squad.name)}</p>` : "";
+  rail.innerHTML = `<div class="brand">松伴${squadName}</div><div class="rail-scroll">${buttons}</div><div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}"><span class="avatar">${esc(initial)}</span><span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || "")}</span></span></button></div>`;
+}
+
 function render() {
-  const footer = document.querySelector("footer");
+  const app = document.getElementById("app");
   if (!state.token) {
     state.screen = "signup";
-    document.getElementById("nav").innerHTML = "";
-    document.getElementById("switch").innerHTML = "";
-    document.getElementById("who").textContent = "";
-    if (footer) footer.hidden = true;
+    state.menuOpen = false;
+    if (app) app.classList.remove("signed");
+    const rail = document.getElementById("rail");
+    if (rail) rail.innerHTML = "";
     renderSignup();
     clearInterval(state.tick);
     state.tick = null;
     return;
   }
-  if (footer) footer.hidden = false;
-  document.getElementById("nav").innerHTML = NAV.map(([id, label]) => `<button type="button" data-go="${id}" class="${state.screen === id ? "on" : ""}">${label}</button>`).join("");
-  document.getElementById("switch").innerHTML = switcher();
-  document.getElementById("who").textContent = state.me ? `${state.me.name} · ${state.me.phone}` : "";
-  const view = views[state.screen] || viewSignup;
+  if (app) app.classList.add("signed");
+  renderRail();
+  const view = views[state.screen] || viewHome;
   document.getElementById("main").innerHTML = banners() + view();
   armCountdown();
 }
@@ -692,6 +804,7 @@ async function go(id) {
   }
   state.error = "";
   state.note = "";
+  state.menuOpen = false;
   state.screen = id;
   if (state.token && id !== "signup") {
     try { await reload(); } catch (error) { state.error = error.message; }
@@ -730,17 +843,44 @@ const actions = {
     state.error = "";
   },
   wechat() {
-    state.wechatNote = "还缺微信开放平台的网站应用，以及可回调的正式域名。127.0.0.1 完不成微信登录。没有进入，也没有头像。";
+    state.wechatNote = "还缺微信开放平台的网站应用 AppID，以及可公网回调的正式域名。127.0.0.1 完不成微信登录。没有进入，也没有头像。";
     state.error = "";
     state.token = "";
+  },
+  toggleMenu() {
+    state.menuOpen = !state.menuOpen;
+    renderRail();
+  },
+  logout() {
+    if (state.me?.phone) delete state.accounts[state.me.phone];
+    state.token = "";
+    state.me = null;
+    state.squad = null;
+    state.squadId = "";
+    state.menuOpen = false;
+    state.screen = "signup";
+    saveSession();
+  },
+  async saveProfile(form) {
+    const data = await api("PATCH", "/api/studio/me", { name: val(form, "name").trim(), profile: val(form, "profile").trim(), skills: val(form, "skills").trim() });
+    state.note = "资料已保存。";
+    if (state.accounts[state.me.phone]) state.accounts[state.me.phone].name = data.name;
+    saveSession();
+    await reload();
+  },
+  async addMemory(form) {
+    const data = await api("POST", "/api/studio/memory", { text: form.text.value });
+    state.note = "已记入个人记忆。没有读取旧对话。";
+    if (state.me) state.me.growth = data.growth;
+    await reload();
   },
   async enter(form) {
     const phone = form.phone.value.trim();
     const body = { phone, code: form.code.value.trim() };
     if (state.needProfile) {
-      body.name = form.name.value;
-      body.profile = form.profile.value;
-      body.skills = form.skills.value;
+      body.name = val(form, "name").trim();
+      body.profile = val(form, "profile").trim();
+      body.skills = val(form, "skills").trim();
     }
     try {
       const data = await api("POST", "/api/studio/register", body);
@@ -958,8 +1098,8 @@ const actions = {
     await reload();
   },
   async markFeishu() {
-    const next = !state.squad.me.feishu_linked;
-    await api("POST", "/api/studio/links", { github: state.me.github_linked, feishu: next });
+    const next = !state.me?.feishu_linked;
+    await api("POST", "/api/studio/links", { github: !!state.me?.github_linked, feishu: next });
     state.note = next ? "已标成本机绑定飞书。没有打开飞书。" : "已取消飞书标记。";
     await reload();
   },
@@ -1003,6 +1143,16 @@ const actions = {
 
 document.addEventListener("click", async (event) => {
   if (isTypingTarget(event.target)) return;
+  if (state.menuOpen && !event.target.closest("#rail")) {
+    state.menuOpen = false;
+    renderRail();
+  }
+  const toggle = event.target.closest("[data-act='toggleMenu']");
+  if (toggle) {
+    event.preventDefault();
+    actions.toggleMenu();
+    return;
+  }
   const destination = event.target.closest("[data-go]");
   if (destination) {
     event.preventDefault();

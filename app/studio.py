@@ -348,6 +348,31 @@ def register_studio(api, db, problem, now, uid, digest):
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
                     "notice": "验证码正确，账号已建立。没有发送短信。"}
 
+    @api.patch("/api/studio/me")
+    def update_me(body: dict, authorization: str = Header(default="")):
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            name = str(body.get("name") if body.get("name") is not None else user["name"]).strip()
+            profile = str(body.get("profile") if body.get("profile") is not None else user["profile"]).strip()
+            skills = str(body.get("skills") if body.get("skills") is not None else user["skills"]).strip()
+            if not name or not profile or not skills:
+                raise problem(422, "profile_required", "名字、画像和目前做得到的事都要留着。")
+            con.execute("UPDATE people SET name=?, profile=?, skills=? WHERE id=?", (name[:40], profile[:2000], skills[:500], user["id"]))
+            return {"name": name[:40], "profile": profile[:2000], "skills": skills[:500]}
+
+    @api.post("/api/studio/memory")
+    def add_memory(body: dict, authorization: str = Header(default="")):
+        text = str(body.get("text") or "").strip()
+        if len(text) < 2:
+            raise problem(422, "memory_required", "写下一句你希望以后还记得的事。不会读取旧对话。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            line = f"本人记下：{text[:200]}"
+            previous = user["growth"] or ""
+            merged = (previous + "\n" + line).strip()
+            con.execute("UPDATE people SET growth=? WHERE id=?", (merged, user["id"]))
+            return {"growth": merged}
+
     @api.post("/api/studio/links")
     def links(body: dict, authorization: str = Header(default="")):
         with db(True) as con:
