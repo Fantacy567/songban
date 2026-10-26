@@ -264,7 +264,10 @@ def register_studio(api, db, problem, now, uid, digest):
             item = dict(row)
             item["editors"] = json.loads(item["editors"])
             shelf.append(item)
+        names = {member["user_id"]: member["name"] for member in members}
         events = [dict(row) for row in con.execute("SELECT * FROM squad_log WHERE squad_id=? ORDER BY id", (squad_id,))]
+        for event in events:
+            event["actor"] = names.get(event["actor_id"], "")
         return {"squad": {**squad, "draft": json.loads(squad["draft"] or "[]"), "confirmed": bool(squad["confirmed"]), "finished": bool(squad["finished"])},
                 "contest": contest, "me": {"id": user["id"], "name": user["name"], "phone": user["phone"], "skills": user["skills"],
                 "profile": user["profile"], "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
@@ -379,6 +382,20 @@ def register_studio(api, db, problem, now, uid, digest):
             log(con, sid, user["id"], f"{user['name']} 创建队伍，成为队长。")
             return {"id": sid, "code": code, "captain": True}
 
+    @api.patch("/api/studio/squads/{sid}")
+    def rename_squad(sid: str, body: dict, authorization: str = Header(default="")):
+        name = str(body.get("name") or "").strip()
+        if not name:
+            raise problem(422, "name_required", "队伍名称不能空。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            squad, _ = squad_of(con, sid, user["id"])
+            if user["id"] != squad["captain_id"]:
+                raise problem(403, "captain_required", "由队长修改队伍名称。")
+            con.execute("UPDATE squads SET name=? WHERE id=?", (name[:40], sid))
+            log(con, sid, user["id"], f"队长把队伍名称改为「{name[:40]}」。")
+            return {"name": name[:40]}
+
     @api.post("/api/studio/squads/join")
     def join_squad(body: dict, authorization: str = Header(default="")):
         code = str(body.get("code") or "").strip()
@@ -389,10 +406,13 @@ def register_studio(api, db, problem, now, uid, digest):
                 raise problem(404, "not_found", "队伍码不对。")
             if squad["confirmed"]:
                 raise problem(409, "team_locked", "这支队伍已经确认，本机版本不再加入新人。")
+            already = con.execute("SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?", (squad["id"], user["id"])).fetchone()
             con.execute("INSERT OR IGNORE INTO squad_members(squad_id,user_id,role) VALUES(?,?,?)", (squad["id"], user["id"], ""))
             friends = con.execute("SELECT 1 FROM friendships WHERE user_id=? AND friend_id=?", (squad["captain_id"], user["id"])).fetchone()
-            log(con, squad["id"], user["id"], f"{user['name']} 用队伍码加入。")
-            return {"id": squad["id"], "friend_of_captain": bool(friends), "notice": "队伍码可以直接加入，不必先成为好友。"}
+            if not already:
+                log(con, squad["id"], user["id"], f"{user['name']} 用队伍码加入。")
+            return {"id": squad["id"], "friend_of_captain": bool(friends), "already_member": bool(already),
+                    "notice": "你已经在这支队伍里。" if already else "队伍码可以直接加入，不必先成为好友。"}
 
     @api.post("/api/studio/squads/{sid}/intro")
     def save_intro(sid: str, body: dict, authorization: str = Header(default="")):
@@ -633,6 +653,26 @@ def register_studio(api, db, problem, now, uid, digest):
                         (iid, sid, user["id"], kind, title[:80], text[:8000], json.dumps(editors), now()))
             log(con, sid, user["id"], f"上传到成果架：{title[:40]}")
             return {"id": iid, "stored": "shelf", "vote": None}
+
+    @api.patch("/api/studio/squads/{sid}/shelf/{iid}")
+    def edit_shelf(sid: str, iid: str, body: dict, authorization: str = Header(default="")):
+        text = str(body.get("body") or "").strip()
+        if not text:
+            raise problem(422, "shelf_required", "写下要改的内容。")
+        if strategic_kind(text):
+            raise problem(409, "needs_vote", "这会改题目、主干或提交清单。请送到讨论里走表决，不要直接改成果。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            squad_of(con, sid, user["id"])
+            item = con.execute("SELECT * FROM shelf WHERE id=? AND squad_id=?", (iid, sid)).fetchone()
+            if not item:
+                raise problem(404, "not_found", "成果不在架上。")
+            editors = json.loads(item["editors"] or "[]")
+            if user["id"] != item["author_id"] and user["id"] not in editors:
+                raise problem(403, "editor_required", "只有上传的人，或被授权的人，能改这份成果。")
+            con.execute("UPDATE shelf SET body=? WHERE id=?", (text[:8000], iid))
+            log(con, sid, user["id"], f"{user['name']} 修改了成果「{item['title']}」。")
+            return {"id": iid}
 
     @api.post("/api/studio/squads/{sid}/repo")
     def make_repo(sid: str, authorization: str = Header(default="")):
