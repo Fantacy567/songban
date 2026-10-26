@@ -137,6 +137,16 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(repo.status_code, 200, repo.text)
         self.assertFalse(repo.json()["remote"])
         self.assertTrue(repo.json()["url"].startswith("local://"))
+        renamed = self.client.patch(f"/api/studio/squads/{sid}", json={"name": "回响小队"}, headers=ca)
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(self.client.patch(f"/api/studio/squads/{sid}", json={"name": "别人改的"}, headers=ma).status_code, 403)
+        ppt = self.client.post(f"/api/studio/squads/{sid}/shelf", json={"kind": "ppt", "title": "路演要点", "body": "六页：题目、分工、演示。", "editors": []}, headers=ma)
+        self.assertEqual(ppt.json()["stored"], "shelf")
+        self.assertEqual(self.client.patch(f"/api/studio/squads/{sid}/shelf/{ppt.json()['id']}", json={"body": "队长不能改未授权的稿。"}, headers=ca).status_code, 403)
+        self.assertEqual(self.client.patch(f"/api/studio/squads/{sid}/shelf/{ppt.json()['id']}", json={"body": "六页，版式我来改。"}, headers=ma).status_code, 200)
+        shared = self.client.post(f"/api/studio/squads/{sid}/shelf", json={"kind": "ppt", "title": "共同路演", "body": "初稿", "editors": [captain["user_id"]]}, headers=ma)
+        self.assertEqual(self.client.patch(f"/api/studio/squads/{sid}/shelf/{shared.json()['id']}", json={"body": "去掉PPT"}, headers=ca).status_code, 409)
+        self.assertEqual(self.client.patch(f"/api/studio/squads/{sid}/shelf/{shared.json()['id']}", json={"body": "队长改了共同稿的版式。"}, headers=ca).status_code, 200)
         chart = self.client.post(f"/api/studio/squads/{sid}/flow", json={"request": "讨论，确认题目，安装技能，发布任务"}, headers=ca)
         self.assertIn("→", chart.json()["chart"])
         direction = self.client.post(f"/api/studio/squads/{sid}/direction", json={"message": "我们在做什么"}, headers=ma)
@@ -152,6 +162,14 @@ class StudioFlowTests(unittest.TestCase):
         self.assertTrue(any("不等表决" in item["detail"] for item in log))
         home = self.client.get("/api/studio/me", headers=ca).json()
         self.assertEqual(home["contests"][0]["submissions"], contest["submissions"])
+
+    def test_homepage_is_the_team_flow(self):
+        page = self.client.get("/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("/static/studio.js", page.text)
+        self.assertEqual(self.client.get("/static/studio.js").status_code, 200)
+        self.assertEqual(self.client.get("/classic").status_code, 200)
+        self.assertIn("不能自验", self.client.get("/workflow").text)
 
 
 if __name__ == "__main__":
