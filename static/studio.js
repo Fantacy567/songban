@@ -54,6 +54,8 @@ const state = {
   issuedCode: "",
   wechatNote: "",
   wechatTicket: "",
+  smsNote: "",
+  smsReady: false,
   menuOpen: false,
   chats: {},
   contestDraft: null,
@@ -217,7 +219,7 @@ function editorBoxes() {
 
 function viewSignup() {
   return `<div class="reg-wrap"><h2>用手机号注册</h2>
-    <p class="muted">填写手机号，点获取验证码。6 位数字会发到这个手机的短信里。打开短信填写。这一页不会显示验证码。</p>
+    <p class="muted">验证码由云端短信发到手机，和常用 App 一样。打开短信填写。这一页不显示数字。</p>
     <form id="reg-form" data-act="enter" class="card">
       <label for="reg-phone">手机号</label>
       <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号">
@@ -274,7 +276,7 @@ function viewSettings() {
       <p class="kicker">账号</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">用手机号和短信里的验证码进入。微信登录先不做。</p>
+      <p class="muted">用手机号和云端短信里的验证码进入。微信登录先不做。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
@@ -687,12 +689,16 @@ function paintSignupStatus() {
   const note = document.getElementById("reg-code-note");
   const issued = document.getElementById("reg-issued");
   if (note && issued) {
-    const show = !!state.issuedCode;
-    note.hidden = !show;
-    issued.hidden = !show;
-    if (show) {
+    if (state.issuedCode) {
+      note.hidden = false;
+      issued.hidden = false;
       issued.textContent = state.issuedCode;
       note.textContent = "这次没有发出短信，数字只出现在测试里。";
+    } else {
+      issued.hidden = true;
+      issued.textContent = "";
+      note.hidden = !state.smsNote;
+      note.textContent = state.smsNote || "";
     }
   }
   const profile = document.getElementById("reg-profile");
@@ -1190,7 +1196,19 @@ document.addEventListener("submit", async (event) => {
   render();
 });
 
+async function loadConnect() {
+  try {
+    const data = await api("GET", "/api/studio/connect");
+    state.smsReady = !!(data.sms && data.sms.ready);
+    state.smsNote = (data.sms && data.sms.notice) || "";
+  } catch {
+    state.smsReady = false;
+    state.smsNote = "";
+  }
+}
+
 async function boot() {
+  await loadConnect();
   const ticket = new URLSearchParams(location.search).get("wechat_ticket");
   if (ticket) {
     history.replaceState({}, "", "/");

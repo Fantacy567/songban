@@ -32,7 +32,7 @@ def load_env():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 name, value = line.split("=", 1)
-                if name.strip() in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE"}:
+                if name.strip() in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE"}:
                     os.environ.setdefault(name.strip(), value.strip().strip("\"'"))
 
 
