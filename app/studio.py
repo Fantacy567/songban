@@ -10,9 +10,18 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Header
+from fastapi import File, Header, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
+from .contest_intel import (
+    IntelError,
+    answer_contest_question,
+    decode_upload,
+    facts_as_lines,
+    research_contest,
+    summarize_facts,
+    supervise_against_contest,
+)
 from .sms import deliver_login_code, must_deliver, sms_status
 
 SCHEMA = """
@@ -103,6 +112,25 @@ def ensure_schema(con):
     if "phone_real" not in columns:
         con.execute("ALTER TABLE people ADD COLUMN phone_real INTEGER NOT NULL DEFAULT 1")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_wechat_openid ON people(wechat_openid) WHERE wechat_openid IS NOT NULL")
+    contest_cols = {row[1] for row in con.execute("PRAGMA table_info(contests)")}
+    if "facts" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN facts TEXT NOT NULL DEFAULT '{}'")
+    if "memory" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN memory TEXT NOT NULL DEFAULT ''")
+
+
+def public_contest(row):
+    item = dict(row)
+    item["submissions"] = json.loads(item.get("submissions") or "[]")
+    facts = {}
+    try:
+        facts = json.loads(item.get("facts") or "{}")
+    except (TypeError, json.JSONDecodeError):
+        facts = {}
+    item["facts"] = facts
+    item["fact_lines"] = facts_as_lines(facts)
+    item["memory"] = item.get("memory") or item.get("source_text") or ""
+    return item
 
 
 def wechat_status():
@@ -314,8 +342,7 @@ def register_studio(api, db, problem, now, uid, digest):
 
     def snapshot(con, squad_id, user):
         squad, me = squad_of(con, squad_id, user["id"])
-        contest = dict(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
-        contest["submissions"] = json.loads(contest["submissions"])
+        contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
         members = members_of(con, squad_id)
         ideas = [dict(row) for row in con.execute("SELECT * FROM ideas WHERE squad_id=? ORDER BY created_at", (squad_id,))]
         top, rest = split_ranked(ideas)
@@ -559,9 +586,13 @@ def register_studio(api, db, problem, now, uid, digest):
             squads = [dict(row) for row in con.execute("""SELECT s.id, s.name, s.code, s.stage, s.topic, c.name AS contest
                 FROM squads s JOIN squad_members m ON m.squad_id=s.id JOIN contests c ON c.id=s.contest_id
                 WHERE m.user_id=? ORDER BY s.created_at DESC""", (user["id"],))]
-            contests = [dict(row) for row in con.execute("SELECT id, name, deadline, submissions, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC", (user["id"],))]
-            for contest in contests:
-                contest["submissions"] = json.loads(contest["submissions"])
+            contests = [
+                public_contest(row)
+                for row in con.execute(
+                    "SELECT id, name, deadline, submissions, facts, memory, source_text, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC",
+                    (user["id"],),
+                )
+            ]
             friends = [dict(row) for row in con.execute("""SELECT p.id AS user_id, p.name, p.phone, p.phone_real FROM friendships f
                 JOIN people p ON p.id=f.friend_id WHERE f.user_id=?""", (user["id"],))]
             for friend in friends:
@@ -586,27 +617,142 @@ def register_studio(api, db, problem, now, uid, digest):
             con.execute("INSERT OR IGNORE INTO friendships(user_id, friend_id) VALUES(?,?)", (user["id"], friend["id"]))
             return {"user_id": friend["id"], "name": friend["name"]}
 
+    @api.post("/api/studio/contests/import-file")
+    async def import_contest_file(authorization: str = Header(default=""), file: UploadFile = File(...)):
+        with db(True) as con:
+            person_from_header(con, authorization)
+        raw = await file.read()
+        try:
+            parsed = decode_upload(file.filename or "upload.txt", raw)
+        except IntelError as exc:
+            raise problem(exc.status, exc.code, exc.message) from None
+        kind = parsed.get("kind") or "file"
+        notice = {
+            "shortcut": "识别到链接快捷方式，正在打开公众号/网页…",
+            "link": "识别到链接，正在读取公开正文…",
+            "file": "文件内容已读入，正在用 DeepSeek 整理…",
+        }.get(kind, "已读入。")
+        return {
+            "filename": (file.filename or "upload.txt")[:200],
+            "source_text": parsed.get("source_text") or "",
+            "url": parsed.get("url") or "",
+            "kind": kind,
+            "notice": notice,
+        }
+
+    @api.post("/api/studio/contests/confirm")
+    def confirm_contest(body: dict, authorization: str = Header(default="")):
+        """User-facing confirm: name + optional file text + WeChat URL. Model work stays on server."""
+        name = str(body.get("name") or "").strip()
+        url = str(body.get("url") or "").strip()
+        text = str(body.get("text") or body.get("file_text") or "").strip()
+        if not name:
+            raise problem(422, "name_required", "先填写比赛名称。")
+        if not url and not text and len(name) < 2:
+            raise problem(422, "contest_required", "请填写比赛名称，并上传文件或粘贴公众号网址。")
+        if url and not url.startswith("http"):
+            raise problem(422, "invalid_url", "网址要以 http:// 或 https:// 开头。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+        try:
+            draft = research_contest(query=name, url=url, text=text)
+        except IntelError as exc:
+            raise problem(exc.status, exc.code, exc.message) from None
+        except Exception as exc:
+            raise problem(502, "contest_lookup_failed", f"整理比赛资料失败：{exc}") from None
+        source = draft.get("source_text") or text or name
+        found = extract_submissions(source + "\n" + str((draft.get("facts") or {}).get("submissions_text") or ""))
+        deadline = str(draft.get("deadline") or "").strip()
+        if not deadline:
+            deadline = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(timespec="seconds")
+        else:
+            try:
+                datetime.fromisoformat(deadline)
+            except ValueError:
+                deadline = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(timespec="seconds")
+        final_name = str(draft.get("name") or name).strip()[:80]
+        facts = draft.get("facts") or {}
+        memory = draft.get("memory") or source
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            cid = uid()
+            con.execute(
+                "INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,memory,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                (
+                    cid,
+                    user["id"],
+                    final_name,
+                    deadline,
+                    source[:40000],
+                    json.dumps(found, ensure_ascii=False),
+                    json.dumps(facts, ensure_ascii=False),
+                    memory[:80000],
+                    now(),
+                ),
+            )
+            # Persist a short memory line on the person for later cross-step reminders.
+            note = f"比赛记忆：{final_name}｜时间：{facts.get('time', '')}｜提交：{facts.get('submissions_text', '')}"
+            growth = (user.get("growth") or "").strip()
+            merged = (growth + "\n" + note).strip() if growth else note
+            con.execute("UPDATE people SET growth=? WHERE id=?", (merged[:8000], user["id"]))
+            row = con.execute("SELECT * FROM contests WHERE id=?", (cid,)).fetchone()
+            result = public_contest(row)
+            result["notice"] = draft.get("notice") or summarize_facts(facts, final_name)
+            result["source_label"] = draft.get("label") or LABEL
+            result["found_count"] = sum(1 for line in result["fact_lines"] if line.get("filled"))
+            result["pending_count"] = sum(1 for line in result["fact_lines"] if not line.get("filled"))
+            return result
+
+    @api.post("/api/studio/contests/{cid}/ask")
+    def ask_contest(cid: str, body: dict, authorization: str = Header(default="")):
+        question = str(body.get("question") or body.get("message") or "").strip()
+        with db() as con:
+            user = person_from_header(con, authorization)
+            row = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (cid, user["id"])).fetchone()
+            if not row:
+                # Also allow squad members
+                row = con.execute(
+                    """SELECT c.* FROM contests c
+                       JOIN squads s ON s.contest_id=c.id
+                       JOIN squad_members m ON m.squad_id=s.id
+                       WHERE c.id=? AND m.user_id=? LIMIT 1""",
+                    (cid, user["id"]),
+                ).fetchone()
+            if not row:
+                raise problem(404, "not_found", "还没有这场比赛，或你不在相关队伍里。")
+            contest = public_contest(row)
+        try:
+            reply = answer_contest_question(question, contest.get("memory") or "", contest.get("facts") or {}, contest.get("name") or "")
+        except IntelError as exc:
+            raise problem(exc.status, exc.code, exc.message) from None
+        return {"reply": reply, "contest_id": cid}
+
     @api.post("/api/studio/contests")
     def create_contest(body: dict, authorization: str = Header(default="")):
+        # Backward-compatible path: prefer /confirm for the new UI.
+        if body.get("url") or body.get("file_text") or body.get("confirm"):
+            return confirm_contest(body, authorization)
         name = str(body.get("name") or "").strip()
         deadline = str(body.get("deadline") or "").strip()
         source = str(body.get("source_text") or "").strip()
         if not name or not deadline or len(source) < 8:
-            raise problem(422, "contest_required", "填写比赛名称、结束时间，并粘贴主办方公开材料。")
+            raise problem(422, "contest_required", "填写比赛名称，并确认比赛（上传文件或填写公众号网址）。")
         try:
             datetime.fromisoformat(deadline)
         except ValueError:
             raise problem(422, "invalid_deadline", "结束时间要带时区，例如 2026-10-28T18:00:00+08:00。") from None
-        if source.lower().startswith("http://") or source.lower().startswith("https://"):
-            raise problem(422, "paste_text", "本机不抓取网页。请粘贴公开材料的正文。")
+        if re.fullmatch(r"https?://\S+", source, flags=re.I):
+            raise problem(422, "paste_text", "请用「确认比赛」让系统读取链接。")
         found = extract_submissions(source)
         with db(True) as con:
             user = person_from_header(con, authorization)
             cid = uid()
-            con.execute("INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,created_at) VALUES(?,?,?,?,?,?,?)",
-                        (cid, user["id"], name[:80], deadline, source[:20000], json.dumps(found, ensure_ascii=False), now()))
+            con.execute(
+                "INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,memory,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                (cid, user["id"], name[:80], deadline, source[:20000], json.dumps(found, ensure_ascii=False), "{}", source[:50000], now()),
+            )
             return {"id": cid, "name": name[:80], "deadline": deadline, "submissions": found, "source_label": LABEL,
-                    "notice": "清单从粘贴的正文抽出。没有自动读取主办方帖子。"}
+                    "notice": "比赛已保存。"}
 
     @api.post("/api/studio/squads")
     def create_squad(body: dict, authorization: str = Header(default="")):
@@ -827,7 +973,7 @@ def register_studio(api, db, problem, now, uid, digest):
             owner = body.get("owner_id")
             if not con.execute("SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?", (sid, owner)).fetchone():
                 raise problem(422, "invalid_owner", "负责人要在这支队伍里。")
-            contest = con.execute("SELECT deadline FROM contests WHERE id=?", (squad["contest_id"],)).fetchone()
+            contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
             due = str(body.get("due_at") or contest["deadline"])
             try:
                 if datetime.fromisoformat(due) > datetime.fromisoformat(contest["deadline"]):
@@ -838,7 +984,8 @@ def register_studio(api, db, problem, now, uid, digest):
             con.execute("""INSERT INTO squad_tasks(id,squad_id,title,owner_id,priority,due_at,talk_to,alone,created_at)
                 VALUES(?,?,?,?,?,?,?,?,?)""", (tid, sid, title[:120], owner, priority, due, str(body.get("talk_to") or "")[:40], int(bool(body.get("alone", True))), now()))
             log(con, sid, user["id"], f"队长发布任务：{title[:40]}。不等表决。")
-            return {"id": tid, "waited_for_vote": False}
+            note = supervise_against_contest(title, contest.get("memory") or "", contest.get("facts") or {})
+            return {"id": tid, "waited_for_vote": False, "supervise": note}
 
     @api.patch("/api/studio/squads/{sid}/tasks/{tid}")
     def adjust_task(sid: str, tid: str, body: dict, authorization: str = Header(default="")):
@@ -949,7 +1096,19 @@ def register_studio(api, db, problem, now, uid, digest):
         with db() as con:
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
-            return {"reply": coach_reply(message, user["skills"], squad["topic"]), "source_label": LABEL}
+            contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
+        contestish = any(word in message for word in ("比赛", "赛规", "提交", "奖品", "截止", "赛道", "地点", "人数", "选拔", "主办方"))
+        if contestish and (contest.get("memory") or contest.get("facts")):
+            try:
+                reply = answer_contest_question(message, contest.get("memory") or "", contest.get("facts") or {}, contest.get("name") or "")
+            except IntelError:
+                reply = coach_reply(message, user["skills"], squad["topic"])
+        else:
+            reply = coach_reply(message, user["skills"], squad["topic"])
+            note = supervise_against_contest(message, contest.get("memory") or "", contest.get("facts") or {})
+            if note:
+                reply = f"{reply}\n\n赛规提醒：{note}"
+        return {"reply": reply, "source_label": "比赛记忆"}
 
     @api.post("/api/studio/squads/{sid}/direction")
     def direction(sid: str, body: dict, authorization: str = Header(default="")):
@@ -957,8 +1116,17 @@ def register_studio(api, db, problem, now, uid, digest):
         with db() as con:
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
-            contest = con.execute("SELECT submissions FROM contests WHERE id=?", (squad["contest_id"],)).fetchone()
-            return {"reply": direction_reply(message, squad["topic"], squad["trunk"], json.loads(contest["submissions"])), "source_label": LABEL}
+            contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
+        reply = direction_reply(message, squad["topic"], squad["trunk"], contest.get("submissions") or [])
+        if any(word in message for word in ("比赛", "赛规", "提交", "奖品", "截止", "赛道")):
+            try:
+                reply = answer_contest_question(message, contest.get("memory") or "", contest.get("facts") or {}, contest.get("name") or "")
+            except IntelError:
+                pass
+        note = supervise_against_contest(message, contest.get("memory") or "", contest.get("facts") or {})
+        if note:
+            reply = f"{reply}\n\n赛规提醒：{note}"
+        return {"reply": reply, "source_label": "比赛记忆"}
 
     @api.post("/api/studio/squads/{sid}/finish")
     def finish(sid: str, authorization: str = Header(default="")):

@@ -32,8 +32,14 @@ def load_env():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 name, value = line.split("=", 1)
-                if name.strip() in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE", "ALIYUN_SMS_MODE"}:
-                    os.environ.setdefault(name.strip(), value.strip().strip("\"'"))
+                key = name.strip()
+                if key in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE", "ALIYUN_SMS_MODE"}:
+                    cleaned = value.strip().strip("\"'")
+                    # Project .env wins so local DeepSeek / 短信配置不被外层环境顶掉。
+                    if cleaned:
+                        os.environ[key] = cleaned
+                    else:
+                        os.environ.setdefault(key, "")
 
 
 load_env()

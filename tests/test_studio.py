@@ -8,12 +8,54 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.contest_intel import extract_urls, heuristic_extract_facts, parse_weixin_article
 from app.studio import coach_reply, extract_submissions, skill_text, strategic_kind
 
 SOURCE = "主办方要求：可演示作品、宣传片、PPT、分工说明，以及 GitHub 仓库链接。"
 
 
 class ExtractTests(unittest.TestCase):
+    def test_extracts_weixin_mp_links_from_chat_text(self):
+        urls = extract_urls("群里发了 https://mp.weixin.qq.com/s/AbCdEfGhIjKl 大家看一下")
+        self.assertEqual(urls[0], "https://mp.weixin.qq.com/s/AbCdEfGhIjKl")
+
+    def test_parses_weixin_article_html(self):
+        html = """
+        <html><head>
+          <meta property="og:title" content="回响黑客松报名通知">
+          <meta property="og:description" content="需提交 PPT 和 GitHub 仓库">
+        </head><body>
+          <script>var msg_title = "回响黑客松报名通知"; var nickname = "主办方";</script>
+          <div id="js_content"><p>主办方要求：可演示作品、宣传片、PPT、分工说明。</p><div><span>请按时提交</span></div></div>
+        </body></html>
+        """
+        text, title = parse_weixin_article(html)
+        self.assertEqual(title, "回响黑客松报名通知")
+        self.assertIn("PPT", text)
+        self.assertIn("公众号：主办方", text)
+
+    def test_heuristic_extracts_labeled_contest_facts(self):
+        raw = """
+        标题：ClawHunt 72小时黑客松上海站
+        活动时间：2025年3月14日 至 2025年3月17日，共72小时
+        地点：上海市徐汇区创新中心
+        参赛人数：限120支队伍，每队3-5人
+        赛道：AI Agent、具身智能、开源工具
+        报名要求：面向在校生与初创团队
+        奖品：总奖金10万元，冠军3万
+        提交要求：Demo、GitHub 仓库、路演视频
+        注意事项：需实名认证
+        """
+        facts = heuristic_extract_facts(raw)
+        self.assertIn("2025", facts["time"])
+        self.assertIn("上海", facts["location"])
+        self.assertIn("120", facts["participants"])
+        self.assertTrue("AI" in facts["tracks"] or "具身" in facts["tracks"])
+        self.assertIn("在校生", facts["selection"])
+        self.assertIn("10万", facts["prizes"].replace(" ", ""))
+        self.assertIn("GitHub", facts["submissions_text"])
+        self.assertIn("实名", facts["other"])
+
     def test_extracts_more_than_a_demo(self):
         self.assertEqual(extract_submissions(SOURCE), ["宣传片", "PPT", "分工说明", "GitHub 仓库", "可演示作品"])
 
@@ -36,7 +78,14 @@ class ExtractTests(unittest.TestCase):
 
 class StudioFlowTests(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {k: "" for k in ["DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME"]})
+        self.env = patch.dict(
+            os.environ,
+            {k: "" for k in [
+                "DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME",
+                "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET",
+                "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE",
+            ]},
+        )
         self.env.start()
         self.temp = tempfile.TemporaryDirectory()
         self.client = TestClient(create_app(Path(self.temp.name) / "t.sqlite3"))
@@ -273,6 +322,68 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(self.client.get("/static/studio.js").status_code, 200)
         self.assertEqual(self.client.get("/classic").status_code, 200)
         self.assertIn("不能自验", self.client.get("/workflow").text)
+
+    def test_contest_file_import_and_confirm(self):
+        captain = self.enter("13800004444", "导入员", "产品")
+        headers = self.auth(captain["token"])
+        bad = self.client.post(
+            "/api/studio/contests/import-file",
+            files={"file": ("rules.pdf", b"%PDF-1.4", "application/pdf")},
+            headers=headers,
+        )
+        self.assertEqual(bad.status_code, 422)
+        good = self.client.post(
+            "/api/studio/contests/import-file",
+            files={"file": ("rules.md", SOURCE.encode("utf-8"), "text/markdown")},
+            headers=headers,
+        )
+        self.assertEqual(good.status_code, 200, good.text)
+        self.assertIn("GitHub", good.json()["source_text"])
+        fake_draft = {
+            "name": "回响黑客松",
+            "deadline": self.deadline,
+            "source_text": SOURCE,
+            "memory": SOURCE,
+            "facts": {
+                "time": "本周末",
+                "location": "上海",
+                "participants": "待补充",
+                "tracks": "待补充",
+                "selection": "待补充",
+                "prizes": "待补充",
+                "submissions_text": "PPT 与 GitHub 仓库",
+                "other": "待补充",
+            },
+            "sources": [],
+            "label": "比赛资料",
+            "notice": "已搜到：提交要求。待补充：时间、地点。",
+            "fact_lines": [],
+            "submissions_preview": [],
+        }
+        with patch("app.studio.research_contest", return_value=fake_draft):
+            confirmed = self.client.post(
+                "/api/studio/contests/confirm",
+                json={"name": "回响", "file_text": SOURCE},
+                headers=headers,
+            )
+        self.assertEqual(confirmed.status_code, 200, confirmed.text)
+        body = confirmed.json()
+        self.assertEqual(body["name"], "回响黑客松")
+        self.assertIn("PPT", body["facts"]["submissions_text"])
+        self.assertTrue(body["fact_lines"])
+        asked = self.client.post(
+            f"/api/studio/contests/{body['id']}/ask",
+            json={"question": "提交什么"},
+            headers=headers,
+        )
+        self.assertEqual(asked.status_code, 200, asked.text)
+        self.assertIn("reply", asked.json())
+        blocked = self.client.post(
+            "/api/studio/contests/confirm",
+            json={"name": "x", "url": "http://127.0.0.1/secret"},
+            headers=headers,
+        )
+        self.assertEqual(blocked.status_code, 422)
 
 
 if __name__ == "__main__":
