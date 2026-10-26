@@ -122,7 +122,10 @@ async function action(page,key,kind,note=''){
   step('F05/F06：记录与解除阻塞，提交成果，后端拒绝自验；另一成员退回后重新提交并通过');
   await action(other,'T2','start');
   await action(other,'T2','submit','操作页面已实现，能输入资料、编辑草案和显示真实后端任务；成果：static/app.js、static/style.css。');
-  await refreshed(captainPage);await action(captainPage,'T2','accept','已实际操作页面并核对共享数据。');
+  await captainPage.locator('[data-task-card="T2"][data-status="review"]').waitFor({timeout:20000});
+  await captainPage.locator('[data-next-step]').getByText('等你验收').waitFor();
+  step('同步：队友提交后，队长页面未手动刷新即自动更新，并在“我的下一步”提示待验收');
+  await action(captainPage,'T2','accept','已实际操作页面并核对共享数据。');
   await action(captainPage,'T3','start');
   await action(captainPage,'T3','submit','两独立会话走通创建、确认、提交、退回与交叉验收，依赖解锁符合流程。');
   await refreshed(other);await action(other,'T3','accept','本测试会话能读取并更新同一项目，操作结果一致。');
