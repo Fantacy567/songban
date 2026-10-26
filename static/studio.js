@@ -391,7 +391,7 @@ function viewContest() {
       <label for="curl">微信公众号网址</label>
       <input id="curl" name="url" value="${esc(draft.url || "")}" placeholder="https://mp.weixin.qq.com/s/……">
       <div class="row" style="margin-top:14px">
-        <button class="btn" type="submit" ${state.confirmingContest ? "disabled" : ""}>${state.confirmingContest ? "正在整理…" : "确认比赛"}</button>
+        <button class="btn" type="submit" ${state.confirmingContest ? "disabled" : ""}>${state.confirmingContest ? "正在读取公众号/长图并整理…" : "确认比赛"}</button>
       </div>
       <p class="muted">确认后会读取文件与网址，并查找公开信息；关键结果写入记忆，不在此展示模型过程。</p>
     </form>

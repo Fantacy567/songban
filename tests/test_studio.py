@@ -8,7 +8,14 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.contest_intel import extract_urls, heuristic_extract_facts, parse_weixin_article
+from app.contest_intel import (
+    extract_urls,
+    extract_weixin_image_urls,
+    heuristic_extract_facts,
+    parse_weixin_article,
+    prepare_weixin_url,
+    weixin_error_page,
+)
 from app.studio import coach_reply, extract_submissions, skill_text, strategic_kind
 
 SOURCE = "主办方要求：可演示作品、宣传片、PPT、分工说明，以及 GitHub 仓库链接。"
@@ -34,7 +41,19 @@ class ExtractTests(unittest.TestCase):
         self.assertIn("PPT", text)
         self.assertIn("公众号：主办方", text)
 
+    def test_prepare_weixin_url_adds_nwr_flag(self):
+        self.assertIn(
+            "nwr_flag=1",
+            prepare_weixin_url("https://mp.weixin.qq.com/s/RAfwuPBH1yFPtNJt0acOMQ"),
+        )
+
+    def test_detects_weixin_error_page_and_images(self):
+        self.assertTrue(weixin_error_page("<title>未知错误</title><p>未知错误，请稍后再试</p>"))
+        html = '<div id="js_content"><img data-src="https://mmecoa.qpic.cn/sz_mmecoa_png/abc/640?wx_fmt=png"/></div>'
+        self.assertEqual(extract_weixin_image_urls(html)[0].startswith("https://mmecoa.qpic.cn/"), True)
+
     def test_heuristic_extracts_labeled_contest_facts(self):
+
         raw = """
         标题：ClawHunt 72小时黑客松上海站
         活动时间：2025年3月14日 至 2025年3月17日，共72小时

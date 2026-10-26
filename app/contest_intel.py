@@ -4,22 +4,33 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+import shutil
 import socket
+import subprocess
+import sys
+import tempfile
+import threading
 from html import unescape
-from urllib.parse import unquote, urljoin, urlsplit
+from pathlib import Path
+from urllib.parse import unquote, urldefrag, urljoin, urlsplit
 
 import httpx
 
 from .planner import PlannerError, builtin_model
 
 MAX_FILE_BYTES = 2_000_000
-MAX_FETCH_BYTES = 2_000_000
+MAX_FETCH_BYTES = 2_800_000
 MAX_SOURCE_CHARS = 40_000
 MAX_MODEL_CHARS = 28_000
+MAX_WEIXIN_OCR_IMAGES = 6
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
+ROOT = Path(__file__).resolve().parent.parent
+OCR_SWIFT = ROOT / "scripts" / "macos_ocr.swift"
+OCR_BIN = Path(tempfile.gettempdir()) / "songban-macos-ocr"
+_OCR_BIN_LOCK = threading.Lock()
 
 ALLOWED_SUFFIXES = {
     ".txt", ".md", ".markdown", ".csv", ".json", ".html", ".htm", ".log", ".rst",
@@ -158,6 +169,162 @@ def extract_urls(text: str) -> list[str]:
     return out
 
 
+def prepare_weixin_url(url: str) -> str:
+    """WeChat often 302s bare /s/ID to ?nwr_flag=1; jump there directly."""
+    url = (url or "").strip()
+    if not is_weixin_article(url):
+        return url
+    parts = urlsplit(url)
+    if "nwr_flag=" in (parts.query or ""):
+        return urldefrag(url).url
+    joiner = "&" if parts.query else "?"
+    return urldefrag(f"{url}{joiner}nwr_flag=1").url
+
+
+def weixin_error_page(html: str) -> bool:
+    blob = html or ""
+    if "未知错误" in blob and "请稍后再试" in blob:
+        return True
+    if "你暂无权限查看此页面内容" in blob:
+        return True
+    if "失效的验证页面" in blob:
+        return True
+    return False
+
+
+def extract_weixin_image_urls(html_or_fragment: str, limit: int = 12) -> list[str]:
+    urls: list[str] = []
+    seen = set()
+    for match in re.finditer(
+        r'(?:data-src|data-original|src)=["\'](https://(?:mmecoa|mmbiz)\.qpic\.cn/[^"\']+)["\']',
+        html_or_fragment or "",
+        re.I,
+    ):
+        candidate = match.group(1).replace("&amp;", "&")
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        urls.append(candidate)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
+def macos_vision_available() -> bool:
+    if sys.platform != "darwin" or not OCR_SWIFT.is_file():
+        return False
+    return bool(shutil.which("swiftc") or shutil.which("swift") or OCR_BIN.is_file())
+
+
+def ensure_ocr_binary() -> Path | None:
+    """Compile Vision OCR once; parallel `swift` JIT races and returns empty text."""
+    if sys.platform != "darwin" or not OCR_SWIFT.is_file():
+        return None
+    with _OCR_BIN_LOCK:
+        if OCR_BIN.is_file() and OCR_BIN.stat().st_mtime >= OCR_SWIFT.stat().st_mtime:
+            return OCR_BIN
+        swiftc = shutil.which("swiftc")
+        if not swiftc:
+            return None
+        try:
+            proc = subprocess.run(
+                [
+                    swiftc,
+                    "-O",
+                    "-o",
+                    str(OCR_BIN),
+                    str(OCR_SWIFT),
+                    "-framework",
+                    "Vision",
+                    "-framework",
+                    "AppKit",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if proc.returncode != 0 or not OCR_BIN.is_file():
+            return None
+        try:
+            OCR_BIN.chmod(0o755)
+        except OSError:
+            pass
+        return OCR_BIN
+
+
+def ocr_image_bytes(data: bytes, suffix: str = ".png") -> str:
+    """OCR one image with macOS Vision. Empty if unavailable."""
+    if not data or not macos_vision_available():
+        return ""
+    binary = ensure_ocr_binary()
+    runner = [str(binary)] if binary else None
+    if not runner and shutil.which("swift"):
+        runner = ["swift", str(OCR_SWIFT)]
+    if not runner:
+        return ""
+    with tempfile.TemporaryDirectory(prefix="songban-ocr-") as tmp:
+        path = Path(tmp) / f"img{suffix}"
+        path.write_bytes(data)
+        # Shrink huge WeChat posters so Vision stays fast
+        if shutil.which("sips") and path.stat().st_size > 400_000:
+            try:
+                subprocess.run(
+                    ["sips", "-Z", "1600", str(path)],
+                    check=False,
+                    capture_output=True,
+                    timeout=20,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        try:
+            proc = subprocess.run(
+                runner + [str(path)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        if proc.returncode != 0:
+            return ""
+        return re.sub(r"\n{3,}", "\n\n", (proc.stdout or "").strip())
+
+
+def ocr_weixin_images(image_urls: list[str], transport=None, limit: int = MAX_WEIXIN_OCR_IMAGES) -> str:
+    if not image_urls or not macos_vision_available():
+        return ""
+    # Warm-compile before workers so they share one binary.
+    ensure_ocr_binary()
+    targets = image_urls[:limit]
+    headers = {
+        "User-Agent": WECHAT_UA,
+        "Referer": "https://mp.weixin.qq.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+
+    def _one(idx: int, link: str) -> tuple[int, str]:
+        try:
+            with httpx.Client(timeout=30, follow_redirects=True, transport=transport) as client:
+                response = client.get(link, headers=headers)
+            if response.status_code != 200 or len(response.content) < 800:
+                return idx, ""
+            ctype = response.headers.get("content-type", "")
+            suffix = ".jpg" if "jpeg" in ctype else ".png"
+            text = ocr_image_bytes(response.content, suffix=suffix)
+            return idx, text
+        except httpx.HTTPError:
+            return idx, ""
+
+    # 串行更稳：并行时图片下载+Vision 容易互相拖垮，最终全空。
+    chunks: list[tuple[int, str]] = []
+    for idx, link in enumerate(targets, start=1):
+        chunks.append(_one(idx, link))
+    parts = [f"【长图{idx} OCR】\n{text}" for idx, text in chunks if text and len(text) >= 12]
+    return "\n\n".join(parts)
+
+
 def is_weixin_article(url: str) -> bool:
     host = (urlsplit(url).hostname or "").lower()
     path = urlsplit(url).path or ""
@@ -215,21 +382,51 @@ def _fetch_headers(url: str) -> dict:
     }
 
 
+def _html_head(html: str, limit: int = 120_000) -> str:
+    """WeChat pages are multi-MB; only scan the head for meta tags to avoid regex stalls."""
+    if not html:
+        return ""
+    marker = html.find('id="js_content"')
+    if marker < 0:
+        marker = html.find("id='js_content'")
+    if marker > 0:
+        return html[: min(len(html), max(limit, marker + 2000))]
+    return html[: min(len(html), limit)]
+
+
+def _html_meta_regions(html: str) -> str:
+    """Head + small tail (WeChat puts msg_title / nickname near the end)."""
+    if not html:
+        return ""
+    head = _html_head(html)
+    if len(html) <= 200_000:
+        return html
+    tail = html[-100_000:]
+    return head + "\n" + tail
+
+
 def _meta_content(html: str, prop: str) -> str:
+    blob = _html_head(html)
     pattern = re.compile(
         rf'(?is)<meta[^>]+(?:property|name)=["\']{re.escape(prop)}["\'][^>]+content=["\'](.*?)["\']'
         rf'|<meta[^>]+content=["\'](.*?)["\'][^>]+(?:property|name)=["\']{re.escape(prop)}["\']'
     )
-    match = pattern.search(html)
+    match = pattern.search(blob)
     if not match:
         return ""
     return unescape(re.sub(r"\s+", " ", (match.group(1) or match.group(2) or "").strip()))
 
 
 def _js_var(html: str, name: str) -> str:
-    match = re.search(rf"(?is)var\s+{re.escape(name)}\s*=\s*\"((?:\\.|[^\"])*)\"", html)
+    # Never scan the whole multi-MB WeChat bundle — catastrophic backtracking freezes confirm.
+    blob = _html_meta_regions(html)
+    match = re.search(rf"var\s+{re.escape(name)}\s*=\s*'(.*?)'\.html\(false\)", blob)
     if not match:
-        match = re.search(rf"(?is)var\s+{re.escape(name)}\s*=\s*'((?:\\.|[^'])*)'", html)
+        match = re.search(rf'var\s+{re.escape(name)}\s*=\s*"(.*?)"\.html\(false\)', blob)
+    if not match:
+        match = re.search(rf"var\s+{re.escape(name)}\s*=\s*\"([^\"\\]*(?:\\.[^\"\\]*)*)\"", blob)
+    if not match:
+        match = re.search(rf"var\s+{re.escape(name)}\s*=\s*'([^'\\]*(?:\\.[^'\\]*)*)'", blob)
     if not match:
         return ""
     value = match.group(1)
@@ -238,15 +435,17 @@ def _js_var(html: str, name: str) -> str:
 
 
 def _extract_js_content(html: str) -> str:
-    """Pull #js_content with nested divs; WeChat articles nest many blocks."""
+    """Pull #js_content with nested divs; stop early so trailing MB of JS is ignored."""
     start = re.search(r'(?is)<div[^>]+id=["\']js_content["\'][^>]*>', html)
     if not start:
         return ""
     i = start.end()
     depth = 1
-    while i < len(html) and depth > 0:
-        next_open = html.find("<div", i)
-        next_close = html.find("</div>", i)
+    # Body rarely needs more than a few hundred KB of HTML; ignore the huge script tail.
+    hard_end = min(len(html), start.end() + 600_000)
+    while i < hard_end and depth > 0:
+        next_open = html.find("<div", i, hard_end)
+        next_close = html.find("</div>", i, hard_end)
         if next_close < 0:
             break
         if next_open >= 0 and next_open < next_close:
@@ -257,10 +456,15 @@ def _extract_js_content(html: str) -> str:
             if depth == 0:
                 return html[start.end():next_close]
             i = next_close + 6
-    return html[start.end(): start.end() + 80000]
+    return html[start.end(): min(hard_end, start.end() + 120000)]
 
 
-def parse_weixin_article(html: str, fallback_url: str = "") -> tuple[str, str]:
+def parse_weixin_article(html: str, fallback_url: str = "", transport=None) -> tuple[str, str]:
+    if weixin_error_page(html):
+        raise IntelError(
+            "weixin_fetch_failed",
+            "微信返回了验证/错误页，正文没读到。请稍后重试，或把文章里的文字复制上传。",
+        )
     title = (
         _meta_content(html, "og:title")
         or _js_var(html, "msg_title")
@@ -275,18 +479,27 @@ def parse_weixin_article(html: str, fallback_url: str = "") -> tuple[str, str]:
     body_html = _extract_js_content(html)
     # 有些模板把正文藏在隐藏节点；去掉 display:none / visibility:hidden 后再抽一次
     if not body_html or len(html_to_text(body_html)) < 80:
-        cleaned = re.sub(r'(?is)\s(?:style|class)=["\'][^"\']*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^"\']*["\']', " ", html)
+        cleaned = re.sub(
+            r'(?is)\s(?:style|class)=["\'][^"\']*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^"\']*["\']',
+            " ",
+            html,
+        )
         body_html = _extract_js_content(cleaned) or body_html
     text = html_to_text(body_html) if body_html else ""
     desc = _meta_content(html, "og:description") or _js_var(html, "msg_desc")
     nickname = _js_var(html, "nickname") or _meta_content(html, "og:article:author")
-    # 再捞页面里可能泄露的活动字段
     extras = []
     for key in ("activity_name", "activityName", "hdname"):
         value = _js_var(html, key)
         if value:
             extras.append(value)
-    if not text or len(text) < 40:
+    image_urls = extract_weixin_image_urls(body_html or html)
+    # 公众号长图文：可见文字很少时，对本机 Vision OCR 长图
+    ocr_text = ""
+    plain_len = len(re.sub(r"\s+", "", text or ""))
+    if image_urls and plain_len < 500:
+        ocr_text = ocr_weixin_images(image_urls, transport=transport)
+    if not text or plain_len < 40:
         pieces = [p for p in (title, nickname and f"公众号：{nickname}", desc, *extras) if p]
         text = "\n".join(pieces)
     else:
@@ -296,10 +509,17 @@ def parse_weixin_article(html: str, fallback_url: str = "") -> tuple[str, str]:
         head.extend(extras)
         if head:
             text = "\n".join(head) + "\n\n" + text
+    if ocr_text:
+        text = f"{text}\n\n【以下由长图 OCR 识别，可能有个别错字】\n{ocr_text}"
     if nickname and f"公众号：{nickname}" not in text:
         text = f"公众号：{nickname}\n\n{text}"
     if title and title not in text[:200]:
         text = f"标题：{title}\n\n{text}"
+    if image_urls and not ocr_text and plain_len < 500:
+        text += (
+            "\n\n（正文主要是长图，自动识图未成功。"
+            "请把图中关键文字复制进上传框后再确认。）"
+        )
     text = normalize_source(text)
     if len(text) < 8:
         raise IntelError(
@@ -311,41 +531,49 @@ def parse_weixin_article(html: str, fallback_url: str = "") -> tuple[str, str]:
 
 def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
     url = validate_public_url(url)
-    current = url
+    weixin = is_weixin_article(url)
+    current = prepare_weixin_url(url) if weixin else url
+    # 公众号页常 3MB+；用普通 GET + 跟跳转。stream 在微信域名上会拖死读超时。
+    timeout = httpx.Timeout(60.0 if weixin else 18.0, connect=10.0)
     try:
-        with httpx.Client(timeout=18, follow_redirects=False, transport=transport) as client:
-            for _ in range(6):
-                response = client.get(current, headers=_fetch_headers(current))
-                if response.status_code in {301, 302, 303, 307, 308}:
-                    location = response.headers.get("location")
-                    if not location:
-                        break
-                    current = urljoin(current, location)
-                    validate_public_url(current)
-                    continue
-                if response.status_code != 200:
-                    if is_weixin_article(current):
-                        raise IntelError(
-                            "weixin_fetch_failed",
-                            f"微信公众号文章打不开（HTTP {response.status_code}）。请确认链接是公开文章，并完整复制 mp.weixin.qq.com/s/… 地址。",
-                        )
-                    raise IntelError("fetch_failed", f"页面返回 {response.status_code}，没有读到正文。")
-                body = response.content[:MAX_FETCH_BYTES]
-                ctype = response.headers.get("content-type", "")
-                if "html" in ctype or body[:200].lstrip().lower().startswith((b"<!doctype", b"<html")):
-                    html = body.decode("utf-8", errors="replace")
-                    if is_weixin_article(current) or "mp.weixin.qq.com" in current:
-                        return parse_weixin_article(html, current)
-                    match = re.search(r"(?is)<title[^>]*>(.*?)</title>", html)
-                    title = unescape(re.sub(r"\s+", " ", match.group(1)).strip()) if match else ""
-                    text = html_to_text(html)
-                    return normalize_source(text), title or current
-                return normalize_source(body.decode("utf-8", errors="replace")), current
+        with httpx.Client(timeout=timeout, follow_redirects=True, transport=transport) as client:
+            response = client.get(current, headers=_fetch_headers(current))
+            final = str(response.url)
+            if response.status_code != 200:
+                if weixin or is_weixin_article(final):
+                    raise IntelError(
+                        "weixin_fetch_failed",
+                        f"微信公众号文章打不开（HTTP {response.status_code}）。请确认链接是公开文章，并完整复制 mp.weixin.qq.com/s/… 地址。",
+                    )
+                raise IntelError("fetch_failed", f"页面返回 {response.status_code}，没有读到正文。")
+            body = response.content[:MAX_FETCH_BYTES]
+            ctype = response.headers.get("content-type", "")
+            if "html" in ctype or body[:200].lstrip().lower().startswith((b"<!doctype", b"<html")):
+                html = body.decode("utf-8", errors="replace")
+                if weixin or is_weixin_article(final) or "mp.weixin.qq.com" in final:
+                    if weixin_error_page(html):
+                        # 再试一次带 nwr_flag 的地址
+                        retry = prepare_weixin_url(urldefrag(final).url)
+                        if retry != current:
+                            response = client.get(retry, headers=_fetch_headers(retry))
+                            if response.status_code == 200:
+                                html = response.content[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
+                                final = str(response.url)
+                        if weixin_error_page(html):
+                            raise IntelError(
+                                "weixin_fetch_failed",
+                                "微信返回了验证/错误页，正文没读到。请稍后重试，或把文章里的文字复制上传。",
+                            )
+                    return parse_weixin_article(html, final, transport=transport)
+                match = re.search(r"(?is)<title[^>]*>(.*?)</title>", html)
+                title = unescape(re.sub(r"\s+", " ", match.group(1)).strip()) if match else ""
+                text = html_to_text(html)
+                return normalize_source(text), title or final
+            return normalize_source(body.decode("utf-8", errors="replace")), final
     except httpx.TimeoutException as exc:
         raise IntelError("fetch_timeout", "打开网页超时。请检查网络，或改用上传文件。") from exc
     except httpx.HTTPError as exc:
         raise IntelError("fetch_failed", "网页连不上。请检查网络，或改用上传文件。") from exc
-    raise IntelError("fetch_failed", "跟随跳转后仍无法读取页面。")
 
 
 def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[str]:
@@ -672,7 +900,12 @@ def heuristic_extract_facts(raw: str) -> dict:
         if not city:
             city = re.search(
                 r"((?:上海|北京|深圳|杭州|广州|成都|南京|苏州|武汉|西安|重庆|厦门|青岛)"
-                r"(?:市)?[^。\n]{0,36}(?:路|街|道|号|中心|园区|大学|馆))",
+                r"(?:市)?\s*[•·・\-]?\s*[^。\n]{0,36}(?:路|街|道|号|中心|园区|大学|馆|SPACE|Space|space))",
+                text,
+            )
+        if not city:
+            city = re.search(
+                r"(上海|北京|深圳|杭州|广州|成都)\s*[•·・]\s*[^\n]{2,40}",
                 text,
             )
         if city:
