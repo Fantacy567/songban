@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
 
+from .advice import advice_markdown, rubric_coverage, scope_advice
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
@@ -152,7 +153,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     finally:
         initial.close()
 
-    api = FastAPI(title="赛内协作助手 API", version="0.3.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    api = FastAPI(title="赛内协作助手 API", version="0.4.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     api.state.db_path = path
     configured_origins = [s.strip() for s in os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",") if s.strip()]
     if "*" in configured_origins:
@@ -321,7 +322,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 con.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
         except sqlite3.Error:
             raise Problem(503, "database_unavailable", "数据库暂不可用。") from None
-        return {"status": "ok", "service": "hackathon-collab", "version": "0.3.0", "model_configured": bool(model_configured())}
+        return {"status": "ok", "service": "hackathon-collab", "version": "0.4.0", "model_configured": bool(model_configured())}
 
     @api.post("/api/projects", status_code=201)
     def create_project(body: ProjectInput):
@@ -349,7 +350,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 draft["capacity_warnings"] = validate_draft(con, p, Draft.model_validate(draft["content"]))
             events = [dict(r) for r in con.execute("SELECT * FROM (SELECT * FROM events WHERE project_id=? ORDER BY sequence DESC LIMIT 200) ORDER BY sequence", (pid,))]
             info = model_info(pid)
-            return {"project": {**p, "phase": phase(p, items)}, "me": {k: v for k, v in me.items() if k != "token_hash"}, "members": members(con, pid), "sources": sources(con, pid), "proposals": drafts, "tasks": items, "events": events, "model_configured": info["key_configured"], "current_model": info, "public_base_url": public_base_url}
+            return {"project": {**p, "phase": phase(p, items)}, "me": {k: v for k, v in me.items() if k != "token_hash"}, "members": members(con, pid), "sources": sources(con, pid), "proposals": drafts, "tasks": items, "events": events, "model_configured": info["key_configured"], "current_model": info, "public_base_url": public_base_url, "scope": scope_advice(p["deadline"], now(), items)}
 
     @api.get("/api/projects/{pid}/pulse")
     def pulse(pid: str, authorization: str = Header(default="")):
@@ -580,7 +581,8 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
         if ready:
             suggestions.append("所有必须任务已通过成员验收；仍需人工对照赛事原文核对最终提交材料和入口。")
         suggestions.append("本轮未测量节时、学习提升或获奖概率，不能据此生成成效百分比。")
-        return {"project_name": p["name"], "goal": p["goal"], "phase": phase(p, items), "ready": ready, "source_label": "本地数据库统计与规则建议 · 非大模型复盘", "stats": stats, "checklist": checklist, "suggestions": suggestions, "event_count": len(events)}
+        rubric = rubric_coverage([s for s in sources(con, pid) if s["kind"] == "rules"], items)
+        return {"project_name": p["name"], "goal": p["goal"], "phase": phase(p, items), "ready": ready, "source_label": "本地数据库统计与规则建议 · 非大模型复盘", "stats": stats, "checklist": checklist, "suggestions": suggestions, "event_count": len(events), "rubric": rubric, "scope": scope_advice(p["deadline"], now(), items)}
 
     @api.get("/api/projects/{pid}/recap")
     def get_recap(pid: str, authorization: str = Header(default="")):
@@ -599,6 +601,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
         lines = [f"# {report['project_name']} · 提交核对与复盘", "", f"目标：{report['goal'] or '尚未确认'}", f"来源：{report['source_label']}", f"可交付：{'是（仍需核对赛规）' if report['ready'] else '否'}", "", "## 任务清单"]
         for t in report["checklist"]:
             lines.extend([f"- [{'x' if t['accepted'] else ' '}] {t['title']}（{'必须' if t['required'] else '可选'}）", f"  - 验收：{t['acceptance']}", f"  - 成果：{t['deliverable'] or '未提交'}"])
+        lines.extend(advice_markdown(report["rubric"], report["scope"]))
         lines.extend(["", "## 复盘建议", *[f"- {s}" for s in report["suggestions"]], "", "## 资料原文"])
         for source in originals:
             lines.extend([f"### {source['title']}", source["body"], ""])
