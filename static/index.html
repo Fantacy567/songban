@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>赛内协作 · 工作台</title><link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app"><main class="loading">正在连接协作服务…</main></div>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <dialog id="entry-dialog"><div class="dialog-head"><h2>成员独立入口</h2><button id="close-dialog" class="ghost">关闭</button></div><p class="muted">每个入口代表一名成员，请分别私下发送。队长入口请自行保存。</p><div id="entries"></div></dialog>
+  <dialog id="action-dialog"><form id="action-form"><h2 id="action-heading">更新任务</h2><label for="action-note" id="action-label">说明</label><textarea id="action-note" rows="5" maxlength="5000"></textarea><div class="actions"><button type="button" id="cancel-action" class="ghost">取消</button><button type="submit" id="confirm-action">确认</button></div></form></dialog>
+  <script src="/static/app.js" defer></script>
+</body></html>

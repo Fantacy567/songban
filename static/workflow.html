@@ -1,0 +1,13 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>赛内协作 · 业务流程图</title><link rel="stylesheet" href="/static/style.css"></head><body><main class="workflow-page"><a href="/">← 返回工作台</a><div class="eyebrow" style="margin-top:35px">Business workflow · v0.2</div><h1>从共同依据，到经过验收的成果。</h1><p class="muted">每个节点对应需求与测试编号。项目数据在 SQLite 持久保存；成员通过独立入口协作。</p><div class="flow-rail">
+<div class="flow-node"><span class="step-number">01</span><div><strong>创建项目与成员</strong><p>队长填写赛事截止、角色、能力和工时。分别保存成员入口。F01 / F07</p></div></div><div class="flow-arrow">↓</div>
+<div class="flow-node"><span class="step-number">02</span><div><strong>录入规则与讨论原文</strong><p>至少各一份。保留来源，确认前可追加。F02</p></div></div><div class="flow-arrow">↓</div>
+<div class="flow-node"><span class="step-number">03</span><div><strong>选择方式，生成待确认方案</strong><p>本地规则演练始终标注“非大模型”。真实模型默认 DeepSeek-V4-Pro（deepseek-v4-pro），或由队长使用自带 key 读取服务模型列表，选择完整 ID 后发送资料。F02 / F03 / F11</p></div></div>
+<div class="flow-branch">模型配置缺失 / 超时 / 输出不合规 → 显示错误，保留原文 → 重新选择或重试，不伪装生成成功。</div><div class="flow-arrow">↓</div>
+<div class="flow-node"><span class="step-number">04</span><div><strong>队长核对并确认分工</strong><p>核对目标、待确认事项、原文引用、工时预算与任务依赖。确认后正式任务一次生成，资料与分工冻结。F03 / F04</p></div></div>
+<div class="flow-branch">引用不实 / 工时超预算 / 依赖成环 → 修改草案再确认。原文更新 → 旧草案失效，重新生成。普通成员不能代替队长确认。</div><div class="flow-arrow">↓</div>
+<div class="flow-node"><span class="step-number">05</span><div><strong>成员开始自己的任务</strong><p>独立入口共享同一份后端任务。前置任务必须已通过验收。F05 / F07</p></div></div>
+<div class="flow-branch">依赖未验收 → 等待前置任务。遇到问题 → 填写阻塞原因 → 解除后继续。旧窗口写入 → 返回 409，刷新核对。</div><div class="flow-arrow">↓</div>
+<div class="flow-node"><span class="step-number">06</span><div><strong>提交成果，请另一成员验收</strong><p>负责人填写成果说明。另一成员通过或说明退回原因；不能自验。F06</p></div></div>
+<div class="flow-branch">退回 → 负责人继续修改 → 重新提交。通过 → 解锁后置任务。尚有必须任务未通过 → 回到任务执行。</div><div class="flow-arrow">↓</div>
+<div class="flow-node success"><span class="step-number">07</span><div><strong>全部必须任务通过，准备交付与复盘</strong><p>核对赛事提交要求，导出资料、成果与过程记录；根据真实阻塞 / 退回记录提出训练建议，不捏造节时效果。F08 / F09 / F10</p></div></div>
+</div><p class="muted">首版边界：刷新同步、无实时录音和 GitHub 自动验收、无真实账号体系。真实模型质量需配置后另测。完整可编辑流程位于 docs/业务流程.md。</p></main></body></html>
