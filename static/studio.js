@@ -216,19 +216,16 @@ function editorBoxes() {
 }
 
 function viewSignup() {
-  const wechat = !!state.wechatTicket;
-  return `<div class="reg-wrap"><h2>${wechat ? "微信已扫码" : "注册"}</h2>
-    <p class="muted">${wechat ? "微信已经确认是你。再填写名字、画像和目前做得到的事，才会进入。" : "先填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。"}</p>
+  return `<div class="reg-wrap"><h2>用手机号注册</h2>
+    <p class="muted">填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。</p>
     <form id="reg-form" data-act="enter" class="card">
-      <div id="reg-phone-block" ${wechat ? "hidden" : ""}>
-        <label for="reg-phone">手机号</label>
-        <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="6 到 20 位数字">
-        <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
-        <p id="reg-code-note" class="muted" hidden></p>
-        <p id="reg-issued" class="code" hidden></p>
-        <label for="reg-code">验证码</label>
-        <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
-      </div>
+      <label for="reg-phone">手机号</label>
+      <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号">
+      <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
+      <p id="reg-code-note" class="muted" hidden></p>
+      <p id="reg-issued" class="code" hidden></p>
+      <label for="reg-code">验证码</label>
+      <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
       <div id="reg-profile" hidden>
         <label for="reg-name">名字</label>
         <input id="reg-name" name="name" maxlength="40" autocomplete="name">
@@ -236,14 +233,10 @@ function viewSignup() {
         <textarea id="reg-about" name="profile" placeholder="例如：高二，产品设计。会整理讨论和演示。"></textarea>
         <label for="reg-skills">目前做得到的事</label>
         <input id="reg-skills" name="skills" placeholder="例如：需求、流程图、路演">
-        <p class="muted">只在第一次问。验证还没通过时，填了也不会进入。</p>
+        <p class="muted">只在第一次问。验证码还没通过时，填了也不会进入。</p>
       </div>
-      <button class="btn" type="submit">${wechat ? "完成注册" : "验证并进入"}</button>
+      <button class="btn" type="submit">验证并进入</button>
     </form>
-    <div class="card" ${wechat ? "hidden" : ""}>
-      <button class="btn ghost" type="button" data-act="wechat">用微信登录</button>
-      <p id="reg-wechat" class="muted" hidden></p>
-    </div>
     <p id="reg-status" hidden></p></div>`;
 }
 
@@ -281,15 +274,11 @@ function viewSettings() {
       <p class="kicker">账号</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">验证码在注册页核对。这台电脑没有短信服务，验证码不会发到手机上。</p>
+      <p class="muted">用手机号和验证码进入。微信登录先不做。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
       </div>
-    </div>
-    <div class="card">
-      <p class="kicker">微信</p>
-      <p>微信登录要你本人用微信扫码注册开放平台，等网站应用审核通过，还要一个已备案的 https 域名。这三样还没办好时，按钮不会放人进去，也不会编头像。</p>
     </div>
     <div class="card">
       <p class="kicker">本机标记</p>
