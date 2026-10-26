@@ -116,42 +116,62 @@ def wechat_status():
     return {"ready": not missing, "missing": missing}
 
 
-def imessage_handle(phone):
+def real_sms_enabled():
+    return os.environ.get("SONGBAI_IMESSAGE") == "1" or os.environ.get("SONGBAI_SMS") == "1"
+
+
+def sms_handle(phone):
     if len(phone) == 11 and phone.startswith("1"):
         return "+86" + phone
+    if phone.startswith("+"):
+        return phone
     return "+" + phone
 
 
-def send_imessage(phone, code):
-    handle = imessage_handle(phone)
-    text = f"松伴验证码 {code}。10 分钟内有效。如果不是你在注册，请忽略。"
+def send_phone_code(phone, code):
+    handle = sms_handle(phone)
+    text = f"【松伴】验证码 {code}，10 分钟内有效。如非本人操作请忽略。"
     script = """on run argv
 set targetHandle to item 1 of argv
 set msg to item 2 of argv
 tell application "Messages"
-set iService to first service whose service type = iMessage
-set iBuddy to participant targetHandle of iService
-send msg to iBuddy
+    try
+        send msg to participant targetHandle of (first service whose service type is SMS)
+        return "sms"
+    end try
+    try
+        send msg to buddy targetHandle of (first service whose service type is SMS)
+        return "sms"
+    end try
+    try
+        send msg to participant targetHandle of (first service whose service type is iMessage)
+        return "imessage"
+    end try
 end tell
+error "这台 Mac 没有把短信发出去。打开系统设置 → 信息，确认这台电脑已打开短信转发。"
 end run"""
     try:
-        result = subprocess.run(["osascript", "-e", script, handle, text], capture_output=True, text=True, timeout=12)
+        result = subprocess.run(["osascript", "-e", script, handle, text], capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.TimeoutExpired):
         return False, "信息 App 没有在时限内响应"
-    detail = (result.stderr or result.stdout or "").replace(code, "******").strip()
+    kind = (result.stdout or "").strip().splitlines()[-1] if result.stdout else ""
+    detail = (result.stderr or "").replace(code, "******").strip()
     if result.returncode != 0:
         return False, detail[:160] or "信息 App 没有把这条发出去"
-    return True, ""
+    if kind not in {"sms", "imessage"}:
+        return False, "信息 App 没有确认发出"
+    return True, kind
 
 
 def deliver_login_code(phone, code):
-    if os.environ.get("SONGBAI_IMESSAGE") == "1":
-        sent, detail = send_imessage(phone, code)
-        if sent:
-            return True, "验证码已从这台 Mac 的「信息」发到这个号码。页面上不再显示数字。对方需要能收 iMessage。"
-        reason = detail or "信息没有登录，或这个号码不是 iMessage"
-        return False, f"这台 Mac 没有把验证码发出去（{reason}）。数字先留在这一页，没有假装发送成功。"
-    return False, "没有短信服务商。这 6 位验证码只显示在这一页，没有发送。"
+    if not real_sms_enabled():
+        return False, "没有打开本机短信发送。这 6 位验证码只显示在这一页，没有发送。"
+    sent, detail = send_phone_code(phone, code)
+    if sent:
+        channel = "短信" if detail == "sms" else "信息"
+        return True, f"验证码已用{channel}发到这个手机号。请打开手机填写。这一页不会显示数字。"
+    reason = detail or "短信没有发出"
+    return False, f"验证码没有发到手机（{reason}）。没有把数字留在网页上。"
 
 
 def public_phone(user):
@@ -406,8 +426,22 @@ def register_studio(api, db, problem, now, uid, digest):
         phone = normalize_phone(body.get("phone", ""))
         if not phone:
             raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
+        if real_sms_enabled():
+            with db() as con:
+                previous = con.execute("SELECT created_at FROM phone_codes WHERE phone=?", (phone,)).fetchone()
+            if previous:
+                earlier = datetime.fromisoformat(previous["created_at"])
+                current = datetime.fromisoformat(now())
+                if earlier.tzinfo is None:
+                    earlier = earlier.replace(tzinfo=timezone.utc)
+                if current.tzinfo is None:
+                    current = current.replace(tzinfo=timezone.utc)
+                if (current - earlier).total_seconds() < 60:
+                    raise problem(429, "code_wait", "请等一分钟再获取，避免同一条短信发很多遍。")
         code, expires = issue_code(phone)
         sent, notice = deliver_login_code(phone, code)
+        if real_sms_enabled() and not sent:
+            raise problem(503, "code_not_sent", notice)
         with db(True) as con:
             con.execute("""INSERT INTO phone_codes(phone,code_hash,expires_at,created_at) VALUES(?,?,?,?)
                 ON CONFLICT(phone) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, created_at=excluded.created_at""",
@@ -452,7 +486,7 @@ def register_studio(api, db, problem, now, uid, digest):
 
     @api.get("/api/studio/connect")
     def connect_status():
-        return {"wechat": wechat_status(), "imessage": os.environ.get("SONGBAI_IMESSAGE") == "1"}
+        return {"wechat": wechat_status(), "sms": real_sms_enabled()}
 
     @api.get("/api/studio/wechat/start")
     def wechat_start():

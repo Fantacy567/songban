@@ -217,7 +217,7 @@ function editorBoxes() {
 
 function viewSignup() {
   return `<div class="reg-wrap"><h2>用手机号注册</h2>
-    <p class="muted">填写手机号，获取 6 位验证码，再把验证码填进去。验证码正确才会建立账号。</p>
+    <p class="muted">填写手机号，点获取验证码。6 位数字会发到这个手机的短信里。打开短信填写。这一页不会显示验证码。</p>
     <form id="reg-form" data-act="enter" class="card">
       <label for="reg-phone">手机号</label>
       <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号">
@@ -274,7 +274,7 @@ function viewSettings() {
       <p class="kicker">账号</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">用手机号和验证码进入。微信登录先不做。</p>
+      <p class="muted">用手机号和短信里的验证码进入。微信登录先不做。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
@@ -692,7 +692,7 @@ function paintSignupStatus() {
     issued.hidden = !show;
     if (show) {
       issued.textContent = state.issuedCode;
-      note.textContent = "这组数字没有发到手机。填进下面的验证码。";
+      note.textContent = "这次没有发出短信，数字只出现在测试里。";
     }
   }
   const profile = document.getElementById("reg-profile");
@@ -835,7 +835,7 @@ const actions = {
     const form = button.closest("form");
     const phone = form.phone.value.trim();
     const data = await api("POST", "/api/studio/codes", { phone });
-    state.issuedCode = data.sent ? "" : (data.code || "");
+    state.issuedCode = "";
     state.note = data.notice;
     state.error = "";
   },

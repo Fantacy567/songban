@@ -205,6 +205,30 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(denied.status_code, 401, denied.text)
         self.assertNotIn("token", denied.json())
 
+    def test_sent_code_is_not_returned(self):
+        with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):
+            with patch("app.studio.send_phone_code", return_value=(True, "sms")) as mocked:
+                with patch("app.studio.secrets.randbelow", return_value=123456):
+                    result = self.client.post("/api/studio/codes", json={"phone": "13800004444"})
+        self.assertEqual(result.status_code, 200, result.text)
+        body = result.json()
+        self.assertTrue(body["sent"])
+        self.assertNotIn("code", body)
+        self.assertNotIn("123456", result.text)
+        mocked.assert_called_once_with("13800004444", "123456")
+        entered = self.client.post("/api/studio/register", json={"phone": "13800004444", "code": "123456", "name": "甲", "profile": "做过产品和演示", "skills": "产品"})
+        self.assertIn(entered.status_code, (200, 201), entered.text)
+        self.assertIn("token", entered.json())
+
+    def test_failed_sms_does_not_show_the_code(self):
+        with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):
+            with patch("app.studio.send_phone_code", return_value=(False, "信息没有把这条发出去")):
+                with patch("app.studio.secrets.randbelow", return_value=654321):
+                    result = self.client.post("/api/studio/codes", json={"phone": "13800005555"})
+        self.assertEqual(result.status_code, 503, result.text)
+        self.assertNotIn("654321", result.text)
+        self.assertNotIn("token", result.json())
+
     def test_homepage_is_the_team_flow(self):
         page = self.client.get("/")
         self.assertEqual(page.status_code, 200)
