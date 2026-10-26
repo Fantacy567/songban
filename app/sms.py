@@ -38,7 +38,7 @@ def sms_status():
     if not os.environ.get("ALIYUN_SMS_TEMPLATE_CODE", "").strip():
         missing.append("已审核的验证码模板")
     return {"ready": False, "provider": "", "missing": missing,
-            "notice": "验证码要像常用 App 一样从云端发到手机。还缺：" + "、".join(missing) + "。用你的账号打开 https://dysmsapi.console.aliyun.com 开通短信服务，审核通过后把四项写进松伴文件夹的 .env。人脸和签名必须本人完成。"}
+            "notice": "验证码要像常用 App 一样从云端发到手机。还缺：" + "、".join(missing) + "。先打开 https://www.aliyun.com 登录，再打开 https://dysms.console.aliyun.com 开通短信服务。国内短信签名目前要企业资质才能报备。审核通过后把四项写进松伴文件夹的 .env。"}
 
 
 def _percent(value):
