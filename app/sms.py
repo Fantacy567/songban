@@ -1,4 +1,4 @@
-"""Cloud SMS for phone login. Aliyun first, like other Chinese apps. No secrets in responses."""
+"""Cloud SMS for phone login. Prefer Aliyun 短信认证 (personal, no company papers)."""
 import base64
 import hashlib
 import hmac
@@ -12,10 +12,28 @@ import urllib.request
 import uuid
 
 
+def _env(*names):
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def access_key_ready():
+    return bool(_env("ALIYUN_ACCESS_KEY_ID") and _env("ALIYUN_ACCESS_KEY_SECRET"))
+
+
+def gift_sms_ready():
+    return access_key_ready() and bool(_env("ALIYUN_SMS_SIGN_NAME") and _env("ALIYUN_SMS_TEMPLATE_CODE"))
+
+
+def enterprise_sms_ready():
+    return gift_sms_ready() and os.environ.get("ALIYUN_SMS_MODE", "").strip().lower() in {"enterprise", "dysms", "sms"}
+
+
 def cloud_sms_ready():
-    return all(os.environ.get(name, "").strip() for name in (
-        "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE",
-    ))
+    return gift_sms_ready()
 
 
 def mac_sms_enabled():
@@ -28,49 +46,81 @@ def must_deliver():
 
 def sms_status():
     if cloud_sms_ready():
-        return {"ready": True, "provider": "aliyun", "missing": [],
-                "notice": "验证码由阿里云短信发到手机，和常用 App 一样。这一页不显示数字。"}
+        provider = "aliyun-enterprise" if enterprise_sms_ready() else "aliyun-pnvs"
+        return {"ready": True, "provider": provider, "missing": [],
+                "notice": "验证码由阿里云发到手机。这一页不显示数字。"}
     missing = []
-    if not os.environ.get("ALIYUN_ACCESS_KEY_ID", "").strip() or not os.environ.get("ALIYUN_ACCESS_KEY_SECRET", "").strip():
+    if not access_key_ready():
         missing.append("阿里云 AccessKey")
-    if not os.environ.get("ALIYUN_SMS_SIGN_NAME", "").strip():
-        missing.append("已审核的短信签名")
-    if not os.environ.get("ALIYUN_SMS_TEMPLATE_CODE", "").strip():
-        missing.append("已审核的验证码模板")
+    if not _env("ALIYUN_SMS_SIGN_NAME"):
+        missing.append("赠送签名名称")
+    if not _env("ALIYUN_SMS_TEMPLATE_CODE"):
+        missing.append("赠送模板 CODE")
     return {"ready": False, "provider": "", "missing": missing,
-            "notice": "验证码要像常用 App 一样从云端发到手机。还缺：" + "、".join(missing) + "。先打开 https://www.aliyun.com 登录，再打开 https://dysms.console.aliyun.com 开通短信服务。国内短信签名目前要企业资质才能报备。审核通过后把四项写进松伴文件夹的 .env。"}
+            "notice": "个人账号不要再填短信服务的企业资质。打开 https://dypns.console.aliyun.com 开通号码认证里的「短信认证」，用系统赠送的签名和模板。再创建 AccessKey，把四项写进松伴文件夹的 .env。"}
 
 
 def _percent(value):
     return urllib.parse.quote(str(value), safe="-_.~").replace("+", "%20").replace("*", "%2A")
 
 
-def send_aliyun_code(phone, code):
-    key = os.environ["ALIYUN_ACCESS_KEY_ID"].strip()
-    secret = os.environ["ALIYUN_ACCESS_KEY_SECRET"].strip()
+def _signed_get(host, version, params):
+    key = _env("ALIYUN_ACCESS_KEY_ID")
+    secret = _env("ALIYUN_ACCESS_KEY_SECRET")
     params = {
+        **params,
         "AccessKeyId": key,
-        "Action": "SendSms",
         "Format": "JSON",
-        "PhoneNumbers": phone,
-        "RegionId": "cn-hangzhou",
-        "SignName": os.environ["ALIYUN_SMS_SIGN_NAME"].strip(),
         "SignatureMethod": "HMAC-SHA1",
         "SignatureNonce": uuid.uuid4().hex,
         "SignatureVersion": "1.0",
-        "TemplateCode": os.environ["ALIYUN_SMS_TEMPLATE_CODE"].strip(),
-        "TemplateParam": json.dumps({"code": code}, ensure_ascii=False),
         "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "Version": "2017-05-25",
+        "Version": version,
     }
     canonical = "&".join(f"{_percent(name)}={_percent(params[name])}" for name in sorted(params))
     string_to_sign = "GET&%2F&" + _percent(canonical)
     params["Signature"] = base64.b64encode(hmac.new((secret + "&").encode(), string_to_sign.encode(), hashlib.sha1).digest()).decode()
-    url = "https://dysmsapi.aliyuncs.com/?" + urllib.parse.urlencode(params)
+    url = f"https://{host}/?" + urllib.parse.urlencode(params)
     try:
         with urllib.request.urlopen(url, timeout=12) as response:
-            body = json.loads(response.read().decode())
+            return json.loads(response.read().decode())
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+
+def send_pnvs_code(phone, code):
+    """Aliyun 号码认证 · 短信认证. Personal accounts can use gift sign + gift template."""
+    body = _signed_get("dypnsapi.aliyuncs.com", "2017-05-25", {
+        "Action": "SendSmsVerifyCode",
+        "PhoneNumber": phone,
+        "SignName": _env("ALIYUN_SMS_SIGN_NAME"),
+        "TemplateCode": _env("ALIYUN_SMS_TEMPLATE_CODE"),
+        "TemplateParam": json.dumps({"code": code, "min": "10"}, ensure_ascii=False),
+        "CodeLength": 6,
+        "ValidTime": 600,
+        "Interval": 60,
+        "CodeType": 1,
+        "ReturnVerifyCode": "false",
+        "CountryCode": "86",
+    })
+    if not body:
+        return False, "阿里云短信认证没有连上"
+    if str(body.get("Code") or "") != "OK":
+        return False, "阿里云没有发出这条验证码"
+    return True, "aliyun-pnvs"
+
+
+def send_aliyun_code(phone, code):
+    """Classic dysms SendSms. Needs enterprise signature reporting."""
+    body = _signed_get("dysmsapi.aliyuncs.com", "2017-05-25", {
+        "Action": "SendSms",
+        "PhoneNumbers": phone,
+        "RegionId": "cn-hangzhou",
+        "SignName": _env("ALIYUN_SMS_SIGN_NAME"),
+        "TemplateCode": _env("ALIYUN_SMS_TEMPLATE_CODE"),
+        "TemplateParam": json.dumps({"code": code}, ensure_ascii=False),
+    })
+    if not body:
         return False, "阿里云短信没有连上"
     if str(body.get("Code") or "") != "OK":
         return False, "阿里云没有发出这条短信"
@@ -111,7 +161,8 @@ end run"""
 
 def deliver_login_code(phone, code):
     if cloud_sms_ready():
-        sent, detail = send_aliyun_code(phone, code)
+        sender = send_aliyun_code if enterprise_sms_ready() else send_pnvs_code
+        sent, detail = sender(phone, code)
         if sent:
             return True, "验证码已由阿里云发到这个手机号。请打开短信填写。这一页不会显示数字。"
         return False, "云端短信没有发出。没有把数字留在网页上。"

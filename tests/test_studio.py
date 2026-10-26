@@ -205,7 +205,7 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(denied.status_code, 401, denied.text)
         self.assertNotIn("token", denied.json())
         self.assertFalse(body["sms"]["ready"])
-        self.assertIn("阿里云", body["sms"]["notice"])
+        self.assertIn("dypns.console.aliyun.com", body["sms"]["notice"])
 
     def test_sent_code_is_not_returned(self):
         with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):
@@ -231,11 +231,11 @@ class StudioFlowTests(unittest.TestCase):
         self.assertNotIn("654321", result.text)
         self.assertNotIn("token", result.json())
 
-    def test_aliyun_code_is_not_returned(self):
+    def test_personal_pnvs_code_is_not_returned(self):
         env = {"ALIYUN_ACCESS_KEY_ID": "id", "ALIYUN_ACCESS_KEY_SECRET": "secret",
-               "ALIYUN_SMS_SIGN_NAME": "松伴", "ALIYUN_SMS_TEMPLATE_CODE": "SMS_TEST"}
-        with patch.dict(os.environ, env):
-            with patch("app.sms.send_aliyun_code", return_value=(True, "aliyun")) as mocked:
+               "ALIYUN_SMS_SIGN_NAME": "恒创联众", "ALIYUN_SMS_TEMPLATE_CODE": "100001", "ALIYUN_SMS_MODE": ""}
+        with patch.dict(os.environ, env, clear=False):
+            with patch("app.sms.send_pnvs_code", return_value=(True, "aliyun-pnvs")) as mocked:
                 with patch("app.studio.secrets.randbelow", return_value=112233):
                     result = self.client.post("/api/studio/codes", json={"phone": "13800006666"})
         self.assertEqual(result.status_code, 200, result.text)
@@ -246,13 +246,25 @@ class StudioFlowTests(unittest.TestCase):
         entered = self.client.post("/api/studio/register", json={"phone": "13800006666", "code": "112233", "name": "乙", "profile": "做过产品和演示", "skills": "产品"})
         self.assertIn(entered.status_code, (200, 201), entered.text)
 
+    def test_enterprise_sms_still_uses_dysms(self):
+        env = {"ALIYUN_ACCESS_KEY_ID": "id", "ALIYUN_ACCESS_KEY_SECRET": "secret",
+               "ALIYUN_SMS_SIGN_NAME": "松伴", "ALIYUN_SMS_TEMPLATE_CODE": "SMS_TEST", "ALIYUN_SMS_MODE": "enterprise"}
+        with patch.dict(os.environ, env, clear=False):
+            with patch("app.sms.send_aliyun_code", return_value=(True, "aliyun")) as mocked:
+                with patch("app.sms.send_pnvs_code") as unused:
+                    with patch("app.studio.secrets.randbelow", return_value=445566):
+                        result = self.client.post("/api/studio/codes", json={"phone": "13800008888"})
+        self.assertEqual(result.status_code, 200, result.text)
+        mocked.assert_called_once_with("13800008888", "445566")
+        unused.assert_not_called()
+
     def test_missing_cloud_sms_does_not_show_the_code_when_required(self):
         with patch.dict(os.environ, {"SONGBAI_REQUIRE_SMS": "1"}):
             with patch("app.studio.secrets.randbelow", return_value=998877):
                 result = self.client.post("/api/studio/codes", json={"phone": "13800007777"})
         self.assertEqual(result.status_code, 503, result.text)
         self.assertNotIn("998877", result.text)
-        self.assertIn("阿里云", result.text)
+        self.assertIn("dypns.console.aliyun.com", result.text)
 
     def test_homepage_is_the_team_flow(self):
         page = self.client.get("/")
