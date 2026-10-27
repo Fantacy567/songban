@@ -603,6 +603,7 @@ class StudioFlowTests(unittest.TestCase):
         inbox = self.client.get(f"/api/studio/messages?kind=dm&peer_id={one['user_id']}", headers=self.auth(two["token"]))
         self.assertEqual(inbox.status_code, 200, inbox.text)
         self.assertEqual(inbox.json()["messages"][0]["body"], "你好")
+        self.assertEqual(inbox.json()["messages"][0]["sender_name"], "甲")
         card = self.client.get(f"/api/studio/people/{two['user_id']}", headers=self.auth(one["token"]))
         self.assertEqual(card.status_code, 200, card.text)
         self.assertIn("页面", card.json()["skills"])

@@ -189,6 +189,15 @@ function rememberSquad(id) {
   saveSession();
 }
 
+async function loadThread() {
+  if (!state.threadId || (state.threadKind !== "dm" && state.threadKind !== "squad")) return;
+  const query = state.threadKind === "dm"
+    ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}`
+    : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
+  const data = await api("GET", `/api/studio/messages?${query}`);
+  state.threadMessages = data.messages || [];
+}
+
 function canOpen(id) {
   if (id === "signup" || id === "login") return true;
   if (!state.token) return "先用手机号和密码登录。没有注册就用手机号注册。";
@@ -1022,17 +1031,21 @@ function renderSubrail() {
 }
 
 function viewMessages() {
-  const lines = (state.threadMessages || []).map((line) => `<div class="bubble ${line.sender_id === state.me?.id ? "me" : ""}">${esc(line.body)}</div>`).join("");
+  const lines = (state.threadMessages || []).map((line) => {
+    const mine = line.sender_id === state.me?.id;
+    const who = mine ? "" : `<span class="muted">${esc(line.sender_name || "队友")}</span>`;
+    return `<div class="bubble ${mine ? "me" : ""}">${who}${esc(line.body)}</div>`;
+  }).join("");
   const title = state.threadKind === "dm" ? "和好友" : (state.threadKind === "squad" ? "团队群" : "选一个对话");
   return `<h2>消息</h2>
-    <p class="muted">${esc(title)}。私聊只在好友之间。团队群里的人都能看到。投票仍不改题目和任务。</p>
+    <p class="muted">${esc(title)}。私聊只在好友之间。团队群里会写出发言人。投票仍不改题目和任务。</p>
     <div class="card">${lines || "<p class=\"muted\">左边点一个好友或团队群。</p>"}
       <form data-act="sendMessage" class="composer">
         <input name="body" placeholder="写一句" ${state.threadId ? "" : "disabled"}>
         <button class="btn" type="submit" ${state.threadId ? "" : "disabled"}>发送</button>
       </form>
     </div>
-    <p class="muted">个人模型的结论可以在个人空间问完后，回到团队群粘贴发送。发送后对方刷新就能看见，这不是另外一条看不见的通道。</p>`;
+    <p class="muted">个人模型的结论不会自动进群。在个人空间问完后，回到团队群粘贴发送。对方再点开这个对话就能看见。</p>`;
 }
 
 function viewBoard() {
@@ -1041,7 +1054,7 @@ function viewBoard() {
   const cols = members.map((member) => {
     const mine = tasks.filter((task) => task.owner_id === member.user_id);
     const cards = mine.map((task) => `<div class="person"><strong>${esc(task.title)}</strong><p class="muted">${esc(task.priority === "must" ? "必须" : "可选")} · ${esc(task.progress || 0)}% · ${esc(when(task.due_at))}</p></div>`).join("") || "<p class=\"muted\">还没有任务。</p>";
-    return `<div class="col"><p class="kicker">${esc(member.name)}</p>${cards}</div>`;
+    return `<div class="col"><p class="kicker">${esc(member.name)}</p><p class="muted">${esc(member.doing || "还没写正在做的事")}</p>${cards}</div>`;
   }).join("");
   return `<h2>任务看板</h2>
     <p class="muted">每个人一列。任务存在队伍里，和个人进度是同一条。右侧是团队模型，它现在只回答方向，不会自己改任务。要改负责人，仍由队长在下面调整。</p>
@@ -1320,7 +1333,10 @@ async function go(id) {
   state.menuOpen = false;
   state.screen = id;
   if (state.token && id !== "signup") {
-    try { await reload(); } catch (error) { state.error = error.message; }
+    try {
+      await reload();
+      if (id === "messages") await loadThread();
+    } catch (error) { state.error = error.message; }
   }
   render();
 }
@@ -1636,11 +1652,9 @@ const actions = {
   async openThread(button) {
     state.threadKind = button.dataset.kind;
     state.threadId = button.dataset.id;
-    const query = state.threadKind === "dm" ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}` : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
-    const data = await api("GET", `/api/studio/messages?${query}`);
-    state.threadMessages = data.messages || [];
     if (state.threadKind === "squad") rememberSquad(state.threadId);
     state.screen = "messages";
+    await loadThread();
   },
   async sendMessage(form) {
     const body = form.body.value.trim();
@@ -1650,9 +1664,7 @@ const actions = {
       : { kind: "squad", squad_id: state.threadId, body };
     await api("POST", "/api/studio/messages", payload);
     form.body.value = "";
-    const query = state.threadKind === "dm" ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}` : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
-    const data = await api("GET", `/api/studio/messages?${query}`);
-    state.threadMessages = data.messages || [];
+    await loadThread();
   },
   async openFriend(button) {
     state.friendCard = await api("GET", `/api/studio/people/${button.dataset.id}`);

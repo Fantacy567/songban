@@ -944,7 +944,9 @@ def register_studio(api, db, problem, now, uid, digest):
             else:
                 raise problem(422, "thread_required", "选择一个好友或一支队伍。")
             rows = [dict(row) for row in con.execute(
-                "SELECT id, sender_id, body, created_at FROM messages WHERE thread=? ORDER BY created_at", (thread,))]
+                """SELECT m.id, m.sender_id, m.body, m.created_at, COALESCE(p.name, '') AS sender_name
+                   FROM messages m LEFT JOIN people p ON p.id=m.sender_id
+                   WHERE m.thread=? ORDER BY m.created_at""", (thread,))]
             return {"thread": thread, "messages": rows}
 
     @api.post("/api/studio/messages")

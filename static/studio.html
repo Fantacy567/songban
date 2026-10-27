@@ -132,9 +132,10 @@
     @media (max-width:860px) {
       header, .switch { flex-direction:column; align-items:stretch; }
       .work, .split, .top3 { grid-template-columns:1fr; }
-      .app.signed { grid-template-columns:1fr; }
+      .app.signed, .app.signed.has-sub { grid-template-columns:1fr; }
       #rail { display:none; }
-      .app.signed #rail { display:flex; position:relative; height:auto; border-right:0; border-bottom:1px solid #ececec; }
+      .app.signed #rail { display:flex; position:relative; height:auto; border-right:0; border-bottom:1px solid #ececec; flex-direction:row; flex-wrap:wrap; }
+      .app.signed.has-sub #subrail { position:relative; height:auto; max-height:240px; }
       .dock { margin-top:12px; }
       .hero-name, .count { font-size:32px; }
     }
@@ -146,6 +147,6 @@
     <aside id="subrail"></aside>
     <div id="stage"><main id="main"></main></div>
   </div>
-  <script src="/static/studio.js?v=20261027-26" defer></script>
+  <script src="/static/studio.js?v=20261027-27" defer></script>
 </body>
 </html>
