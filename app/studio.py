@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS squad_log (
  id INTEGER PRIMARY KEY AUTOINCREMENT, squad_id TEXT NOT NULL, actor_id TEXT,
  detail TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS messages (
+ id TEXT PRIMARY KEY, thread TEXT NOT NULL, sender_id TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS phone_codes (
  phone TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL,
  attempts INTEGER NOT NULL DEFAULT 0
@@ -899,6 +902,73 @@ def register_studio(api, db, problem, now, uid, digest):
                 raise problem(422, "invalid_friend", "不能加自己。")
             link_friends(con, user["id"], friend["id"])
             return {"user_id": friend["id"], "name": friend["name"]}
+
+    def _dm_thread(a, b):
+        left, right = sorted((a, b))
+        return f"dm:{left}:{right}"
+
+    @api.get("/api/studio/people/{pid}")
+    def person_card(pid: str, authorization: str = Header(default="")):
+        with db() as con:
+            user = person_from_header(con, authorization)
+            if pid != user["id"]:
+                linked = con.execute("SELECT 1 FROM friendships WHERE user_id=? AND friend_id=?", (user["id"], pid)).fetchone()
+                if not linked:
+                    raise problem(403, "not_friend", "只能看自己或好友的介绍。")
+            person = con.execute("SELECT * FROM people WHERE id=?", (pid,)).fetchone()
+            if not person:
+                raise problem(404, "not_found", "没有这个人。")
+            person = dict(person)
+            squads = [dict(row) for row in con.execute("""SELECT s.id, s.name, c.name AS contest FROM squads s
+                JOIN squad_members m ON m.squad_id=s.id JOIN contests c ON c.id=s.contest_id
+                WHERE m.user_id=? ORDER BY s.created_at DESC""", (pid,))]
+            contests = [row["name"] for row in con.execute(
+                "SELECT name FROM contests WHERE owner_id=? AND card_saved=1 ORDER BY created_at DESC", (pid,))]
+            skills = [part.strip() for part in re.split(r"[、,，/|]", person["skills"] or "") if part.strip()]
+            return {
+                "user_id": person["id"], "name": person["name"], "phone": public_phone(person),
+                "profile": person["profile"], "skills": skills, "squads": squads, "contests": contests,
+            }
+
+    @api.get("/api/studio/messages")
+    def list_messages(kind: str = "", peer_id: str = "", squad_id: str = "", authorization: str = Header(default="")):
+        with db() as con:
+            user = person_from_header(con, authorization)
+            if kind == "dm":
+                if not con.execute("SELECT 1 FROM friendships WHERE user_id=? AND friend_id=?", (user["id"], peer_id)).fetchone():
+                    raise problem(403, "not_friend", "只能给好友发消息。")
+                thread = _dm_thread(user["id"], peer_id)
+            elif kind == "squad":
+                squad_of(con, squad_id, user["id"])
+                thread = f"squad:{squad_id}"
+            else:
+                raise problem(422, "thread_required", "选择一个好友或一支队伍。")
+            rows = [dict(row) for row in con.execute(
+                "SELECT id, sender_id, body, created_at FROM messages WHERE thread=? ORDER BY created_at", (thread,))]
+            return {"thread": thread, "messages": rows}
+
+    @api.post("/api/studio/messages")
+    def post_message(body: dict, authorization: str = Header(default="")):
+        text = str(body.get("body") or "").strip()
+        kind = str(body.get("kind") or "")
+        if len(text) < 1:
+            raise problem(422, "empty", "先写一句。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            if kind == "dm":
+                peer = str(body.get("peer_id") or "")
+                if not con.execute("SELECT 1 FROM friendships WHERE user_id=? AND friend_id=?", (user["id"], peer)).fetchone():
+                    raise problem(403, "not_friend", "只能给好友发消息。")
+                thread = _dm_thread(user["id"], peer)
+            elif kind == "squad":
+                sid = str(body.get("squad_id") or "")
+                squad_of(con, sid, user["id"])
+                thread = f"squad:{sid}"
+            else:
+                raise problem(422, "thread_required", "选择一个好友或一支队伍。")
+            mid = uid()
+            con.execute("INSERT INTO messages(id,thread,sender_id,body,created_at) VALUES(?,?,?,?,?)", (mid, thread, user["id"], text[:2000], now()))
+            return {"id": mid, "thread": thread, "sender_id": user["id"], "body": text[:2000]}
 
     @api.post("/api/studio/contests/import-file")
     async def import_contest_file(authorization: str = Header(default=""), file: UploadFile = File(...)):

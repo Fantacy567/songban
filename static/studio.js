@@ -36,11 +36,11 @@ const SIDE = [
   ["log", "更改记录"],
   ["captain", "队长规划"],
 ];
-const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth", "profile", "memory", "stack"]);
-const COACH = new Set(["mine", "docs", "growth", "profile", "memory", "stack"]);
-const NEED_SQUAD = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "log"]);
+const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth", "profile", "memory", "stack", "board", "progress", "space"]);
+const COACH = new Set(["mine", "docs", "growth", "profile", "memory", "stack", "progress", "space"]);
+const NEED_SQUAD = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "log", "board", "progress"]);
 const NEED_CONFIRMED = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain"]);
-const HUB_FREE = new Set(["home", "hubMine", "hubContest", "friends", "past", "growth", "stack", "contest", "team", "profile", "memory", "settings"]);
+const HUB_FREE = new Set(["home", "hubMine", "hubContest", "friends", "past", "growth", "stack", "contest", "team", "profile", "memory", "settings", "messages", "space"]);
 const BRIEFS = {
   需求文档: "目标：做出截止前能演示的一条路径。\n谁用：本队。\n主路径：选比赛、组队、选题、安装同一技能、发布任务。\n这场不做：主办方系统和给其他队伍排名。",
   业务流程图: "注册 → 选比赛 → 组队 → 选题 → 安装同一技能 → 发布任务 → 提交清单上的成果",
@@ -68,6 +68,10 @@ const state = {
   chats: {},
   contestDraft: null,
   contestPreview: null,
+  threadKind: "",
+  threadId: "",
+  threadMessages: [],
+  friendCard: null,
   contestAskReply: "",
   showContestFacts: true,
   confirmingContest: false,
@@ -602,17 +606,26 @@ function viewHubMine() {
 }
 
 function viewFriends() {
-  const friends = state.me?.friends || [];
-  const list = friends.map((f) => `<div class="person" style="display:flex;gap:10px;align-items:center">${avatarHtml(f.avatar_url, f.name)}<div><strong>${esc(f.name)}</strong><p class="muted">${esc(f.phone || (f.avatar_url ? "微信好友" : "未显示手机号"))}</p></div></div>`).join("");
+  const card = state.friendCard;
+  const tags = (card?.skills || []).map((skill) => `<span>${esc(skill)}</span>`).join("");
+  const squads = (card?.squads || []).map((squad) => `<p>${esc(squad.name)} · ${esc(squad.contest)}</p>`).join("");
+  const contests = (card?.contests || []).map((name) => `<p>${esc(name)}</p>`).join("");
+  const detail = card ? `<article class="contest-card">
+      <h3>${esc(card.name)}</h3>
+      <p class="muted">${esc(card.phone || "未显示手机号")}</p>
+      <p>${esc(card.profile || "还没写简介。")}</p>
+      <div class="contest-chips">${tags || "<span>还没写主要工作</span>"}</div>
+      <p class="kicker">参加过的比赛</p>${contests || "<p class=\"muted\">还没有赛事卡。</p>"}
+      <p class="kicker">所在团队</p>${squads || "<p class=\"muted\">还没有队伍。</p>"}
+    </article>` : "<p class=\"muted\">左边点一个好友。</p>";
   return `<h2>好友</h2>
-    <p class="muted"><button class="linkish" type="button" data-go="hubMine">← 我的系统</button></p>
     <form data-act="addFriend" class="card">
       <label for="friend-phone">对方注册用的手机号</label>
       <input id="friend-phone" name="phone" inputmode="numeric">
       <button class="btn" type="submit">加为好友</button>
-      <p class="muted">好友不是加入队伍的门槛。有队伍码即可加入。</p>
+      <p class="muted">好友不是加入队伍的门槛。有队伍码即可加入。社区报名这版先不做。</p>
     </form>
-    <div class="card"><p class="kicker">已加好友</p>${list || "<p class=\"muted\">还没有好友。</p>"}</div>`;
+    ${detail}`;
 }
 
 function viewPast() {
@@ -868,7 +881,11 @@ const views = {
   contest: viewContest,
   team: viewTeam,
   success: viewSuccess,
-  home: viewHome,
+  home: viewMessages,
+  messages: viewMessages,
+  board: viewBoard,
+  progress: viewProgress,
+  space: viewSpace,
   hubMine: viewHubMine,
   hubContest: viewHubContest,
   friends: viewFriends,
@@ -965,16 +982,97 @@ function railContext() {
   return "";
 }
 
+const PRIMARY = [
+  ["messages", "消息"],
+  ["teamspace", "团队"],
+  ["board", "任务"],
+  ["progress", "进度"],
+  ["friends", "好友"],
+  ["contest", "赛事"],
+  ["space", "个人"],
+];
+
 function renderRail() {
   const rail = document.getElementById("rail");
   if (!rail) return;
-  const squadName = state.squad?.squad?.name ? `<p class="rail-squad">${esc(state.squad.squad.name)}</p>` : "";
-  rail.innerHTML = `<div class="brand"><button type="button" class="brand-btn" data-go="home">松伴</button>${squadName}</div>
-    <div class="rail-scroll">
-      <button type="button" data-go="home" class="${state.screen === "home" ? "on" : ""}">首页</button>
-      ${railContext()}
+  const icons = PRIMARY.map(([id, label]) => `<button type="button" class="rail-icon ${state.screen === id ? "on" : ""}" data-go="${id}">${esc(label)}</button>`).join("");
+  rail.innerHTML = `<button type="button" class="me-btn" data-go="profile" title="修改个人信息">${avatarHtml(state.me?.avatar_url, state.me?.name || "我")}</button>
+    <div class="rail-scroll">${icons}</div>`;
+}
+
+function renderSubrail() {
+  const sub = document.getElementById("subrail");
+  const app = document.getElementById("app");
+  if (!sub) return;
+  const open = state.screen === "messages" || state.screen === "friends";
+  if (app) app.classList.toggle("has-sub", open);
+  if (!open) {
+    sub.innerHTML = "";
+    return;
+  }
+  if (state.screen === "friends") {
+    const friends = state.me?.friends || [];
+    const items = friends.map((friend) => `<button type="button" data-act="openFriend" data-id="${esc(friend.user_id)}" class="${state.friendCard?.user_id === friend.user_id ? "on" : ""}">${esc(friend.name)}<br><span class="muted">${esc(friend.phone || "未显示手机号")}</span></button>`).join("");
+    sub.innerHTML = `<div class="sub-head">好友</div><div class="sub-list">${items || "<p class=\"muted\">还没有好友。</p>"}</div>`;
+    return;
+  }
+  const friends = (state.me?.friends || []).map((friend) => `<button type="button" data-act="openThread" data-kind="dm" data-id="${esc(friend.user_id)}" class="${state.threadKind === "dm" && state.threadId === friend.user_id ? "on" : ""}">${esc(friend.name)}</button>`).join("");
+  const squads = (state.me?.squads || []).map((squad) => `<button type="button" data-act="openThread" data-kind="squad" data-id="${esc(squad.id)}" class="${state.threadKind === "squad" && state.threadId === squad.id ? "on" : ""}">${esc(squad.name)} · 群</button>`).join("");
+  sub.innerHTML = `<div class="sub-head">消息</div><div class="sub-list"><p class="rail-label">好友</p>${friends || "<p class=\"muted\">加了好友才能私聊。</p>"}<p class="rail-label">团队群</p>${squads || "<p class=\"muted\">还没有队伍。</p>"}<button type="button" data-go="vote">投票表决</button></div>`;
+}
+
+function viewMessages() {
+  const lines = (state.threadMessages || []).map((line) => `<div class="bubble ${line.sender_id === state.me?.id ? "me" : ""}">${esc(line.body)}</div>`).join("");
+  const title = state.threadKind === "dm" ? "和好友" : (state.threadKind === "squad" ? "团队群" : "选一个对话");
+  return `<h2>消息</h2>
+    <p class="muted">${esc(title)}。私聊只在好友之间。团队群里的人都能看到。投票仍不改题目和任务。</p>
+    <div class="card">${lines || "<p class=\"muted\">左边点一个好友或团队群。</p>"}
+      <form data-act="sendMessage" class="composer">
+        <input name="body" placeholder="写一句" ${state.threadId ? "" : "disabled"}>
+        <button class="btn" type="submit" ${state.threadId ? "" : "disabled"}>发送</button>
+      </form>
     </div>
-    <div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}">${avatarHtml(state.me?.avatar_url, state.me?.name || "我")}<span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || (state.me?.wechat ? "微信登录" : ""))}</span></span></button></div>`;
+    <p class="muted">个人模型的结论可以在个人空间问完后，回到团队群粘贴发送。发送后对方刷新就能看见，这不是另外一条看不见的通道。</p>`;
+}
+
+function viewBoard() {
+  const members = state.squad?.members || [];
+  const tasks = state.squad?.tasks || [];
+  const cols = members.map((member) => {
+    const mine = tasks.filter((task) => task.owner_id === member.user_id);
+    const cards = mine.map((task) => `<div class="person"><strong>${esc(task.title)}</strong><p class="muted">${esc(task.priority === "must" ? "必须" : "可选")} · ${esc(task.progress || 0)}% · ${esc(when(task.due_at))}</p></div>`).join("") || "<p class=\"muted\">还没有任务。</p>";
+    return `<div class="col"><p class="kicker">${esc(member.name)}</p>${cards}</div>`;
+  }).join("");
+  return `<h2>任务看板</h2>
+    <p class="muted">每个人一列。任务存在队伍里，和个人进度是同一条。右侧是团队模型，它现在只回答方向，不会自己改任务。要改负责人，仍由队长在下面调整。</p>
+    <div class="board">${cols || "<p class=\"muted\">先加入或创建队伍。</p>"}</div>
+    ${state.squad?.me?.captain ? `<form data-act="publishTask" class="card"><p class="kicker">队长手动加一条</p><input type="hidden" name="priority" value="must"><input type="hidden" name="talk_to" value=""><label>任务</label><input name="title" required><label>负责人</label><select name="owner_id">${members.map((member) => `<option value="${esc(member.user_id)}">${esc(member.name)}</option>`).join("")}</select><label>截止</label><input name="due_at" type="datetime-local" required><button class="btn" type="submit">发布</button></form>` : ""}`;
+}
+
+function viewProgress() {
+  if (!state.squad) return `<h2>个人进度</h2><p class="muted">先加入队伍。</p>`;
+  const mine = (state.squad.tasks || []).filter((task) => task.owner_id === state.squad.me.id);
+  const items = mine.map((task) => `<li><strong>${esc(task.title)}</strong><p class="muted">截止 ${esc(when(task.due_at))} · 现在 ${esc(task.progress || 0)}%${state.squad.me.doing ? ` · ${esc(state.squad.me.doing)}` : ""}</p>
+      <form data-act="saveProgress"><input type="hidden" name="id" value="${esc(task.id)}"><label>正在做</label><input name="doing" value="${esc(state.squad.me.doing || "")}" maxlength="40"><label>进度 0-100</label><input name="progress" type="number" min="0" max="100" value="${esc(task.progress || 0)}"><button class="btn" type="submit">更新</button></form></li>`).join("");
+  return `<h2>个人进度</h2>
+    <p class="muted">这里比团队看板多写「正在干什么」。更新后团队看板读的是同一条任务。</p>
+    <ol class="chain">${items || "<li>还没有分给你的任务。</li>"}</ol>`;
+}
+
+function viewSpace() {
+  const me = state.me || {};
+  const tags = String(me.skills || "").split(/[、,，]/).map((part) => part.trim()).filter(Boolean);
+  const chips = tags.map((tag) => `<span>${esc(tag)}</span>`).join("");
+  return `<h2>个人空间</h2>
+    <div class="card">
+      <p class="kicker">画像</p>
+      <p><strong>${esc(me.name || "")}</strong></p>
+      <p>${esc(me.profile || "还没写自己做过什么。")}</p>
+      <div class="contest-chips">${chips || "<span>还没写技能</span>"}</div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost" type="button" data-go="profile">修改资料</button><button class="btn ghost" type="button" data-go="memory">个人记忆</button></div>
+    </div>
+    <div class="card"><p class="kicker">做过的比赛</p>${savedContests().map((contest) => `<p>${esc(contest.name)}</p>`).join("") || "<p class=\"muted\">还没有赛事卡。</p>"}</div>
+    <div class="card"><p class="kicker">成长</p><pre>${esc(me.growth || "结束一场比赛后，这里按真实完成的任务记一句。")}</pre></div>`;
 }
 
 function render() {
@@ -992,6 +1090,7 @@ function render() {
   }
   if (app) app.classList.add("signed");
   renderRail();
+  renderSubrail();
   const view = views[state.screen] || viewHome;
   document.getElementById("main").innerHTML = banners() + view();
   armCountdown();
@@ -1242,7 +1341,7 @@ async function adopt(data, _phone) {
   if (!state.contestId && state.me.contests[0]) state.contestId = state.me.contests[0].id;
   saveSession();
   state.note = data.notice || "";
-  state.screen = "home";
+  state.screen = "messages";
 }
 
 const actions = {
@@ -1533,6 +1632,31 @@ const actions = {
     await api("PATCH", `/api/studio/squads/${state.squadId}/tasks/${form.id.value}`, { owner_id: form.owner_id.value });
     state.note = "已改这一项的负责人。没有整份重排。";
     await reload();
+  },
+  async openThread(button) {
+    state.threadKind = button.dataset.kind;
+    state.threadId = button.dataset.id;
+    const query = state.threadKind === "dm" ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}` : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
+    const data = await api("GET", `/api/studio/messages?${query}`);
+    state.threadMessages = data.messages || [];
+    if (state.threadKind === "squad") rememberSquad(state.threadId);
+    state.screen = "messages";
+  },
+  async sendMessage(form) {
+    const body = form.body.value.trim();
+    if (!body) throw new Error("先写一句。");
+    const payload = state.threadKind === "dm"
+      ? { kind: "dm", peer_id: state.threadId, body }
+      : { kind: "squad", squad_id: state.threadId, body };
+    await api("POST", "/api/studio/messages", payload);
+    form.body.value = "";
+    const query = state.threadKind === "dm" ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}` : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
+    const data = await api("GET", `/api/studio/messages?${query}`);
+    state.threadMessages = data.messages || [];
+  },
+  async openFriend(button) {
+    state.friendCard = await api("GET", `/api/studio/people/${button.dataset.id}`);
+    state.screen = "friends";
   },
   async saveProgress(form) {
     const progress = Number(form.progress.value);

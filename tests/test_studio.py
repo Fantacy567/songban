@@ -591,6 +591,28 @@ class StudioFlowTests(unittest.TestCase):
         late = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "password": "pass1234", "name": "丙", "profile": "做过产品和演示", "skills": "产品"})
         self.assertEqual(late.status_code, 401)
 
+    def test_friends_can_message_and_see_a_profile_card(self):
+        one = self.enter("13800005555", "甲", "路演、文档")
+        two = self.enter("13800006666", "乙", "页面")
+        self.client.post("/api/studio/friends", json={"phone": "13800006666"}, headers=self.auth(one["token"]))
+        stranger = self.enter("13800007771", "丙", "后端")
+        blocked = self.client.post("/api/studio/messages", json={"kind": "dm", "peer_id": two["user_id"], "body": "你好"}, headers=self.auth(stranger["token"]))
+        self.assertEqual(blocked.status_code, 403)
+        sent = self.client.post("/api/studio/messages", json={"kind": "dm", "peer_id": two["user_id"], "body": "你好"}, headers=self.auth(one["token"]))
+        self.assertEqual(sent.status_code, 200, sent.text)
+        inbox = self.client.get(f"/api/studio/messages?kind=dm&peer_id={one['user_id']}", headers=self.auth(two["token"]))
+        self.assertEqual(inbox.status_code, 200, inbox.text)
+        self.assertEqual(inbox.json()["messages"][0]["body"], "你好")
+        card = self.client.get(f"/api/studio/people/{two['user_id']}", headers=self.auth(one["token"]))
+        self.assertEqual(card.status_code, 200, card.text)
+        self.assertIn("页面", card.json()["skills"])
+        hidden = self.client.get(f"/api/studio/people/{two['user_id']}", headers=self.auth(stranger["token"]))
+        self.assertEqual(hidden.status_code, 403)
+        page = self.client.get("/static/studio.js").text
+        self.assertIn("保存为赛事卡", page)
+        self.assertIn('["messages", "消息"]', page)
+        self.assertNotIn("已确认的比赛", page)
+
     def test_personal_model_key_stays_on_the_server_and_can_be_shared(self):
         person = self.enter("13800007777", "孔祥梨", "路演")
         headers = self.auth(person["token"])
