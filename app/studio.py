@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import File, Header, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
+from .planner import PlannerError, check_model_base, model_chat, team_model_config
 from .contest_intel import (
     IntelError,
     answer_contest_question,
@@ -125,6 +126,12 @@ def ensure_schema(con):
         con.execute("ALTER TABLE people ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
     if "username" not in columns:
         con.execute("ALTER TABLE people ADD COLUMN username TEXT")
+    if "model_base" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN model_base TEXT NOT NULL DEFAULT ''")
+    if "model_key" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN model_key TEXT NOT NULL DEFAULT ''")
+    if "model_name" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN model_name TEXT NOT NULL DEFAULT ''")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_wechat_openid ON people(wechat_openid) WHERE wechat_openid IS NOT NULL")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_username ON people(username) WHERE username IS NOT NULL AND username != ''")
     ticket_cols = {row[1] for row in con.execute("PRAGMA table_info(wechat_tickets)")}
@@ -637,7 +644,9 @@ def register_studio(api, db, problem, now, uid, digest):
 
     @api.get("/api/studio/connect")
     def connect_status():
-        return {"wechat": wechat_status(), "sms": sms_status()}
+        config = team_model_config()
+        ready = bool(config.get("api_key"))
+        return {"wechat": wechat_status(), "sms": sms_status(), "team_model": {"ready": ready, "name": config.get("name") if ready else ""}}
 
     @api.get("/api/studio/wechat/start")
     def wechat_start():
@@ -822,6 +831,27 @@ def register_studio(api, db, problem, now, uid, digest):
             con.execute("UPDATE people SET github_linked=?, feishu_linked=? WHERE id=?", (github, feishu, user["id"]))
             return {"github_linked": bool(github), "feishu_linked": bool(feishu), "notice": "本机只做标记，没有打开 GitHub 或飞书。"}
 
+    @api.post("/api/studio/me/model")
+    def save_personal_model(body: dict, authorization: str = Header(default="")):
+        base = str(body.get("base_url") or "").strip()
+        model_id = str(body.get("model_id") or body.get("model") or "").strip()
+        api_key = str(body.get("api_key") or "")
+        if any(ord(ch) < 32 for ch in api_key) or len(api_key) > 400:
+            raise problem(422, "invalid_model_key", "密钥里不能有换行，也不要超过 400 个字符。")
+        if not model_id or len(model_id) > 80 or any(ord(ch) < 32 for ch in model_id):
+            raise problem(422, "invalid_model_name", "填写模型名称，例如 deepseek-v4-pro。")
+        try:
+            base = check_model_base(base)
+        except PlannerError as exc:
+            raise problem(exc.status, exc.code, exc.message) from None
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            key = api_key.strip() or (user["model_key"] or "")
+            if not key:
+                raise problem(422, "model_key_required", "填写你自己的 API 密钥。费用算在你的账户上。")
+            con.execute("UPDATE people SET model_base=?, model_key=?, model_name=? WHERE id=?", (base, key, model_id, user["id"]))
+        return {"ready": True, "base_url": base, "model_name": model_id, "notice": "个人模型已保存。密钥只留在这台服务器上，页面不再显示它。"}
+
     @api.get("/api/studio/me")
     def me(authorization: str = Header(default="")):
         with db() as con:
@@ -848,6 +878,8 @@ def register_studio(api, db, problem, now, uid, digest):
             return {"id": user["id"], "name": user["name"], "phone": public_phone(user), "profile": user["profile"], "skills": user["skills"],
                     "growth": user["growth"], "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
                     "wechat": bool(user.get("wechat_openid")), "avatar_url": str(user.get("wechat_avatar") or "").strip(),
+                    "model_ready": bool((user["model_key"] or "").strip() and (user["model_base"] or "").strip() and (user["model_name"] or "").strip()),
+                    "model_base": user["model_base"] or "", "model_name": user["model_name"] or "",
                     "squads": squads, "contests": contests, "friends": friends}
 
     @api.post("/api/studio/friends")
@@ -1341,22 +1373,24 @@ def register_studio(api, db, problem, now, uid, digest):
     @api.post("/api/studio/squads/{sid}/coach")
     def coach(sid: str, body: dict, authorization: str = Header(default="")):
         message = str(body.get("message") or "").strip()
+        if len(message) < 1:
+            raise problem(422, "message_required", "先写一句想问的。")
         with db() as con:
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
             contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
-        contestish = any(word in message for word in ("比赛", "赛规", "提交", "奖品", "截止", "赛道", "地点", "人数", "选拔", "主办方"))
-        if contestish and (contest.get("memory") or contest.get("facts")):
-            try:
-                reply = answer_contest_question(message, contest.get("memory") or "", contest.get("facts") or {}, contest.get("name") or "")
-            except IntelError:
-                reply = coach_reply(message, user["skills"], squad["topic"])
-        else:
-            reply = coach_reply(message, user["skills"], squad["topic"])
-            note = supervise_against_contest(message, contest.get("memory") or "", contest.get("facts") or {})
-            if note:
-                reply = f"{reply}\n\n赛规提醒：{note}"
-        return {"reply": reply, "source_label": "比赛记忆"}
+        if not ((user["model_key"] or "").strip() and (user["model_base"] or "").strip() and (user["model_name"] or "").strip()):
+            return {"reply": "还没填写你的 API 密钥。到设置里写上接口地址、密钥和模型名。费用算在你自己的账户上。", "source_label": "等待你的密钥"}
+        system = "你是这个人的私人教练，负责教学、辅助和规划他个人的工作。用中文，说短一些。不要给全队改题目、主干或任务。他可以自己把结论交给团队。"
+        brief = f"名字：{user['name']}\n目前做得到的事：{user['skills'][:300]}\n画像：{(user['profile'] or '')[:500]}\n个人记忆：{(user['growth'] or '')[-800:]}\n队伍题目：{squad['topic'] or '还没确认'}\n他问：{message[:2000]}"
+        try:
+            reply = model_chat({"api_key": user["model_key"], "base_url": user["model_base"], "model_id": user["model_name"], "name": user["model_name"]}, system, brief)
+        except PlannerError as exc:
+            reply = exc.message
+        note = supervise_against_contest(message, contest.get("memory") or "", contest.get("facts") or {})
+        if note:
+            reply = f"{reply}\n\n赛规提醒：{note}"
+        return {"reply": reply, "source_label": user["model_name"]}
 
     @api.post("/api/studio/squads/{sid}/direction")
     def direction(sid: str, body: dict, authorization: str = Header(default="")):
@@ -1365,16 +1399,27 @@ def register_studio(api, db, problem, now, uid, digest):
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
             contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
-        reply = direction_reply(message, squad["topic"], squad["trunk"], contest.get("submissions") or [])
+        facts = direction_reply(message, squad["topic"], squad["trunk"], contest.get("submissions") or [])
+        config = team_model_config()
+        if not config.get("api_key"):
+            reply, label = facts, LABEL
+        else:
+            system = "你是这支队伍的方向统筹。只根据已经确认的事实回答下一步。用中文，说短一些。不要宣布题目、主干、提交清单或任务已经被改掉，那要队员自己去表决或由队长发布。"
+            try:
+                answer = model_chat(config, system, f"已确认事实：\n{facts}\n\n队员问：{message[:2000]}")
+                reply, label = f"{answer}\n\n已确认：{facts}", config.get("name") or "团队模型"
+            except PlannerError as exc:
+                reply, label = f"{exc.message}\n\n已确认：{facts}", "团队模型"
         if any(word in message for word in ("比赛", "赛规", "提交", "奖品", "截止", "赛道")):
             try:
                 reply = answer_contest_question(message, contest.get("memory") or "", contest.get("facts") or {}, contest.get("name") or "")
+                label = "比赛记忆"
             except IntelError:
                 pass
         note = supervise_against_contest(message, contest.get("memory") or "", contest.get("facts") or {})
         if note:
             reply = f"{reply}\n\n赛规提醒：{note}"
-        return {"reply": reply, "source_label": "比赛记忆"}
+        return {"reply": reply, "source_label": label}
 
     @api.post("/api/studio/squads/{sid}/finish")
     def finish(sid: str, authorization: str = Header(default="")):

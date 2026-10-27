@@ -130,6 +130,7 @@ class StudioFlowTests(unittest.TestCase):
             os.environ,
             {k: "" for k in [
                 "DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME",
+                "TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME", "DASHSCOPE_API_KEY",
                 "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET",
                 "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE",
             ]},
@@ -582,6 +583,40 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(burned.json()["error"]["code"], "code_burned")
         late = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "password": "pass1234", "name": "丙", "profile": "做过产品和演示", "skills": "产品"})
         self.assertEqual(late.status_code, 401)
+
+    def test_personal_model_key_stays_on_the_server_and_can_be_shared(self):
+        person = self.enter("13800007777", "孔祥梨", "路演")
+        headers = self.auth(person["token"])
+        secret = "sk-personal-test-key"
+        blocked = self.client.post("/api/studio/me/model", json={"base_url": "http://example.com/secret", "api_key": secret, "model_id": "local"}, headers=headers)
+        self.assertEqual(blocked.status_code, 422)
+        saved = self.client.post("/api/studio/me/model", json={"base_url": "https://api.deepseek.com", "api_key": secret, "model_id": "deepseek-v4-pro"}, headers=headers)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        me = self.client.get("/api/studio/me", headers=headers)
+        self.assertNotIn(secret, me.text)
+        self.assertTrue(me.json()["model_ready"])
+        self.assertEqual(me.json()["model_name"], "deepseek-v4-pro")
+        contest = self.client.post("/api/studio/contests", json={"name": "测试赛", "deadline": self.deadline, "source_text": SOURCE}, headers=headers).json()
+        squad = self.client.post("/api/studio/squads", json={"name": "一队", "contest_id": contest["id"]}, headers=headers).json()
+        with patch("app.studio.model_chat", return_value="先把路演讲成六页。") as mocked:
+            asked = self.client.post(f"/api/studio/squads/{squad['id']}/coach", json={"message": "PPT 怎么排"}, headers=headers)
+        self.assertEqual(asked.status_code, 200, asked.text)
+        self.assertIn("六页", asked.json()["reply"])
+        self.assertNotIn(secret, asked.text)
+        sent_user = mocked.call_args.args[2]
+        self.assertNotIn(secret, sent_user)
+        shared = self.client.post(f"/api/studio/squads/{squad['id']}/library", json={"body": "个人模型讨论\n我问：PPT 怎么排\n模型答：先把路演讲成六页。"}, headers=headers)
+        self.assertEqual(shared.status_code, 200, shared.text)
+        self.assertTrue(shared.json()["tasks_unchanged"])
+        os.environ["TEAM_MODEL_API_KEY"] = "sk-team-test"
+        os.environ["TEAM_MODEL_BASE_URL"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        os.environ["TEAM_MODEL_NAME"] = "qwen-plus"
+        with patch("app.studio.model_chat", return_value="先做能演示的一条。") as team:
+            direction = self.client.post(f"/api/studio/squads/{squad['id']}/direction", json={"message": "下一步做什么"}, headers=headers)
+        self.assertEqual(direction.status_code, 200, direction.text)
+        self.assertIn("先做能演示的一条", direction.json()["reply"])
+        self.assertNotIn("sk-team-test", team.call_args.args[2])
+        self.assertEqual(team.call_args.args[0]["api_key"], "sk-team-test")
 
 
 if __name__ == "__main__":

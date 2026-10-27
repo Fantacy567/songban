@@ -63,6 +63,7 @@ const state = {
   wechatInvite: "",
   smsNote: "",
   smsReady: false,
+  teamModelName: "",
   menuOpen: false,
   chats: {},
   contestDraft: null,
@@ -218,16 +219,21 @@ function chatBox() {
   const lines = state.chats[state.screen] || [];
   const bubbles = lines.map((line) => `<div class="bubble me">${esc(line.me)}</div><div class="bubble">${esc(line.reply)}</div>`).join("");
   const idle = coach
-    ? "可以问 PPT 要写多长，或用一句话让它排流程图。旧对话要自己贴过来。"
-    : "可以问「我们在做什么」。它只按已确认的题目、主干和提交清单回答。";
+    ? "问你自己的模型：怎么做、先学什么、今天排哪几步。答完可以交给团队。"
+    : "问团队模型下一步做什么。它按已确认的题目和提交清单回答，不会改题目或任务。";
+  const share = coach && lines.length ? `<button class="btn ghost" type="button" data-act="shareChat">把这次讨论交给团队</button>` : "";
+  const caption = coach
+    ? (state.me?.model_ready ? `个人模型 · ${esc(state.me.model_name || "已填写")}。费用算在你自己的账户上。` : "还没填写密钥。到设置里写上你的 API，费用算在你自己的账户上。")
+    : (state.teamModelName ? `团队模型 · ${esc(state.teamModelName)}。费用记在配置这台服务的账户上。` : "团队模型还没在服务器上配好。");
   return `<aside class="chat">
     <h3>${coach ? "私人教练" : "团队方向"}</h3>
-    <p class="muted">${coach ? "离线教练 · 非大模型。不读取旧对话，也不调用你的 API。" : "离线规则 · 非大模型。本机不调用 DeepSeek。"}</p>
+    <p class="muted">${caption}</p>
     ${bubbles || `<div class="bubble">${esc(idle)}</div>`}
     <form data-act="chat" class="composer">
       <input name="message" aria-label="${coach ? "问私人教练" : "问团队方向"}" ${state.squad ? "" : "disabled"}>
       <button class="btn" type="submit" ${state.squad ? "" : "disabled"}>发送</button>
     </form>
+    ${share}
   </aside>`;
 }
 
@@ -337,6 +343,19 @@ function viewSettings() {
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
       </div>
+    </div>
+    <div class="card">
+      <p class="kicker">我的模型</p>
+      <p class="muted">${me.model_ready ? `已保存 ${esc(me.model_name || "")}。密钥不再显示。留空密钥再保存，就是只改地址或模型名。` : "填写你自己的 API。问私人教练时花你的额度。"}</p>
+      <form data-act="saveModel">
+        <label for="model-base">接口地址</label>
+        <input id="model-base" name="base_url" type="url" placeholder="https://api.deepseek.com" value="${esc(me.model_base || "")}" required>
+        <label for="model-key">API 密钥</label>
+        <input id="model-key" name="api_key" type="password" autocomplete="off" placeholder="${me.model_ready ? "已填写，要换再输入" : "只保存在服务器上"}">
+        <label for="model-name">模型名</label>
+        <input id="model-name" name="model_id" placeholder="deepseek-v4-pro" value="${esc(me.model_name || "")}" required>
+        <button class="btn" type="submit">保存我的模型</button>
+      </form>
     </div>
     <div class="card">
       <p class="kicker">本机标记</p>
@@ -1578,6 +1597,26 @@ const actions = {
     const data = await api("POST", `/api/studio/squads/${state.squadId}/${path}`, { message });
     state.chats[state.screen] = state.chats[state.screen] || [];
     state.chats[state.screen].push({ me: message, reply: data.reply });
+    form.message.value = "";
+  },
+  async saveModel(form) {
+    const data = await api("POST", "/api/studio/me/model", {
+      base_url: form.base_url.value.trim(),
+      api_key: form.api_key.value,
+      model_id: form.model_id.value.trim(),
+    });
+    form.api_key.value = "";
+    state.note = data.notice;
+    await reload();
+  },
+  async shareChat() {
+    const lines = state.chats[state.screen] || [];
+    const last = lines[lines.length - 1];
+    if (!last) throw new Error("先问一句，再交给团队。");
+    const data = await api("POST", `/api/studio/squads/${state.squadId}/library`, {
+      body: `个人模型讨论\n我问：${last.me}\n模型答：${last.reply}`,
+    });
+    state.note = `${data.suggestion || "已交给团队。"}题目和任务没有被改掉。`;
   },
   async finishContest() {
     await api("POST", `/api/studio/squads/${state.squadId}/finish`);
@@ -1628,6 +1667,7 @@ async function loadConnect() {
     const data = await api("GET", "/api/studio/connect");
     state.smsReady = !!(data.sms && data.sms.ready);
     state.smsNote = (data.sms && data.sms.notice) || "";
+    state.teamModelName = (data.team_model && data.team_model.ready && data.team_model.name) || "";
   } catch {
     state.smsReady = false;
     state.smsNote = "";

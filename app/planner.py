@@ -25,6 +25,77 @@ def builtin_model():
     return {"api_key": "", "base_url": "https://api.deepseek.com", "model_id": "deepseek-v4-pro", "name": "DeepSeek-V4-Pro", "provider": "DeepSeek 官方", "mode": "builtin"}
 
 
+def team_model_config():
+    """Server-paid model for the shared team direction chat. Never reads a member's personal key."""
+    if all(os.environ.get(k, "").strip() for k in ("TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME")):
+        name = os.environ["TEAM_MODEL_NAME"].strip()
+        return {"api_key": os.environ["TEAM_MODEL_API_KEY"].strip(), "base_url": os.environ["TEAM_MODEL_BASE_URL"].strip(), "model_id": name, "name": name, "provider": "团队服务", "mode": "team"}
+    dash = os.environ.get("DASHSCOPE_API_KEY", "").strip()
+    if dash:
+        return {"api_key": dash, "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "model_id": "qwen-plus", "name": "qwen-plus", "provider": "通义千问", "mode": "team"}
+    return builtin_model()
+
+
+def check_model_base(base):
+    base = str(base or "").strip().rstrip("/")
+    try:
+        parts = urlsplit(base)
+        allowed = set(s.strip().lower() for s in os.environ.get("MODEL_ALLOWED_HOSTS", "api.deepseek.com,api.openai.com,dashscope.aliyuncs.com,open.bigmodel.cn,openrouter.ai").split(",") if s.strip())
+        local = parts.scheme == "http" and parts.hostname in {"localhost", "127.0.0.1"}
+        remote = parts.scheme == "https" and parts.hostname in allowed and parts.port in (443, None)
+        valid = (local or remote) and parts.hostname and not (parts.username or parts.password or parts.query or parts.fragment)
+    except ValueError:
+        valid = False
+    if not valid:
+        raise PlannerError("model_host_not_allowed", "请填写受支持服务的 HTTPS 地址，例如 https://api.deepseek.com。不能填内网或随便一个网址。", 422)
+    return base
+
+
+def model_chat(config, system, user_text, transport=None, max_tokens=800):
+    """One short chat completion. Returns the assistant text."""
+    if not config or not config.get("api_key"):
+        raise PlannerError("model_not_configured", "真实模型尚未配置。", 503)
+    base = check_model_base(config.get("base_url", ""))
+    parts = urlsplit(base)
+    try:
+        request_body = {
+            "model": config["model_id"],
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": str(user_text)[:8000]},
+            ],
+            "stream": False,
+            "max_tokens": max_tokens,
+        }
+        if parts.hostname == "api.deepseek.com":
+            request_body["thinking"] = {"type": "disabled"}
+        with httpx.Client(timeout=40, follow_redirects=False, transport=transport) as client:
+            response = client.post(base + "/chat/completions", headers={"Authorization": "Bearer " + config["api_key"]}, json=request_body)
+        if response.status_code == 402:
+            raise PlannerError("model_insufficient_balance", "模型账户余额不足。请到服务商充值，或换一把有额度的密钥。", 503)
+        if response.status_code in (401, 403):
+            raise PlannerError("model_auth_failed", "模型密钥无效，或没有调用这个模型的权限。", 503)
+        if response.status_code == 429:
+            raise PlannerError("model_rate_limited", "模型服务限流了，请稍后再问。", 503)
+        if response.status_code != 200:
+            raise PlannerError("model_unavailable", "模型服务没有答上来，请核对地址、密钥和模型名。")
+        if len(response.content) > 200000:
+            raise PlannerError("model_invalid_output", "模型回复太长，没有采用。")
+        choice = response.json()["choices"][0]
+        content = choice["message"].get("content")
+        if not isinstance(content, str) or not content.strip() or choice["message"].get("refusal"):
+            raise PlannerError("model_invalid_output", "模型没有给出可用的文字回复。")
+        return content.strip()[:4000]
+    except PlannerError:
+        raise
+    except httpx.TimeoutException:
+        raise PlannerError("model_timeout", "模型请求超时，请再问一次。", 504) from None
+    except httpx.HTTPError:
+        raise PlannerError("model_unavailable", "连不上模型服务，请核对地址。") from None
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise PlannerError("model_invalid_output", "模型返回的格式无法阅读。") from None
+
+
 def discover_models(base, api_key, transport=None):
     """Only explicit trusted HTTPS services; no user-controlled arbitrary URL fetch."""
     base = base.strip().rstrip("/")
