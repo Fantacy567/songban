@@ -185,7 +185,7 @@ function rememberSquad(id) {
 
 function canOpen(id) {
   if (id === "signup" || id === "login") return true;
-  if (!state.token) return "先用账号和密码登录。没有账号就用手机号注册。";
+  if (!state.token) return "先用手机号和密码登录。没有注册就用手机号注册。";
   if (HUB_FREE.has(id)) return true;
   if (NEED_SQUAD.has(id) && !state.squad) return "先到「比赛系统 → 赛事信息 / 组队」加入或创建队伍。";
   if (NEED_CONFIRMED.has(id) && !state.squad.squad.confirmed) return "先让每人贴介绍并选角色，再由队长确认。";
@@ -195,7 +195,7 @@ function canOpen(id) {
 }
 
 function nextStep() {
-  if (!state.token) return "用账号和密码登录。没有账号就用手机号注册。";
+  if (!state.token) return "用手机号和密码登录。还没有注册就走手机号注册。";
   if (!state.squad && !(state.me?.contests || []).length) return "下一步：填写比赛名称，上传资料或公众号网址，点确认比赛。";
   if (!state.squad) return "下一步：创建队伍，或让队友用自己的手机号进入后填写队伍码。";
   if (!state.squad.squad.confirmed) return "下一步：每人贴一段介绍并选角色。人齐了，队长再确认。确认后才会出现对勾。";
@@ -203,7 +203,7 @@ function nextStep() {
   if (state.squad.members.some((member) => !member.skill_installed)) return "下一步：每人下载并安装同一份技能。文件内容全队相同。";
   if (!state.squad.tasks.length) return state.squad.me.captain ? "下一步：在队长规划里发布任务。发布不用等表决。" : "下一步：等队长发布任务。会改题目、主干或提交清单的想法，先到团队表决。";
   if (!state.squad.squad.finished) return "任务已经发布。做完后由队长在赛后成长里记下这场。";
-  return "这场已记入成长。下次用账号和密码进入，不必重填画像。";
+  return "这场已记入成长。下次用手机号和密码进入，不必重填画像。";
 }
 
 function page(inner) {
@@ -256,21 +256,21 @@ function avatarHtml(url, name, cls = "avatar") {
 
 function viewLogin() {
   return `<div class="reg-wrap"><h2>进入松伴</h2>
-    <p class="muted">用账号和密码登录。</p>
+    <p class="muted">用手机号和密码登录。</p>
     <form id="login-form" data-act="login" class="card">
-      <label for="login-account">账号</label>
-      <input id="login-account" name="account" autocomplete="username" required placeholder="注册时的账号，或手机号">
+      <label for="login-phone">手机号</label>
+      <input id="login-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" required placeholder="注册时用的手机号">
       <label for="login-password">密码</label>
       <input id="login-password" name="password" type="password" autocomplete="current-password" required>
       <button class="btn" type="submit">登录</button>
     </form>
     <p id="entry-status" hidden></p>
-    <p class="muted"><button class="linkish" type="button" data-go="signup">没有账号？用手机号注册</button></p></div>`;
+    <p class="muted"><button class="linkish" type="button" data-go="signup">还没有注册？用手机号注册</button></p></div>`;
 }
 
 function viewSignup() {
   return `<div class="reg-wrap"><h2>用手机号注册</h2>
-    <p class="muted">验证手机号后设置账号和密码。已经注册过的手机号只会补上密码，不覆盖原来的名字和技能。</p>
+    <p class="muted">验证手机号后设置密码。手机号就是登录账号。已经注册过的手机号只会补上密码，不覆盖原来的名字和技能。</p>
     <form id="reg-form" data-act="enter" class="card">
       <label for="reg-phone">手机号</label>
       <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号" required>
@@ -279,8 +279,6 @@ function viewSignup() {
       <p id="reg-issued" class="code" hidden></p>
       <label for="reg-code">验证码</label>
       <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字" required>
-      <label for="reg-account">账号</label>
-      <input id="reg-account" name="account" autocomplete="username" maxlength="20" placeholder="2 到 20 位，中文、字母或数字" required>
       <label for="reg-password">密码</label>
       <input id="reg-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="64" required>
       <label for="reg-password2">再输入一次密码</label>
@@ -297,7 +295,7 @@ function viewSignup() {
       <button class="btn" type="submit">注册</button>
     </form>
     <p id="entry-status" hidden></p>
-    <p class="muted"><button class="linkish" type="button" data-go="login">已有账号？去登录</button></p></div>`;
+    <p class="muted"><button class="linkish" type="button" data-go="login">已经注册？去登录</button></p></div>`;
 }
 
 function viewProfile() {
@@ -331,10 +329,10 @@ function viewSettings() {
   const me = state.me || {};
   return `<h2>设置</h2>
     <div class="card">
-      <p class="kicker">账号</p>
+      <p class="kicker">我的资料</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">用账号和密码登录。没有账号时用手机号注册。</p>
+      <p class="muted">用手机号和密码登录。还没有注册时，用手机号收验证码并设置密码。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
@@ -1290,7 +1288,7 @@ const actions = {
   },
   async login(form) {
     const data = await api("POST", "/api/studio/login", {
-      account: form.account.value.trim(),
+      account: form.phone.value.trim(),
       password: form.password.value,
     });
     await adopt(data, data.phone || form.account.value.trim());
@@ -1312,7 +1310,7 @@ const actions = {
     }
     if (form.password.value !== form.password2.value) throw new Error("两次密码不一致。");
     const phone = form.phone.value.trim();
-    const body = { phone, code: form.code.value.trim(), password: form.password.value, username: val(form, "account").trim() };
+    const body = { phone, code: form.code.value.trim(), password: form.password.value };
     if (state.needProfile) {
       body.name = val(form, "name").trim();
       body.profile = val(form, "profile").trim();
@@ -1583,7 +1581,7 @@ const actions = {
   },
   async finishContest() {
     await api("POST", `/api/studio/squads/${state.squadId}/finish`);
-    state.note = "已写入每人的成长记录。下次用账号和密码进入，不会重问画像。";
+    state.note = "已写入每人的成长记录。下次用手机号和密码进入，不会重问画像。";
     await reload();
   },
 };

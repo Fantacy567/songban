@@ -575,7 +575,7 @@ def register_studio(api, db, problem, now, uid, digest):
                     raise problem(401, "code_burned", "验证码试错过多，已经作废。请重新获取。")
                 raise problem(401, "bad_code", "验证码不对。还在注册页，没有进入。")
             if not password:
-                raise problem(422, "password_required", "设置一个至少 8 位的密码。以后用账号和密码登录。")
+                raise problem(422, "password_required", "设置一个至少 8 位的密码。以后用手机号和密码登录。")
             existing = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
             if username:
                 taken = con.execute("SELECT id FROM people WHERE username=?", (username,)).fetchone()
@@ -607,14 +607,14 @@ def register_studio(api, db, problem, now, uid, digest):
             return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "phone": phone, "username": username,
                     "skills": skills[:500],
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
-                    "notice": "手机号已验证，账号已建立。下次用账号和密码登录。"}
+                    "notice": "手机号已验证。下次用这个手机号和密码登录。"}
 
     @api.post("/api/studio/login")
     def login(body: dict):
         account = str(body.get("account") or body.get("username") or body.get("phone") or "").strip()
         password = str(body.get("password") or "")
         if not account or not password:
-            raise problem(422, "login_required", "填写账号和密码。")
+            raise problem(422, "login_required", "填写手机号和密码。")
         with db(True) as con:
             user = None
             phone = normalize_phone(account)
@@ -623,9 +623,9 @@ def register_studio(api, db, problem, now, uid, digest):
             if not user:
                 user = con.execute("SELECT * FROM people WHERE username=?", (account,)).fetchone()
             if user and not (user["password_hash"] or ""):
-                raise problem(401, "password_missing", "这个账号还没有密码。请用手机号注册，验证后设置密码。")
+                raise problem(401, "password_missing", "这个手机号还没有密码。请用手机号注册，验证后设置密码。")
             if not user or not password_matches(user["password_hash"], password):
-                raise problem(401, "bad_login", "账号或密码不对。")
+                raise problem(401, "bad_login", "手机号或密码不对。")
             token_clear = secrets.token_urlsafe(24)
             con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), user["id"]))
             user = dict(user)
@@ -633,7 +633,7 @@ def register_studio(api, db, problem, now, uid, digest):
                     "phone": public_phone(user), "username": user.get("username") or "",
                     "skills": user["skills"], "profile": user["profile"], "growth": user["growth"],
                     "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
-                    "notice": "已用账号和密码进入。"}
+                    "notice": "已用手机号和密码进入。"}
 
     @api.get("/api/studio/connect")
     def connect_status():
