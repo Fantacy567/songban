@@ -127,7 +127,7 @@ class StudioFlowTests(unittest.TestCase):
 
     def enter(self, phone, name, skills, profile="做过产品和演示"):
         code = self.issue(phone)
-        result = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "name": name, "skills": skills, "profile": profile, "github": True, "feishu": True})
+        result = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "name": name, "skills": skills, "profile": profile, "password": "pass1234", "github": True, "feishu": True})
         self.assertIn(result.status_code, (200, 201), result.text)
         return result.json()
 
@@ -146,7 +146,7 @@ class StudioFlowTests(unittest.TestCase):
         rejected = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": wrong, "name": "新", "profile": "做过", "skills": "产品"})
         self.assertEqual(rejected.status_code, 401, rejected.text)
         self.assertNotIn("token", rejected.json())
-        missing = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": issued})
+        missing = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": issued, "password": "pass1234"})
         self.assertEqual(missing.status_code, 422, missing.text)
         self.assertEqual(missing.json()["error"]["code"], "profile_required")
         saved = self.client.patch("/api/studio/me", json={"name": "孔祥梨", "profile": "会整理讨论", "skills": "路演、文档"}, headers=self.auth(again["token"]))
@@ -154,6 +154,18 @@ class StudioFlowTests(unittest.TestCase):
         noted = self.client.post("/api/studio/memory", json={"text": "路演可以独立完成"}, headers=self.auth(again["token"]))
         self.assertEqual(noted.status_code, 200, noted.text)
         self.assertIn("本人记下：路演可以独立完成", noted.json()["growth"])
+        wrong_pw = self.client.post("/api/studio/login", json={"account": "13800001111", "password": "nope-nope"})
+        self.assertEqual(wrong_pw.status_code, 401)
+        logged = self.client.post("/api/studio/login", json={"account": "13800001111", "password": "pass1234"})
+        self.assertEqual(logged.status_code, 200, logged.text)
+        self.assertIn("token", logged.json())
+        named = self.client.post("/api/studio/register", json={"phone": "13900002222", "code": self.issue("13900002222"), "name": "新", "profile": "做过产品和演示", "skills": "产品", "password": "pass1234", "username": "新账号"})
+        self.assertEqual(named.status_code, 200, named.text)
+        by_name = self.client.post("/api/studio/login", json={"account": "新账号", "password": "pass1234"})
+        self.assertEqual(by_name.status_code, 200, by_name.text)
+        page = self.client.get("/static/studio.js").text
+        self.assertNotIn("用微信登录", page)
+        self.assertIn("没有账号？用手机号注册", page)
 
     def test_full_local_flow_without_external_accounts(self):
         captain = self.enter("13800001111", "孔祥梨", "产品、文档、路演")
@@ -351,7 +363,7 @@ class StudioFlowTests(unittest.TestCase):
         self.assertNotIn("code", body)
         self.assertNotIn("123456", result.text)
         mocked.assert_called_once_with("13800004444", "123456")
-        entered = self.client.post("/api/studio/register", json={"phone": "13800004444", "code": "123456", "name": "甲", "profile": "做过产品和演示", "skills": "产品"})
+        entered = self.client.post("/api/studio/register", json={"phone": "13800004444", "code": "123456", "name": "甲", "profile": "做过产品和演示", "skills": "产品", "password": "pass1234"})
         self.assertIn(entered.status_code, (200, 201), entered.text)
         self.assertIn("token", entered.json())
 
@@ -376,7 +388,7 @@ class StudioFlowTests(unittest.TestCase):
         self.assertNotIn("code", result.json())
         self.assertNotIn("112233", result.text)
         mocked.assert_called_once_with("13800006666", "112233")
-        entered = self.client.post("/api/studio/register", json={"phone": "13800006666", "code": "112233", "name": "乙", "profile": "做过产品和演示", "skills": "产品"})
+        entered = self.client.post("/api/studio/register", json={"phone": "13800006666", "code": "112233", "name": "乙", "profile": "做过产品和演示", "skills": "产品", "password": "pass1234"})
         self.assertIn(entered.status_code, (200, 201), entered.text)
 
     def test_enterprise_sms_still_uses_dysms(self):

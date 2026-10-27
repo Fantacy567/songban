@@ -48,7 +48,7 @@ const BRIEFS = {
 };
 
 const state = {
-  screen: "signup",
+  screen: "login",
   token: localStorage.getItem("studio-token") || "",
   squadId: localStorage.getItem("studio-squad") || "",
   contestId: localStorage.getItem("studio-contest") || "",
@@ -185,8 +185,8 @@ function rememberSquad(id) {
 }
 
 function canOpen(id) {
-  if (id === "signup") return true;
-  if (!state.token) return "先用手机号进入。";
+  if (id === "signup" || id === "login") return true;
+  if (!state.token) return "先用账号和密码登录。没有账号就用手机号注册。";
   if (HUB_FREE.has(id)) return true;
   if (NEED_SQUAD.has(id) && !state.squad) return "先到「比赛系统 → 赛事信息 / 组队」加入或创建队伍。";
   if (NEED_CONFIRMED.has(id) && !state.squad.squad.confirmed) return "先让每人贴介绍并选角色，再由队长确认。";
@@ -196,7 +196,7 @@ function canOpen(id) {
 }
 
 function nextStep() {
-  if (!state.token) return "用手机号进入。第一次才填写画像和技能。";
+  if (!state.token) return "用账号和密码登录。没有账号就用手机号注册。";
   if (!state.squad && !(state.me?.contests || []).length) return "下一步：填写比赛名称，上传资料或公众号网址，点确认比赛。";
   if (!state.squad) return "下一步：创建队伍，或让队友用自己的手机号进入后填写队伍码。";
   if (!state.squad.squad.confirmed) return "下一步：每人贴一段介绍并选角色。人齐了，队长再确认。确认后才会出现对勾。";
@@ -204,11 +204,11 @@ function nextStep() {
   if (state.squad.members.some((member) => !member.skill_installed)) return "下一步：每人下载并安装同一份技能。文件内容全队相同。";
   if (!state.squad.tasks.length) return state.squad.me.captain ? "下一步：在队长规划里发布任务。发布不用等表决。" : "下一步：等队长发布任务。会改题目、主干或提交清单的想法，先到团队表决。";
   if (!state.squad.squad.finished) return "任务已经发布。做完后由队长在赛后成长里记下这场。";
-  return "这场已记入成长。下次用同一个手机号进入，不必重填画像。";
+  return "这场已记入成长。下次用账号和密码进入，不必重填画像。";
 }
 
 function page(inner) {
-  const hint = state.screen === "signup" || state.screen === "success" ? "" : `<p class="hint">${esc(nextStep())}</p>`;
+  const hint = state.screen === "signup" || state.screen === "login" || state.screen === "success" ? "" : `<p class="hint">${esc(nextStep())}</p>`;
   const main = `<div>${hint}${inner}</div>`;
   if (!CHAT.has(state.screen)) return main;
   return `<div class="work">${main}${chatBox()}</div>`;
@@ -262,22 +262,37 @@ function avatarHtml(url, name, cls = "avatar") {
   return `<span class="${cls}">${esc(label)}</span>`;
 }
 
-function viewSignup() {
+function viewLogin() {
   return `<div class="reg-wrap"><h2>进入松伴</h2>
-    <p class="muted">可用微信扫码登录（头像用微信头像），或用手机号接收云端短信验证码。</p>
-    <div class="card">
-      <button class="btn" type="button" data-act="wechat">用微信登录</button>
-      <p id="reg-wechat" class="muted" hidden></p>
-    </div>
+    <p class="muted">用账号和密码登录。</p>
+    <form id="login-form" data-act="login" class="card">
+      <label for="login-account">账号</label>
+      <input id="login-account" name="account" autocomplete="username" required placeholder="注册时的账号，或手机号">
+      <label for="login-password">密码</label>
+      <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+      <button class="btn" type="submit">登录</button>
+    </form>
+    <p id="entry-status" hidden></p>
+    <p class="muted"><button class="linkish" type="button" data-go="signup">没有账号？用手机号注册</button></p></div>`;
+}
+
+function viewSignup() {
+  return `<div class="reg-wrap"><h2>用手机号注册</h2>
+    <p class="muted">验证手机号后设置账号和密码。已经注册过的手机号只会补上密码，不覆盖原来的名字和技能。</p>
     <form id="reg-form" data-act="enter" class="card">
-      <p class="kicker">手机号</p>
       <label for="reg-phone">手机号</label>
-      <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号">
+      <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号" required>
       <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
       <p id="reg-code-note" class="muted" hidden></p>
       <p id="reg-issued" class="code" hidden></p>
       <label for="reg-code">验证码</label>
-      <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字">
+      <input id="reg-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 位数字" required>
+      <label for="reg-account">账号</label>
+      <input id="reg-account" name="account" autocomplete="username" maxlength="20" placeholder="2 到 20 位，中文、字母或数字" required>
+      <label for="reg-password">密码</label>
+      <input id="reg-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="64" required>
+      <label for="reg-password2">再输入一次密码</label>
+      <input id="reg-password2" name="password2" type="password" autocomplete="new-password" minlength="8" maxlength="64" required>
       <div id="reg-profile" hidden>
         <label for="reg-name">名字</label>
         <input id="reg-name" name="name" maxlength="40" autocomplete="name">
@@ -287,9 +302,10 @@ function viewSignup() {
         <input id="reg-skills" name="skills" placeholder="例如：需求、流程图、路演">
         <p class="muted">只在第一次问。验证码还没通过时，填了也不会进入。</p>
       </div>
-      <button class="btn" type="submit">验证并进入</button>
+      <button class="btn" type="submit">注册</button>
     </form>
-    <p id="reg-status" hidden></p></div>`;
+    <p id="entry-status" hidden></p>
+    <p class="muted"><button class="linkish" type="button" data-go="login">已有账号？去登录</button></p></div>`;
 }
 
 function viewProfile() {
@@ -326,7 +342,7 @@ function viewSettings() {
       <p class="kicker">账号</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">可用微信登录（头像来自微信），或手机号短信验证码进入。</p>
+      <p class="muted">用账号和密码登录。没有账号时用手机号注册。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
@@ -574,17 +590,8 @@ function viewHubMine() {
 function viewFriends() {
   const friends = state.me?.friends || [];
   const list = friends.map((f) => `<div class="person" style="display:flex;gap:10px;align-items:center">${avatarHtml(f.avatar_url, f.name)}<div><strong>${esc(f.name)}</strong><p class="muted">${esc(f.phone || (f.avatar_url ? "微信好友" : "未显示手机号"))}</p></div></div>`).join("");
-  const wechatBlock = state.me?.wechat
-    ? `<div class="card">
-        <p class="kicker">微信好友邀请</p>
-        <p class="muted">微信开放平台不提供通讯录。把邀请链接发给微信好友，对方用微信登录后会自动互加。</p>
-        <button class="btn" type="button" data-act="wechatInvite">生成邀请链接</button>
-        <p id="wechat-invite-link" class="muted" hidden></p>
-      </div>`
-    : `<div class="card"><p class="muted">用微信登录后，可生成邀请链接，让微信好友自动成为松伴好友。</p></div>`;
   return `<h2>好友</h2>
     <p class="muted"><button class="linkish" type="button" data-go="hubMine">← 我的系统</button></p>
-    ${wechatBlock}
     <form data-act="addFriend" class="card">
       <label for="friend-phone">对方注册用的手机号</label>
       <input id="friend-phone" name="phone" inputmode="numeric">
@@ -851,6 +858,7 @@ function viewGrowth() {
 }
 
 const views = {
+  login: viewLogin,
   signup: viewSignup,
   contest: viewContest,
   team: viewTeam,
@@ -882,7 +890,7 @@ function isTypingTarget(target) {
 }
 
 function paintSignupStatus() {
-  const status = document.getElementById("reg-status");
+  const status = document.getElementById("entry-status");
   if (!status) return;
   const text = state.error || state.note || "";
   status.hidden = !text;
@@ -914,7 +922,8 @@ function paintSignupStatus() {
 
 function renderSignup() {
   const main = document.getElementById("main");
-  if (!document.getElementById("reg-phone")) main.innerHTML = viewSignup();
+  const marker = state.screen === "signup" ? "reg-form" : "login-form";
+  if (!document.getElementById(marker)) main.innerHTML = state.screen === "signup" ? viewSignup() : viewLogin();
   paintSignupStatus();
 }
 
@@ -967,7 +976,7 @@ function renderRail() {
 function render() {
   const app = document.getElementById("app");
   if (!state.token) {
-    state.screen = "signup";
+    if (state.screen !== "signup" && state.screen !== "login") state.screen = "login";
     state.menuOpen = false;
     if (app) app.classList.remove("signed");
     const rail = document.getElementById("rail");
@@ -1186,8 +1195,14 @@ function armCountdown() {
 }
 
 async function go(id) {
+  if (!state.token && id !== "login" && id !== "signup") {
+    state.screen = "login";
+    render();
+    return;
+  }
   if (!state.token) {
-    state.screen = "signup";
+    state.screen = id;
+    state.error = "";
     render();
     return;
   }
@@ -1269,7 +1284,7 @@ const actions = {
     state.squad = null;
     state.squadId = "";
     state.menuOpen = false;
-    state.screen = "signup";
+    state.screen = "login";
     saveSession();
   },
   async saveProfile(form) {
@@ -1284,6 +1299,13 @@ const actions = {
     state.note = "已记入个人记忆。没有读取旧对话。";
     if (state.me) state.me.growth = data.growth;
     await reload();
+  },
+  async login(form) {
+    const data = await api("POST", "/api/studio/login", {
+      account: form.account.value.trim(),
+      password: form.password.value,
+    });
+    await adopt(data, data.phone || form.account.value.trim());
   },
   async enter(form) {
     if (state.wechatTicket) {
@@ -1300,8 +1322,9 @@ const actions = {
       await adopt(data, data.phone || `微信·${data.name}`);
       return;
     }
+    if (form.password.value !== form.password2.value) throw new Error("两次密码不一致。");
     const phone = form.phone.value.trim();
-    const body = { phone, code: form.code.value.trim() };
+    const body = { phone, code: form.code.value.trim(), password: form.password.value, username: val(form, "account").trim() };
     if (state.needProfile) {
       body.name = val(form, "name").trim();
       body.profile = val(form, "profile").trim();
@@ -1333,7 +1356,7 @@ const actions = {
       if (error.status === 401) delete state.accounts[phone];
       state.token = "";
       saveSession();
-      throw new Error("这个登录已失效。用手机号再进入一次。");
+      throw new Error("这个登录已失效。用账号和密码再进入一次。");
     }
     state.squad = null;
     state.squadId = state.me.squads[0]?.id || "";
@@ -1594,7 +1617,7 @@ const actions = {
   },
   async finishContest() {
     await api("POST", `/api/studio/squads/${state.squadId}/finish`);
-    state.note = "已写入每人的成长记录。下次用同一个手机号进入，不会重问画像。";
+    state.note = "已写入每人的成长记录。下次用账号和密码进入，不会重问画像。";
     await reload();
   },
 };
@@ -1695,7 +1718,7 @@ async function boot() {
   } catch (error) {
     state.token = "";
     state.error = error.message;
-    state.screen = "signup";
+    state.screen = "login";
     saveSession();
   }
   render();

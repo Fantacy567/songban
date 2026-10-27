@@ -119,7 +119,12 @@ def ensure_schema(con):
         con.execute("ALTER TABLE people ADD COLUMN wechat_avatar TEXT NOT NULL DEFAULT ''")
     if "wechat_unionid" not in columns:
         con.execute("ALTER TABLE people ADD COLUMN wechat_unionid TEXT NOT NULL DEFAULT ''")
+    if "password_hash" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
+    if "username" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN username TEXT")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_wechat_openid ON people(wechat_openid) WHERE wechat_openid IS NOT NULL")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_username ON people(username) WHERE username IS NOT NULL AND username != ''")
     ticket_cols = {row[1] for row in con.execute("PRAGMA table_info(wechat_tickets)")}
     if "avatar" not in ticket_cols:
         con.execute("ALTER TABLE wechat_tickets ADD COLUMN avatar TEXT NOT NULL DEFAULT ''")
@@ -249,6 +254,40 @@ def normalize_phone(value):
     if not re.fullmatch(r"\d{6,20}", phone):
         return None
     return phone
+
+
+def normalize_username(value):
+    name = str(value or "").strip()
+    if not name:
+        return ""
+    if not re.fullmatch(r"[A-Za-z0-9_\u4e00-\u9fff]{2,20}", name):
+        return None
+    return name
+
+
+def normalize_password(value):
+    password = str(value or "")
+    if len(password) < 8 or len(password) > 64 or password.strip() != password:
+        return None
+    return password
+
+
+def hash_password(password):
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 120_000).hex()
+    return f"pbkdf2_sha256$120000${salt}${digest}"
+
+
+def password_matches(stored, password):
+    try:
+        scheme, rounds, salt, expected = (stored or "").split("$", 3)
+        rounds = int(rounds)
+    except (ValueError, AttributeError):
+        return False
+    if scheme != "pbkdf2_sha256" or rounds < 1 or rounds > 500_000:
+        return False
+    got = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), rounds).hex()
+    return secrets.compare_digest(got, expected)
 
 
 def extract_submissions(text):
@@ -500,31 +539,73 @@ def register_studio(api, db, problem, now, uid, digest):
         if not phone:
             raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
         code = str(body.get("code") or "").strip()
+        password = normalize_password(body.get("password"))
+        username = normalize_username(body.get("username") or body.get("account") or "")
+        if username is None:
+            raise problem(422, "invalid_account", "账号用 2 到 20 位中文、字母或数字。")
         with db(True) as con:
             if not code_matches(con, phone, code):
                 raise problem(401, "bad_code", "验证码不对。还在注册页，没有进入。")
+            if not password:
+                raise problem(422, "password_required", "设置一个至少 8 位的密码。以后用账号和密码登录。")
             existing = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
+            if username:
+                taken = con.execute("SELECT id FROM people WHERE username=?", (username,)).fetchone()
+                if taken and (not existing or taken["id"] != existing["id"]):
+                    raise problem(409, "account_taken", "这个账号已经有人用了。换一个。")
+            password_hash = hash_password(password)
             if existing:
                 token_clear = secrets.token_urlsafe(24)
-                con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), existing["id"]))
+                if username:
+                    con.execute("UPDATE people SET token_hash=?, password_hash=?, username=? WHERE id=?", (digest(token_clear), password_hash, username, existing["id"]))
+                else:
+                    con.execute("UPDATE people SET token_hash=?, password_hash=? WHERE id=?", (digest(token_clear), password_hash, existing["id"]))
                 con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
                 existing = dict(existing)
                 return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": existing["name"],
+                        "phone": phone, "username": username or existing.get("username") or "",
                         "skills": existing["skills"], "profile": existing["profile"], "growth": existing["growth"],
                         "github_linked": bool(existing["github_linked"]), "feishu_linked": bool(existing["feishu_linked"]),
-                        "notice": "验证码正确。这个手机号已经注册，画像和技能保持第一次填写的，没有覆盖。"}
+                        "notice": "这个手机号已经注册。密码已设置，名字和技能保持第一次填写的。"}
             name = str(body.get("name") or "").strip()
             profile = str(body.get("profile") or "").strip()
             skills = str(body.get("skills") or "").strip()
             if not name or not profile or not skills:
                 raise problem(422, "profile_required", "验证码对了。第一次还要填写名字、画像和目前做得到的事。")
             pid, token_clear = uid(), secrets.token_urlsafe(24)
-            con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at)
-                VALUES(?,?,?,?,?,?,?,?,?)""", (pid, phone, name[:40], profile[:2000], skills[:500], int(bool(body.get("github"))), int(bool(body.get("feishu"))), digest(token_clear), now()))
+            con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at,password_hash,username)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (pid, phone, name[:40], profile[:2000], skills[:500], int(bool(body.get("github"))), int(bool(body.get("feishu"))), digest(token_clear), now(), password_hash, username or None))
             con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
-            return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "skills": skills[:500],
+            return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "phone": phone, "username": username,
+                    "skills": skills[:500],
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
-                    "notice": "验证码正确，账号已建立。"}
+                    "notice": "手机号已验证，账号已建立。下次用账号和密码登录。"}
+
+    @api.post("/api/studio/login")
+    def login(body: dict):
+        account = str(body.get("account") or body.get("username") or body.get("phone") or "").strip()
+        password = str(body.get("password") or "")
+        if not account or not password:
+            raise problem(422, "login_required", "填写账号和密码。")
+        with db(True) as con:
+            user = None
+            phone = normalize_phone(account)
+            if phone:
+                user = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
+            if not user:
+                user = con.execute("SELECT * FROM people WHERE username=?", (account,)).fetchone()
+            if user and not (user["password_hash"] or ""):
+                raise problem(401, "password_missing", "这个账号还没有密码。请用手机号注册，验证后设置密码。")
+            if not user or not password_matches(user["password_hash"], password):
+                raise problem(401, "bad_login", "账号或密码不对。")
+            token_clear = secrets.token_urlsafe(24)
+            con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), user["id"]))
+            user = dict(user)
+            return {"user_id": user["id"], "token": token_clear, "returning": True, "name": user["name"],
+                    "phone": public_phone(user), "username": user.get("username") or "",
+                    "skills": user["skills"], "profile": user["profile"], "growth": user["growth"],
+                    "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
+                    "notice": "已用账号和密码进入。"}
 
     @api.get("/api/studio/connect")
     def connect_status():
