@@ -306,15 +306,15 @@ def ocr_weixin_images(image_urls: list[str], transport=None, limit: int = MAX_WE
 
     def _one(idx: int, link: str) -> tuple[int, str]:
         try:
-            with httpx.Client(timeout=30, follow_redirects=True, transport=transport) as client:
-                response = client.get(link, headers=headers)
+            with httpx.Client(timeout=30, follow_redirects=False, transport=transport) as client:
+                response, _final = public_request(client, "GET", link, headers=headers)
             if response.status_code != 200 or len(response.content) < 800:
                 return idx, ""
             ctype = response.headers.get("content-type", "")
             suffix = ".jpg" if "jpeg" in ctype else ".png"
             text = ocr_image_bytes(response.content, suffix=suffix)
             return idx, text
-        except httpx.HTTPError:
+        except (httpx.HTTPError, IntelError):
             return idx, ""
 
     # 串行更稳：并行时图片下载+Vision 容易互相拖垮，最终全空。
@@ -363,6 +363,25 @@ def validate_public_url(url: str) -> str:
     if parts.username or parts.password:
         raise IntelError("invalid_url", "链接里不要带账号密码。")
     return url
+
+
+def public_request(client, method: str, url: str, *, headers=None, limit: int = 5, **kwargs):
+    """Follow redirects only when every hop is still a public URL."""
+    current = validate_public_url(url)
+    redirects = {301, 302, 303, 307, 308}
+    for _ in range(limit):
+        response = client.request(method, current, headers=headers or _fetch_headers(current), **kwargs)
+        if response.status_code not in redirects:
+            return response, current
+        location = response.headers.get("location")
+        if not location:
+            return response, current
+        current = validate_public_url(urljoin(current, location))
+        if response.status_code in {301, 302, 303}:
+            method = "GET"
+            kwargs = {}
+        headers = _fetch_headers(current)
+    raise IntelError("fetch_failed", "网页跳转次数过多。")
 
 
 def _fetch_headers(url: str) -> dict:
@@ -536,9 +555,8 @@ def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
     # 公众号页常 3MB+；用普通 GET + 跟跳转。stream 在微信域名上会拖死读超时。
     timeout = httpx.Timeout(60.0 if weixin else 18.0, connect=10.0)
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=True, transport=transport) as client:
-            response = client.get(current, headers=_fetch_headers(current))
-            final = str(response.url)
+        with httpx.Client(timeout=timeout, follow_redirects=False, transport=transport) as client:
+            response, final = public_request(client, "GET", current)
             if response.status_code != 200:
                 if weixin or is_weixin_article(final):
                     raise IntelError(
@@ -555,10 +573,9 @@ def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
                         # 再试一次带 nwr_flag 的地址
                         retry = prepare_weixin_url(urldefrag(final).url)
                         if retry != current:
-                            response = client.get(retry, headers=_fetch_headers(retry))
+                            response, final = public_request(client, "GET", retry)
                             if response.status_code == 200:
                                 html = response.content[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
-                                final = str(response.url)
                         if weixin_error_page(html):
                             raise IntelError(
                                 "weixin_fetch_failed",
@@ -590,9 +607,11 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
             return
 
     try:
-        with httpx.Client(timeout=8, follow_redirects=True, transport=transport) as client:
+        with httpx.Client(timeout=8, follow_redirects=False, transport=transport) as client:
             try:
-                response = client.post(
+                response, _final = public_request(
+                    client,
+                    "POST",
                     "https://html.duckduckgo.com/html/",
                     data={"q": query},
                     headers=headers,
@@ -602,10 +621,12 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
                         _push(unquote(match.group(1)))
                         if len(links) >= limit:
                             return links
-            except httpx.HTTPError:
+            except (httpx.HTTPError, IntelError):
                 pass
             try:
-                response = client.get(
+                response, _final = public_request(
+                    client,
+                    "GET",
                     "https://www.bing.com/search",
                     params={"q": query, "setlang": "zh-hans"},
                     headers=headers,
@@ -618,9 +639,9 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
                         _push(match.group(1).split("&")[0])
                         if len(links) >= limit:
                             break
-            except httpx.HTTPError:
+            except (httpx.HTTPError, IntelError):
                 pass
-    except httpx.HTTPError:
+    except (httpx.HTTPError, IntelError):
         return links
     return links
 

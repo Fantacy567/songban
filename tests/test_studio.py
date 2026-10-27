@@ -5,12 +5,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.contest_intel import (
+    IntelError,
     extract_urls,
     extract_weixin_image_urls,
+    fetch_public_page,
     heuristic_extract_facts,
     parse_weixin_article,
     prepare_weixin_url,
@@ -95,6 +98,32 @@ class ExtractTests(unittest.TestCase):
         self.assertNotIn("技术设计：", one)
 
 
+    def test_redirect_to_loopback_is_refused(self):
+        def handler(request):
+            if request.url.host == "example.com" and request.url.path == "/start":
+                return httpx.Response(302, headers={"location": "http://127.0.0.1/secret"})
+            return httpx.Response(200, text="INTERNAL_SECRET_MARKER")
+
+        with self.assertRaises(IntelError) as caught:
+            fetch_public_page("http://example.com/start", transport=httpx.MockTransport(handler))
+        self.assertEqual(caught.exception.code, "url_not_allowed")
+
+    def test_public_redirect_is_followed(self):
+        def handler(request):
+            if request.url.path == "/start":
+                return httpx.Response(302, headers={"location": "http://example.com/landed"})
+            return httpx.Response(
+                200,
+                text="<html><title>公开页</title><body><p>公开页面正文足够长可以阅读</p></body></html>",
+                headers={"content-type": "text/html"},
+            )
+
+        text, title = fetch_public_page("http://example.com/start", transport=httpx.MockTransport(handler))
+        self.assertIn("公开页面", text)
+        self.assertNotIn("INTERNAL", text)
+        self.assertIn("公开", title)
+
+
 class StudioFlowTests(unittest.TestCase):
     def setUp(self):
         self.env = patch.dict(
@@ -166,6 +195,9 @@ class StudioFlowTests(unittest.TestCase):
         page = self.client.get("/static/studio.js").text
         self.assertNotIn("用微信登录", page)
         self.assertIn("没有账号？用手机号注册", page)
+        self.assertNotIn("setItem(\"studio-accounts\"", page)
+        self.assertIn("removeItem(\"studio-accounts\")", page)
+        self.assertNotIn("换一个人", page)
 
     def test_full_local_flow_without_external_accounts(self):
         captain = self.enter("13800001111", "孔祥梨", "产品、文档、路演")
@@ -351,6 +383,30 @@ class StudioFlowTests(unittest.TestCase):
         me = self.client.get("/api/studio/me", headers=self.auth(body["token"])).json()
         self.assertEqual(me["avatar_url"], "https://thirdwx.qlogo.cn/avatar.png")
         self.assertTrue(any(f["name"] == "东道主" for f in me["friends"]))
+        host = self.client.get("/api/studio/me", headers=self.auth(owner["token"])).json()
+        self.assertTrue(any(f["name"] == "访客昵称" for f in host["friends"]))
+        con = sqlite3.connect(db_path)
+        con.execute(
+            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
+            (
+                "ticket-again",
+                "openid-other",
+                "另一个人",
+                "https://thirdwx.qlogo.cn/other.png",
+                "union-other",
+                (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+                stamp,
+            ),
+        )
+        con.commit()
+        con.close()
+        reused = self.client.post(
+            "/api/studio/wechat/finish",
+            json={"ticket": "ticket-again", "invite": "invite-code", "name": "另一个人", "profile": "做过产品和演示", "skills": "路演"},
+        )
+        self.assertEqual(reused.status_code, 200, reused.text)
+        self.assertIn("无效", reused.json()["notice"])
+        self.assertFalse(any(f["name"] == "东道主" for f in self.client.get("/api/studio/me", headers=self.auth(reused.json()["token"])).json()["friends"]))
 
     def test_sent_code_is_not_returned(self):
         with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):
@@ -480,6 +536,51 @@ class StudioFlowTests(unittest.TestCase):
             headers=headers,
         )
         self.assertEqual(blocked.status_code, 422)
+        wide = ("主办方要求提交 PPT。\n" * 20000).encode("utf-8")
+        self.assertGreater(len(wide), 300_000)
+        uploaded = self.client.post(
+            "/api/studio/contests/import-file",
+            files={"file": ("notes.txt", wide, "text/plain")},
+            headers=headers,
+        )
+        self.assertEqual(uploaded.status_code, 200, uploaded.text[:200])
+        huge = b"a" * 2_100_000
+        rejected = self.client.post(
+            "/api/studio/contests/import-file",
+            files={"file": ("notes.txt", huge, "text/plain")},
+            headers=headers,
+        )
+        self.assertEqual(rejected.status_code, 413)
+
+    def test_phone_friend_is_mutual_and_naive_due_date(self):
+        one = self.enter("13800001111", "甲", "产品")
+        two = self.enter("13800002222", "乙", "路演")
+        added = self.client.post("/api/studio/friends", json={"phone": "13800002222"}, headers=self.auth(one["token"]))
+        self.assertEqual(added.status_code, 200, added.text)
+        friends_b = self.client.get("/api/studio/me", headers=self.auth(two["token"])).json()["friends"]
+        self.assertTrue(any(friend["name"] == "甲" for friend in friends_b))
+        contest = self.client.post("/api/studio/contests", json={"name": "测试赛", "deadline": self.deadline, "source_text": SOURCE}, headers=self.auth(one["token"])).json()
+        squad = self.client.post("/api/studio/squads", json={"name": "一队", "contest_id": contest["id"]}, headers=self.auth(one["token"])).json()
+        published = self.client.post(
+            f"/api/studio/squads/{squad['id']}/tasks",
+            json={"title": "做页面", "priority": "must", "owner_id": one["user_id"], "due_at": "2026-10-28T18:00"},
+            headers=self.auth(one["token"]),
+        )
+        self.assertEqual(published.status_code, 200, published.text)
+
+    def test_wrong_code_is_burned_after_five_tries(self):
+        phone = "13800009999"
+        code = self.issue(phone)
+        wrong = "000000" if code != "000000" else "111111"
+        for _ in range(4):
+            failed = self.client.post("/api/studio/register", json={"phone": phone, "code": wrong, "password": "pass1234", "name": "丙", "profile": "做过产品和演示", "skills": "产品"})
+            self.assertEqual(failed.status_code, 401)
+            self.assertEqual(failed.json()["error"]["code"], "bad_code")
+        burned = self.client.post("/api/studio/register", json={"phone": phone, "code": wrong, "password": "pass1234", "name": "丙", "profile": "做过产品和演示", "skills": "产品"})
+        self.assertEqual(burned.status_code, 401)
+        self.assertEqual(burned.json()["error"]["code"], "code_burned")
+        late = self.client.post("/api/studio/register", json={"phone": phone, "code": code, "password": "pass1234", "name": "丙", "profile": "做过产品和演示", "skills": "产品"})
+        self.assertEqual(late.status_code, 401)
 
 
 if __name__ == "__main__":

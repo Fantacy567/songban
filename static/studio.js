@@ -52,7 +52,6 @@ const state = {
   token: localStorage.getItem("studio-token") || "",
   squadId: localStorage.getItem("studio-squad") || "",
   contestId: localStorage.getItem("studio-contest") || "",
-  accounts: JSON.parse(localStorage.getItem("studio-accounts") || "{}"),
   me: null,
   squad: null,
   error: "",
@@ -147,7 +146,7 @@ function saveSession() {
   localStorage.setItem("studio-token", state.token);
   localStorage.setItem("studio-squad", state.squadId);
   localStorage.setItem("studio-contest", state.contestId);
-  localStorage.setItem("studio-accounts", JSON.stringify(state.accounts));
+  localStorage.removeItem("studio-accounts");
 }
 
 async function api(method, path, body) {
@@ -234,13 +233,6 @@ function chatBox() {
 
 function banners() {
   return `${state.error ? `<p class="error" role="alert">${esc(state.error)}</p>` : ""}${state.note ? `<p class="ok" role="status">${esc(state.note)}</p>` : ""}`;
-}
-
-function switcher() {
-  const phones = Object.keys(state.accounts);
-  if (!phones.length) return "";
-  const options = phones.map((phone) => `<option value="${esc(phone)}" ${state.accounts[phone].token === state.token ? "selected" : ""}>${esc(state.accounts[phone].name)} · ${esc(phone)}</option>`).join("");
-  return `<form data-act="switchAccount" class="switch"><label for="account">换一个人</label><select id="account" name="phone">${options}</select><button class="btn ghost" type="submit">切换</button></form>`;
 }
 
 function submissionsOf(list) {
@@ -481,7 +473,7 @@ function viewTeam() {
       <p class="kicker">队伍码 · 发给还不是好友的人</p>
       <p class="code">${esc(squad.code)}</p>
       <button class="btn ghost" type="button" data-act="copyCode">复制队伍码</button>
-      <p class="muted">队友先用自己的手机号进入，再在右上角切换过来，填写这个码。不要用队长的号再注册一次。</p>
+      <p class="muted">队友用自己的手机号注册后，在自己的浏览器里填写这个码。不要用队长的号再注册一次。</p>
     </div>
     <div class="card">
       <p class="kicker">每个人</p>
@@ -935,7 +927,6 @@ function menuHtml() {
     <button type="button" data-go="memory">个人记忆与能力记录</button>
     <button type="button" data-act="logout">退出登录</button>
     <a href="/classic">旧工作台</a>
-    ${switcher()}
   </div>`;
 }
 
@@ -1222,9 +1213,8 @@ async function go(id) {
   render();
 }
 
-async function adopt(data, phone) {
+async function adopt(data, _phone) {
   state.token = data.token;
-  state.accounts[phone] = { token: data.token, name: data.name };
   state.needProfile = false;
   state.issuedCode = "";
   state.wechatTicket = "";
@@ -1278,7 +1268,6 @@ const actions = {
     renderRail();
   },
   logout() {
-    if (state.me?.phone) delete state.accounts[state.me.phone];
     state.token = "";
     state.me = null;
     state.squad = null;
@@ -1290,7 +1279,6 @@ const actions = {
   async saveProfile(form) {
     const data = await api("PATCH", "/api/studio/me", { name: val(form, "name").trim(), profile: val(form, "profile").trim(), skills: val(form, "skills").trim() });
     state.note = "资料已保存。";
-    if (state.accounts[state.me.phone]) state.accounts[state.me.phone].name = data.name;
     saveSession();
     await reload();
   },
@@ -1343,28 +1331,6 @@ const actions = {
       }
       throw error;
     }
-  },
-  async switchAccount(form) {
-    const phone = form.phone.value;
-    const saved = state.accounts[phone];
-    if (!saved) throw new Error("还没有这个人。");
-    state.token = saved.token;
-    saveSession();
-    try {
-      state.me = await api("GET", "/api/studio/me");
-    } catch (error) {
-      if (error.status === 401) delete state.accounts[phone];
-      state.token = "";
-      saveSession();
-      throw new Error("这个登录已失效。用账号和密码再进入一次。");
-    }
-    state.squad = null;
-    state.squadId = state.me.squads[0]?.id || "";
-    if (state.squadId) state.squad = await api("GET", `/api/studio/squads/${state.squadId}`);
-    state.contestId = state.me.contests[0]?.id || "";
-    saveSession();
-    state.note = `现在是 ${state.me.name}。没有重新注册。`;
-    state.screen = "home";
   },
   async confirmContest(form) {
     const draft = state.contestDraft || {};
@@ -1705,8 +1671,6 @@ async function boot() {
   if (!state.token) { render(); return; }
   try {
     state.me = await api("GET", "/api/studio/me");
-    const known = Object.values(state.accounts).some((item) => item.token === state.token);
-    if (!known) state.accounts[state.me.phone] = { token: state.token, name: state.me.name };
     if (!state.squadId && state.me.squads[0]) state.squadId = state.me.squads[0].id;
     if (state.squadId) {
       try { state.squad = await api("GET", `/api/studio/squads/${state.squadId}`); }

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -83,7 +84,8 @@ CREATE TABLE IF NOT EXISTS squad_log (
  detail TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS phone_codes (
- phone TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+ phone TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL,
+ attempts INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS wechat_states (
  state TEXT PRIMARY KEY, created_at TEXT NOT NULL
@@ -135,6 +137,9 @@ def ensure_schema(con):
         con.execute("ALTER TABLE contests ADD COLUMN facts TEXT NOT NULL DEFAULT '{}'")
     if "memory" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN memory TEXT NOT NULL DEFAULT ''")
+    code_cols = {row[1] for row in con.execute("PRAGMA table_info(phone_codes)")}
+    if "attempts" not in code_cols:
+        con.execute("ALTER TABLE phone_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
 
 
 def wechat_callback_domain_ok(public: str) -> bool:
@@ -247,6 +252,13 @@ def exchange_wechat_code(code):
     if not avatar:
         raise RuntimeError("微信没有返回头像，不能编一个假头像登录")
     return data["openid"], name, avatar[:500], unionid[:64]
+
+
+def as_utc(value):
+    parsed = datetime.fromisoformat(str(value).strip())
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def normalize_phone(value):
@@ -489,18 +501,29 @@ def register_studio(api, db, problem, now, uid, digest):
         return code, expires
 
     def code_matches(con, phone, code):
+        """Return ok, bad, or burned. Five wrong tries delete the code."""
         row = con.execute("SELECT * FROM phone_codes WHERE phone=?", (phone,)).fetchone()
-        if not row or not re.fullmatch(r"\d{6}", code or ""):
-            return False
-        if row["code_hash"] != digest(f"{phone}:{code}"):
-            return False
+        if not row:
+            return "missing"
+        attempts = int(row["attempts"] or 0)
+        if attempts >= 5:
+            con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
+            return "burned"
         expires = datetime.fromisoformat(row["expires_at"])
         current = datetime.fromisoformat(now())
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         if current.tzinfo is None:
             current = current.replace(tzinfo=timezone.utc)
-        return current <= expires
+        matched = re.fullmatch(r"\d{6}", code or "") and row["code_hash"] == digest(f"{phone}:{code}") and current <= expires
+        if matched:
+            return "ok"
+        attempts += 1
+        if attempts >= 5:
+            con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
+            return "burned"
+        con.execute("UPDATE phone_codes SET attempts=? WHERE phone=?", (attempts, phone))
+        return "bad"
 
     @api.post("/api/studio/codes")
     def request_code(body: dict):
@@ -524,8 +547,8 @@ def register_studio(api, db, problem, now, uid, digest):
         if must_deliver() and not sent:
             raise problem(503, "code_not_sent", notice)
         with db(True) as con:
-            con.execute("""INSERT INTO phone_codes(phone,code_hash,expires_at,created_at) VALUES(?,?,?,?)
-                ON CONFLICT(phone) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, created_at=excluded.created_at""",
+            con.execute("""INSERT INTO phone_codes(phone,code_hash,expires_at,created_at,attempts) VALUES(?,?,?,?,0)
+                ON CONFLICT(phone) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, created_at=excluded.created_at, attempts=0""",
                         (phone, digest(f"{phone}:{code}"), expires, now()))
             created = con.execute("SELECT 1 FROM people WHERE phone=?", (phone,)).fetchone()
         payload = {"phone": phone, "expires_at": expires, "sent": sent, "account_exists": bool(created), "notice": notice}
@@ -544,7 +567,12 @@ def register_studio(api, db, problem, now, uid, digest):
         if username is None:
             raise problem(422, "invalid_account", "账号用 2 到 20 位中文、字母或数字。")
         with db(True) as con:
-            if not code_matches(con, phone, code):
+            status = code_matches(con, phone, code)
+            if status != "ok":
+                con.commit()
+                time.sleep(1 if status == "burned" else 0.4)
+                if status == "burned":
+                    raise problem(401, "code_burned", "验证码试错过多，已经作废。请重新获取。")
                 raise problem(401, "bad_code", "验证码不对。还在注册页，没有进入。")
             if not password:
                 raise problem(422, "password_required", "设置一个至少 8 位的密码。以后用账号和密码登录。")
@@ -685,12 +713,22 @@ def register_studio(api, db, problem, now, uid, digest):
             def apply_invite(user_id: str) -> str:
                 if not invite:
                     return ""
-                owner = con.execute("SELECT owner_id FROM wechat_invites WHERE code=?", (invite,)).fetchone()
+                owner = con.execute("SELECT owner_id, created_at FROM wechat_invites WHERE code=?", (invite,)).fetchone()
                 if not owner:
                     return "邀请码无效，未自动加好友。"
+                created = datetime.fromisoformat(owner["created_at"])
+                current = datetime.fromisoformat(now())
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if current.tzinfo is None:
+                    current = current.replace(tzinfo=timezone.utc)
+                if current - created > timedelta(days=2):
+                    con.execute("DELETE FROM wechat_invites WHERE code=?", (invite,))
+                    return "邀请码已过期，未自动加好友。"
                 if owner["owner_id"] == user_id:
                     return ""
                 link_friends(con, user_id, owner["owner_id"])
+                con.execute("DELETE FROM wechat_invites WHERE code=?", (invite,))
                 return "已与邀请你的微信用户自动互加为松伴好友。"
 
             existing = con.execute("SELECT * FROM people WHERE wechat_openid=?", (row["openid"],)).fetchone()
@@ -824,7 +862,7 @@ def register_studio(api, db, problem, now, uid, digest):
                 raise problem(404, "not_found", "对方还没注册。队伍码不需要先加好友。")
             if friend["id"] == user["id"]:
                 raise problem(422, "invalid_friend", "不能加自己。")
-            con.execute("INSERT OR IGNORE INTO friendships(user_id, friend_id) VALUES(?,?)", (user["id"], friend["id"]))
+            link_friends(con, user["id"], friend["id"])
             return {"user_id": friend["id"], "name": friend["name"]}
 
     @api.post("/api/studio/contests/import-file")
@@ -1186,9 +1224,9 @@ def register_studio(api, db, problem, now, uid, digest):
             contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
             due = str(body.get("due_at") or contest["deadline"])
             try:
-                if datetime.fromisoformat(due) > datetime.fromisoformat(contest["deadline"]):
+                if as_utc(due) > as_utc(contest["deadline"]):
                     raise problem(422, "invalid_due_date", "任务截止不能晚于比赛结束。")
-            except ValueError:
+            except (ValueError, TypeError):
                 raise problem(422, "invalid_due_date", "截止时间格式不对。") from None
             tid = uid()
             con.execute("""INSERT INTO squad_tasks(id,squad_id,title,owner_id,priority,due_at,talk_to,alone,created_at)

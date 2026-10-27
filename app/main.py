@@ -187,18 +187,19 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
     @api.middleware("http")
     async def headers_and_size(request: Request, call_next):
         if request.method in {"POST", "PUT"}:
+            limit = 2_000_000 if request.url.path == "/api/studio/contests/import-file" else 300_000
             try:
-                if int(request.headers.get("content-length", "0")) > 300000:
+                if int(request.headers.get("content-length", "0")) > limit:
                     return JSONResponse({"error": {"code": "request_too_large", "message": "请求内容过长。"}}, status_code=413)
             except ValueError:
                 return JSONResponse({"error": {"code": "invalid_length", "message": "请求长度不正确。"}}, status_code=400)
-            if len(await request.body()) > 300000:
+            if len(await request.body()) > limit:
                 return JSONResponse({"error": {"code": "request_too_large", "message": "请求内容过长。"}}, status_code=413)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.qlogo.cn https://*.qpic.cn; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
         return response
 
     @api.exception_handler(Problem)
