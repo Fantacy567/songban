@@ -1080,7 +1080,7 @@ function viewMessages() {
     <div class="wx-log">${lines}</div>
     <form data-act="sendMessage" class="wx-compose">
       ${err}
-      <input name="body" maxlength="2000" placeholder="发消息" autocomplete="off">
+      <input name="body" maxlength="2000" placeholder="发消息" autocomplete="off" autofocus>
       <button class="wx-send" type="submit">发送</button>
     </form>
   </section>`;
