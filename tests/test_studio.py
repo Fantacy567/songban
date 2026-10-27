@@ -264,8 +264,10 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200, status.text)
         body = status.json()
         self.assertFalse(body["wechat"]["ready"])
-        self.assertIn("扫码", "".join(body["wechat"]["missing"]))
+        missing = "".join(body["wechat"]["missing"])
+        self.assertTrue("AppID" in missing or "AppSecret" in missing or "域名" in missing)
         self.assertNotIn("APP_SECRET", status.text)
+        self.assertNotRegex(status.text, r"wx[a-f0-9]{16}")
         start = self.client.get("/api/studio/wechat/start")
         self.assertEqual(start.status_code, 409, start.text)
         self.assertNotIn("token", start.text)
@@ -274,6 +276,69 @@ class StudioFlowTests(unittest.TestCase):
         self.assertNotIn("token", denied.json())
         self.assertFalse(body["sms"]["ready"])
         self.assertIn("dypns.console.aliyun.com", body["sms"]["notice"])
+
+    def test_wechat_connect_explains_friends_and_rejects_tunnel_domain(self):
+        captain = self.enter("13800005555", "邀请人", "产品")
+        headers = self.auth(captain["token"])
+        me = self.client.get("/api/studio/me", headers=headers).json()
+        self.assertEqual(me.get("avatar_url") or "", "")
+        connect = self.client.get("/api/studio/connect").json()
+        self.assertIn("邀请", connect["wechat"].get("friends_note", ""))
+        with patch.dict(
+            os.environ,
+            {
+                "WECHAT_APP_ID": "wx" + "a" * 16,
+                "WECHAT_APP_SECRET": "s" * 32,
+                "PUBLIC_BASE_URL": "https://foo.trycloudflare.com",
+            },
+        ):
+            blocked = self.client.get("/api/studio/connect").json()
+        self.assertFalse(blocked["wechat"]["ready"])
+        self.assertTrue(any("临时隧道" in item or "trycloudflare" in item for item in blocked["wechat"]["missing"]))
+
+    def test_wechat_finish_uses_ticket_avatar_and_invite(self):
+        import sqlite3
+
+        stamp = datetime.now(timezone.utc).isoformat()
+        owner = self.enter("13800006666", "东道主", "产品")
+        db_path = Path(self.temp.name) / "t.sqlite3"
+        con = sqlite3.connect(db_path)
+        con.row_factory = sqlite3.Row
+        owner_id = con.execute("SELECT id FROM people WHERE phone=?", ("13800006666",)).fetchone()["id"]
+        con.execute("UPDATE people SET wechat_openid=?, wechat_avatar=? WHERE id=?", ("openid-owner", "https://example.com/a.png", owner_id))
+        con.execute("INSERT INTO wechat_invites(code, owner_id, created_at) VALUES(?,?,?)", ("invite-code", owner_id, stamp))
+        con.execute(
+            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
+            (
+                "ticket-new",
+                "openid-guest",
+                "访客昵称",
+                "https://thirdwx.qlogo.cn/avatar.png",
+                "union-guest",
+                (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+                stamp,
+            ),
+        )
+        con.commit()
+        con.close()
+        finished = self.client.post(
+            "/api/studio/wechat/finish",
+            json={
+                "ticket": "ticket-new",
+                "invite": "invite-code",
+                "name": "访客昵称",
+                "profile": "做过产品和演示",
+                "skills": "路演",
+            },
+        )
+        self.assertEqual(finished.status_code, 200, finished.text)
+        body = finished.json()
+        self.assertEqual(body["avatar_url"], "https://thirdwx.qlogo.cn/avatar.png")
+        self.assertTrue(body["wechat"])
+        self.assertIn("好友", body["notice"])
+        me = self.client.get("/api/studio/me", headers=self.auth(body["token"])).json()
+        self.assertEqual(me["avatar_url"], "https://thirdwx.qlogo.cn/avatar.png")
+        self.assertTrue(any(f["name"] == "东道主" for f in me["friends"]))
 
     def test_sent_code_is_not_returned(self):
         with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):

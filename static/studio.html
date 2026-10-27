@@ -47,7 +47,8 @@
     .person { border:1px dashed var(--line); border-radius:8px; padding:10px; margin-top:8px; }
     .bar { height:8px; background:#e6e6e6; border-radius:99px; overflow:hidden; margin-top:6px; }
     .bar span { display:block; height:100%; background:#111; }
-    .avatar { width:36px; height:36px; border-radius:50%; border:1px solid #111; display:grid; place-items:center; font-size:13px; background:#fff; flex:none; }
+    .avatar { width:36px; height:36px; border-radius:50%; border:1px solid #111; display:grid; place-items:center; font-size:13px; background:#fff; flex:none; overflow:hidden; }
+    .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .who { display:flex; gap:8px; align-items:center; margin:8px 0; }
     .tag { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:0 8px; font-size:12px; margin-right:4px; }
     .tag.must { border-color:#111; }
@@ -126,6 +127,6 @@
     <aside id="rail"></aside>
     <div id="stage"><main id="main"></main></div>
   </div>
-  <script src="/static/studio.js?v=20261027-18" defer></script>
+  <script src="/static/studio.js?v=20261027-19" defer></script>
 </body>
 </html>

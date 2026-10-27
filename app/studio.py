@@ -89,7 +89,11 @@ CREATE TABLE IF NOT EXISTS wechat_states (
  state TEXT PRIMARY KEY, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS wechat_tickets (
- ticket TEXT PRIMARY KEY, openid TEXT NOT NULL, name TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+ ticket TEXT PRIMARY KEY, openid TEXT NOT NULL, name TEXT NOT NULL, avatar TEXT NOT NULL DEFAULT '',
+ unionid TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS wechat_invites (
+ code TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL
 );
 """
 
@@ -111,12 +115,47 @@ def ensure_schema(con):
         con.execute("ALTER TABLE people ADD COLUMN wechat_openid TEXT")
     if "phone_real" not in columns:
         con.execute("ALTER TABLE people ADD COLUMN phone_real INTEGER NOT NULL DEFAULT 1")
+    if "wechat_avatar" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN wechat_avatar TEXT NOT NULL DEFAULT ''")
+    if "wechat_unionid" not in columns:
+        con.execute("ALTER TABLE people ADD COLUMN wechat_unionid TEXT NOT NULL DEFAULT ''")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS people_wechat_openid ON people(wechat_openid) WHERE wechat_openid IS NOT NULL")
+    ticket_cols = {row[1] for row in con.execute("PRAGMA table_info(wechat_tickets)")}
+    if "avatar" not in ticket_cols:
+        con.execute("ALTER TABLE wechat_tickets ADD COLUMN avatar TEXT NOT NULL DEFAULT ''")
+    if "unionid" not in ticket_cols:
+        con.execute("ALTER TABLE wechat_tickets ADD COLUMN unionid TEXT NOT NULL DEFAULT ''")
     contest_cols = {row[1] for row in con.execute("PRAGMA table_info(contests)")}
     if "facts" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN facts TEXT NOT NULL DEFAULT '{}'")
     if "memory" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN memory TEXT NOT NULL DEFAULT ''")
+
+
+def wechat_callback_domain_ok(public: str) -> bool:
+    """WeChat only accepts a domain you control and filed; temporary tunnels are rejected."""
+    public = (public or "").strip()
+    if not public.startswith("https://"):
+        return False
+    host = (urllib.parse.urlsplit(public).hostname or "").lower()
+    if not host or host in {"localhost", "127.0.0.1"}:
+        return False
+    blocked_suffixes = (
+        "trycloudflare.com",
+        "loca.lt",
+        "ngrok.io",
+        "ngrok-free.app",
+        "ngrok-free.dev",
+        "localtunnel.me",
+    )
+    return not any(host == suf or host.endswith("." + suf) for suf in blocked_suffixes)
+
+
+def link_friends(con, a: str, b: str) -> None:
+    if not a or not b or a == b:
+        return
+    con.execute("INSERT OR IGNORE INTO friendships(user_id, friend_id) VALUES(?,?)", (a, b))
+    con.execute("INSERT OR IGNORE INTO friendships(user_id, friend_id) VALUES(?,?)", (b, a))
 
 
 def public_contest(row):
@@ -138,11 +177,26 @@ def wechat_status():
     app_secret = os.environ.get("WECHAT_APP_SECRET", "").strip()
     public = os.environ.get("PUBLIC_BASE_URL", "").strip()
     missing = []
-    if not app_id or not app_secret:
-        missing.append("用你自己的微信打开 open.weixin.qq.com 注册开放平台，等网站应用审核通过。这一步要你本人扫码，不能由别人代注册。")
+    if not app_id:
+        missing.append("还缺微信开放平台网站应用的 AppID，请发给我（不要发密钥到聊天截图以外的公开处）。")
+    if not app_secret:
+        missing.append("还缺微信开放平台网站应用的 AppSecret，请私下发给我写入本机 .env，不要发到公开群。")
     if not public.startswith("https://"):
-        missing.append("准备一个已在中国备案、可以用 https 打开的域名，填进授权回调域名。127.0.0.1 微信不接受。备案要用你的身份证，通常要几天。")
-    return {"ready": not missing, "missing": missing}
+        missing.append("还缺 https 对外地址。请把已备案域名配好，并写入 PUBLIC_BASE_URL。")
+    elif not wechat_callback_domain_ok(public):
+        missing.append(
+            "当前对外地址是临时隧道域名，微信「授权回调域」不能填 trycloudflare / ngrok 这类别人的域名。"
+            "请提供你已在微信开放平台填好的备案域名（只要主机名，例如 songban.example.com），并保证 https 能打开。"
+        )
+    callback = ""
+    if public.startswith("https://"):
+        callback = public.rstrip("/") + "/api/studio/wechat/callback"
+    return {
+        "ready": not missing,
+        "missing": missing,
+        "callback": callback if wechat_callback_domain_ok(public) else "",
+        "friends_note": "微信开放平台网站应用登录拿不到微信通讯录好友列表；松伴用「微信好友邀请码」在双方都用微信登录后自动互加好友。",
+    }
 
 
 def public_phone(user):
@@ -152,6 +206,7 @@ def public_phone(user):
 
 
 def exchange_wechat_code(code):
+    """Exchange OAuth code. Returns openid, nickname, avatar URL, unionid. Never invents avatar."""
     app_id = os.environ.get("WECHAT_APP_ID", "").strip()
     app_secret = os.environ.get("WECHAT_APP_SECRET", "").strip()
     query = urllib.parse.urlencode({"appid": app_id, "secret": app_secret, "code": code, "grant_type": "authorization_code"})
@@ -162,17 +217,31 @@ def exchange_wechat_code(code):
         raise RuntimeError("微信没有连上") from exc
     if data.get("errcode") or not data.get("openid") or not data.get("access_token"):
         raise RuntimeError("微信没有接受这次登录")
-    name = "微信用户"
+    name = ""
+    avatar = ""
+    unionid = str(data.get("unionid") or "").strip()
     info_query = urllib.parse.urlencode({"access_token": data["access_token"], "openid": data["openid"], "lang": "zh_CN"})
     try:
         with urllib.request.urlopen("https://api.weixin.qq.com/sns/userinfo?" + info_query, timeout=8) as response:
             info = json.loads(response.read().decode())
+        if info.get("errcode"):
+            raise RuntimeError("微信没有返回用户资料")
         nickname = str(info.get("nickname") or "").strip()
         if nickname:
             name = nickname[:40]
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
-        pass
-    return data["openid"], name
+        head = str(info.get("headimgurl") or "").strip()
+        # WeChat returns http://; browsers need a real URL — keep as returned, prefer https upgrade for qlogo
+        if head.startswith("http://") or head.startswith("https://"):
+            avatar = head.replace("http://", "https://", 1) if "qlogo.cn" in head or "qpic.cn" in head else head
+        if not unionid:
+            unionid = str(info.get("unionid") or "").strip()
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError("微信没有返回头像与昵称") from exc
+    if not name:
+        raise RuntimeError("微信没有返回昵称，不能编一个假名字登录")
+    if not avatar:
+        raise RuntimeError("微信没有返回头像，不能编一个假头像登录")
+    return data["openid"], name, avatar[:500], unionid[:64]
 
 
 def normalize_phone(value):
@@ -331,14 +400,17 @@ def register_studio(api, db, problem, now, uid, digest):
         return dict(squad), dict(member)
 
     def members_of(con, squad_id):
-        rows = con.execute("""SELECT m.*, p.name, p.skills, p.phone FROM squad_members m
+        rows = con.execute("""SELECT m.*, p.name, p.skills, p.phone, p.wechat_avatar FROM squad_members m
             JOIN people p ON p.id=m.user_id WHERE m.squad_id=? ORDER BY m.rowid""", (squad_id,)).fetchall()
         return [dict(row) for row in rows]
 
     def public_member(member, captain_id):
+        avatar_url = str(member.get("wechat_avatar") or "").strip()
         return {"user_id": member["user_id"], "name": member["name"], "role": member["role"], "extract": member["extract"],
                 "doing": member["doing"], "skill_installed": bool(member["skill_installed"]), "tool": member["tool"],
-                "captain": member["user_id"] == captain_id, "avatar": member["name"][:1]}
+                "captain": member["user_id"] == captain_id,
+                "avatar": member["name"][:1],
+                "avatar_url": avatar_url}
 
     def snapshot(con, squad_id, user):
         squad, me = squad_of(con, squad_id, user["id"])
@@ -494,19 +566,23 @@ def register_studio(api, db, problem, now, uid, digest):
             if current - created > timedelta(minutes=10):
                 return PlainTextResponse("这次微信登录已经过期，请回到松伴再点一次。没有进入。", status_code=400)
         try:
-            openid, nickname = exchange_wechat_code(code)
+            openid, nickname, avatar, unionid = exchange_wechat_code(code)
         except RuntimeError as exc:
             return PlainTextResponse(f"{exc}。没有进入。", status_code=401)
         ticket = secrets.token_urlsafe(24)
         expires = (datetime.fromisoformat(now()) + timedelta(minutes=10)).isoformat()
         with db(True) as con:
-            con.execute("INSERT INTO wechat_tickets(ticket,openid,name,expires_at,created_at) VALUES(?,?,?,?,?)", (ticket, openid, nickname, expires, now()))
+            con.execute(
+                "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
+                (ticket, openid, nickname, avatar, unionid, expires, now()),
+            )
         public = os.environ["PUBLIC_BASE_URL"].rstrip("/")
         return RedirectResponse(f"{public}/?wechat_ticket={urllib.parse.quote(ticket)}")
 
     @api.post("/api/studio/wechat/finish")
     def wechat_finish(body: dict):
         ticket = str(body.get("ticket") or "")
+        invite = str(body.get("invite") or "").strip()
         with db(True) as con:
             row = con.execute("SELECT * FROM wechat_tickets WHERE ticket=?", (ticket,)).fetchone()
             if not row:
@@ -520,17 +596,40 @@ def register_studio(api, db, problem, now, uid, digest):
             if current > expires:
                 con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
                 raise problem(401, "wechat_ticket", "这次微信登录已经过期，请再点一次用微信登录。")
+            avatar = str(row["avatar"] or "").strip()
+            unionid = str(row["unionid"] or "").strip()
+            if not avatar:
+                raise problem(401, "wechat_avatar", "微信没有给出头像，不能编假头像进入。请再试一次微信登录。")
+
+            def apply_invite(user_id: str) -> str:
+                if not invite:
+                    return ""
+                owner = con.execute("SELECT owner_id FROM wechat_invites WHERE code=?", (invite,)).fetchone()
+                if not owner:
+                    return "邀请码无效，未自动加好友。"
+                if owner["owner_id"] == user_id:
+                    return ""
+                link_friends(con, user_id, owner["owner_id"])
+                return "已与邀请你的微信用户自动互加为松伴好友。"
+
             existing = con.execute("SELECT * FROM people WHERE wechat_openid=?", (row["openid"],)).fetchone()
             if existing:
                 token_clear = secrets.token_urlsafe(24)
-                con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), existing["id"]))
+                con.execute(
+                    "UPDATE people SET token_hash=?, name=?, wechat_avatar=?, wechat_unionid=? WHERE id=?",
+                    (digest(token_clear), row["name"][:40], avatar[:500], unionid[:64], existing["id"]),
+                )
+                friend_note = apply_invite(existing["id"])
                 con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
                 existing = dict(existing)
-                return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": existing["name"],
+                notice = "微信身份对上了。头像已换成微信头像。"
+                if friend_note:
+                    notice += friend_note
+                return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": row["name"][:40],
                         "phone": public_phone(existing), "skills": existing["skills"], "profile": existing["profile"],
                         "growth": existing["growth"], "github_linked": bool(existing["github_linked"]),
                         "feishu_linked": bool(existing["feishu_linked"]), "wechat": True,
-                        "notice": "微信身份对上了。画像保持你上次填的。"}
+                        "avatar_url": avatar[:500], "notice": notice}
             name = str(body.get("name") or row["name"] or "").strip()
             profile = str(body.get("profile") or "").strip()
             skills = str(body.get("skills") or "").strip()
@@ -538,12 +637,37 @@ def register_studio(api, db, problem, now, uid, digest):
                 raise problem(422, "profile_required", "微信扫码已经通过。第一次还要填写名字、画像和目前做得到的事。")
             phone = "9" + f"{int(hashlib.sha256(row['openid'].encode()).hexdigest()[:12], 16) % 10**12:012d}"
             pid, token_clear = uid(), secrets.token_urlsafe(24)
-            con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at,wechat_openid,phone_real)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)""", (pid, phone, name[:40], profile[:2000], skills[:500], 0, 0, digest(token_clear), now(), row["openid"], 0))
+            con.execute(
+                """INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at,wechat_openid,phone_real,wechat_avatar,wechat_unionid)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (pid, phone, name[:40], profile[:2000], skills[:500], 0, 0, digest(token_clear), now(), row["openid"], 0, avatar[:500], unionid[:64]),
+            )
+            friend_note = apply_invite(pid)
             con.execute("DELETE FROM wechat_tickets WHERE ticket=?", (ticket,))
+            notice = "微信登录已完成。头像使用微信头像。"
+            if friend_note:
+                notice += friend_note
             return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "phone": "",
                     "skills": skills[:500], "profile": profile[:2000], "growth": "", "github_linked": False,
-                    "feishu_linked": False, "wechat": True, "notice": "微信登录已完成。头像仍用名字的第一个字。"}
+                    "feishu_linked": False, "wechat": True, "avatar_url": avatar[:500], "notice": notice}
+
+    @api.post("/api/studio/wechat/invite")
+    def wechat_invite(authorization: str = Header(default="")):
+        """Create a one-time-shareable invite code so WeChat friends become 松伴 friends after login."""
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            if not user.get("wechat_openid"):
+                raise problem(422, "wechat_required", "先用微信登录，才能生成微信好友邀请。")
+            code = secrets.token_urlsafe(10)
+            con.execute("INSERT INTO wechat_invites(code, owner_id, created_at) VALUES(?,?,?)", (code, user["id"], now()))
+            public = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+            link = f"{public}/?wechat_invite={urllib.parse.quote(code)}" if public.startswith("https://") else f"/?wechat_invite={urllib.parse.quote(code)}"
+            return {
+                "code": code,
+                "link": link,
+                "notice": "把这个链接发给微信好友。对方用微信登录松伴后，会自动和你互加好友。"
+                "（微信开放平台不提供通讯录好友列表，只能通过邀请确认彼此关系。）",
+            }
 
     @api.patch("/api/studio/me")
     def update_me(body: dict, authorization: str = Header(default="")):
@@ -593,14 +717,19 @@ def register_studio(api, db, problem, now, uid, digest):
                     (user["id"],),
                 )
             ]
-            friends = [dict(row) for row in con.execute("""SELECT p.id AS user_id, p.name, p.phone, p.phone_real FROM friendships f
-                JOIN people p ON p.id=f.friend_id WHERE f.user_id=?""", (user["id"],))]
+            friends = [dict(row) for row in con.execute(
+                """SELECT p.id AS user_id, p.name, p.phone, p.phone_real, p.wechat_avatar AS avatar_url FROM friendships f
+                JOIN people p ON p.id=f.friend_id WHERE f.user_id=?""",
+                (user["id"],),
+            )]
             for friend in friends:
                 if not friend.pop("phone_real"):
                     friend["phone"] = ""
+                friend["avatar_url"] = str(friend.get("avatar_url") or "").strip()
             return {"id": user["id"], "name": user["name"], "phone": public_phone(user), "profile": user["profile"], "skills": user["skills"],
                     "growth": user["growth"], "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
-                    "wechat": bool(user.get("wechat_openid")), "squads": squads, "contests": contests, "friends": friends}
+                    "wechat": bool(user.get("wechat_openid")), "avatar_url": str(user.get("wechat_avatar") or "").strip(),
+                    "squads": squads, "contests": contests, "friends": friends}
 
     @api.post("/api/studio/friends")
     def add_friend(body: dict, authorization: str = Header(default="")):

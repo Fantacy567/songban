@@ -61,6 +61,7 @@ const state = {
   issuedCode: "",
   wechatNote: "",
   wechatTicket: "",
+  wechatInvite: "",
   smsNote: "",
   smsReady: false,
   menuOpen: false,
@@ -255,10 +256,21 @@ function editorBoxes() {
   return (state.squad?.members || []).filter((member) => member.user_id !== state.squad.me.id).map((member) => `<label class="check"><input type="checkbox" name="editors" value="${esc(member.user_id)}"> ${esc(member.name)} 可以改</label>`).join("");
 }
 
+function avatarHtml(url, name, cls = "avatar") {
+  const label = (name || "我").slice(0, 1);
+  if (url) return `<span class="${cls}"><img src="${esc(url)}" alt="" referrerpolicy="no-referrer"></span>`;
+  return `<span class="${cls}">${esc(label)}</span>`;
+}
+
 function viewSignup() {
-  return `<div class="reg-wrap"><h2>用手机号注册</h2>
-    <p class="muted">验证码由云端短信发到手机，和常用 App 一样。打开短信填写。这一页不显示数字。</p>
+  return `<div class="reg-wrap"><h2>进入松伴</h2>
+    <p class="muted">可用微信扫码登录（头像用微信头像），或用手机号接收云端短信验证码。</p>
+    <div class="card">
+      <button class="btn" type="button" data-act="wechat">用微信登录</button>
+      <p id="reg-wechat" class="muted" hidden></p>
+    </div>
     <form id="reg-form" data-act="enter" class="card">
+      <p class="kicker">手机号</p>
       <label for="reg-phone">手机号</label>
       <input id="reg-phone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="11 位手机号">
       <button class="btn ghost" type="button" data-act="requestCode">获取验证码</button>
@@ -314,7 +326,7 @@ function viewSettings() {
       <p class="kicker">账号</p>
       <p>${esc(me.name || "")}</p>
       <p class="muted">手机号 ${esc(me.phone || "")}</p>
-      <p class="muted">用手机号和云端短信里的验证码进入。微信登录先不做。</p>
+      <p class="muted">可用微信登录（头像来自微信），或手机号短信验证码进入。</p>
       <div class="row">
         <button class="btn" type="button" data-go="profile">编辑资料</button>
         <button class="btn ghost" type="button" data-go="memory">个人记忆与能力记录</button>
@@ -561,9 +573,18 @@ function viewHubMine() {
 
 function viewFriends() {
   const friends = state.me?.friends || [];
-  const list = friends.map((f) => `<div class="person"><strong>${esc(f.name)}</strong><p class="muted">${esc(f.phone || "未显示手机号")}</p></div>`).join("");
+  const list = friends.map((f) => `<div class="person" style="display:flex;gap:10px;align-items:center">${avatarHtml(f.avatar_url, f.name)}<div><strong>${esc(f.name)}</strong><p class="muted">${esc(f.phone || (f.avatar_url ? "微信好友" : "未显示手机号"))}</p></div></div>`).join("");
+  const wechatBlock = state.me?.wechat
+    ? `<div class="card">
+        <p class="kicker">微信好友邀请</p>
+        <p class="muted">微信开放平台不提供通讯录。把邀请链接发给微信好友，对方用微信登录后会自动互加。</p>
+        <button class="btn" type="button" data-act="wechatInvite">生成邀请链接</button>
+        <p id="wechat-invite-link" class="muted" hidden></p>
+      </div>`
+    : `<div class="card"><p class="muted">用微信登录后，可生成邀请链接，让微信好友自动成为松伴好友。</p></div>`;
   return `<h2>好友</h2>
     <p class="muted"><button class="linkish" type="button" data-go="hubMine">← 我的系统</button></p>
+    ${wechatBlock}
     <form data-act="addFriend" class="card">
       <label for="friend-phone">对方注册用的手机号</label>
       <input id="friend-phone" name="phone" inputmode="numeric">
@@ -637,7 +658,7 @@ function viewTeamspace() {
   const must = squad.tasks.filter((task) => task.priority === "must");
   const optional = squad.tasks.filter((task) => task.priority !== "must");
   const taskLine = (task) => `<li>${esc(nameOf(task.owner_id))} · ${esc(task.title)} <div class="bar"><span style="width:${task.progress}%"></span></div></li>`;
-  const people = squad.members.map((member) => `<div class="who"><div class="avatar">${esc(member.avatar)}</div><div>${esc(member.name)} · ${esc(member.role || "未选角色")}<br><span class="muted">${esc(member.doing || "还没说正在做什么")}</span></div></div>`).join("");
+  const people = squad.members.map((member) => `<div class="who">${avatarHtml(member.avatar_url, member.name || member.avatar)}<div>${esc(member.name)} · ${esc(member.role || "未选角色")}<br><span class="muted">${esc(member.doing || "还没说正在做什么")}</span></div></div>`).join("");
   const shelf = squad.shelf.map((item) => {
     const editable = item.author_id === squad.me.id || item.editors.includes(squad.me.id);
     return `<div class="item"><strong>${esc(item.title)}</strong><br><span class="muted">${esc(item.kind)} · ${esc(nameOf(item.author_id))}</span><pre>${esc(item.body)}</pre>${editable ? `<form data-act="editShelf"><input type="hidden" name="id" value="${esc(item.id)}"><textarea name="body">${esc(item.body)}</textarea><button class="btn ghost" type="submit">保存修改</button></form>` : `<p class="muted">全队可见。${item.editors.length ? `可编辑：${item.editors.map(nameOf).join("、")}` : "还没有额外授权。"}</p>`}</div>`;
@@ -934,14 +955,13 @@ function railContext() {
 function renderRail() {
   const rail = document.getElementById("rail");
   if (!rail) return;
-  const initial = (state.me?.name || "我").slice(0, 1);
   const squadName = state.squad?.squad?.name ? `<p class="rail-squad">${esc(state.squad.squad.name)}</p>` : "";
   rail.innerHTML = `<div class="brand"><button type="button" class="brand-btn" data-go="home">松伴</button>${squadName}</div>
     <div class="rail-scroll">
       <button type="button" data-go="home" class="${state.screen === "home" ? "on" : ""}">首页</button>
       ${railContext()}
     </div>
-    <div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}"><span class="avatar">${esc(initial)}</span><span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || (state.me?.wechat ? "微信登录" : ""))}</span></span></button></div>`;
+    <div class="dock">${state.menuOpen ? menuHtml() : ""}<button type="button" class="me-btn" data-act="toggleMenu" aria-haspopup="menu" aria-expanded="${state.menuOpen ? "true" : "false"}">${avatarHtml(state.me?.avatar_url, state.me?.name || "我")}<span class="me-meta">${esc(state.me?.name || "")}<br><span class="muted">${esc(state.me?.phone || (state.me?.wechat ? "微信登录" : ""))}</span></span></button></div>`;
 }
 
 function render() {
@@ -1219,12 +1239,24 @@ const actions = {
   async wechat() {
     const data = await api("GET", "/api/studio/connect");
     if (data.wechat && data.wechat.ready) {
+      const invite = state.wechatInvite || new URLSearchParams(location.search).get("wechat_invite") || "";
+      if (invite) sessionStorage.setItem("songban_wechat_invite", invite);
       window.location.assign("/api/studio/wechat/start");
       return;
     }
-    state.wechatNote = ((data.wechat && data.wechat.missing) || []).join("");
-    state.error = "";
+    state.wechatNote = ((data.wechat && data.wechat.missing) || []).join(" ");
+    state.error = state.wechatNote || "微信登录还没配好。";
     state.token = "";
+  },
+  async wechatInvite() {
+    const data = await api("POST", "/api/studio/wechat/invite");
+    state.note = data.notice || "邀请已生成。";
+    const box = document.getElementById("wechat-invite-link");
+    if (box) {
+      box.hidden = false;
+      box.textContent = data.link || data.code;
+    }
+    try { await navigator.clipboard.writeText(data.link || data.code); state.note += " 链接已复制。"; } catch (_) {}
   },
   toggleMenu() {
     state.menuOpen = !state.menuOpen;
@@ -1255,12 +1287,16 @@ const actions = {
   },
   async enter(form) {
     if (state.wechatTicket) {
+      const invite = state.wechatInvite || sessionStorage.getItem("songban_wechat_invite") || "";
       const data = await api("POST", "/api/studio/wechat/finish", {
         ticket: state.wechatTicket,
+        invite,
         name: val(form, "name").trim(),
         profile: val(form, "profile").trim(),
         skills: val(form, "skills").trim(),
       });
+      sessionStorage.removeItem("songban_wechat_invite");
+      state.wechatInvite = "";
       await adopt(data, data.phone || `微信·${data.name}`);
       return;
     }
@@ -1613,13 +1649,22 @@ async function loadConnect() {
 
 async function boot() {
   await loadConnect();
-  const ticket = new URLSearchParams(location.search).get("wechat_ticket");
+  const params = new URLSearchParams(location.search);
+  const inviteParam = params.get("wechat_invite");
+  if (inviteParam) {
+    state.wechatInvite = inviteParam;
+    sessionStorage.setItem("songban_wechat_invite", inviteParam);
+  }
+  const ticket = params.get("wechat_ticket");
   if (ticket) {
     history.replaceState({}, "", "/");
     state.wechatTicket = ticket;
     state.token = "";
     try {
-      const data = await api("POST", "/api/studio/wechat/finish", { ticket });
+      const invite = state.wechatInvite || sessionStorage.getItem("songban_wechat_invite") || "";
+      const data = await api("POST", "/api/studio/wechat/finish", { ticket, invite });
+      sessionStorage.removeItem("songban_wechat_invite");
+      state.wechatInvite = "";
       await adopt(data, data.phone || `微信·${data.name}`);
     } catch (error) {
       state.token = "";
