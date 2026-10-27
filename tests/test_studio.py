@@ -612,6 +612,9 @@ class StudioFlowTests(unittest.TestCase):
         page = self.client.get("/static/studio.js").text
         self.assertIn("保存为赛事卡", page)
         self.assertIn('["messages", "消息"]', page)
+        self.assertIn("clearPrivateView", page)
+        self.assertIn("去组队", page)
+        self.assertIn("退出登录", page)
         self.assertNotIn("已确认的比赛", page)
 
     def test_personal_model_key_stays_on_the_server_and_can_be_shared(self):

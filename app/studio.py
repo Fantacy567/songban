@@ -152,6 +152,7 @@ def ensure_schema(con):
     code_cols = {row[1] for row in con.execute("PRAGMA table_info(phone_codes)")}
     if "attempts" not in code_cols:
         con.execute("ALTER TABLE phone_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
+    con.execute("CREATE INDEX IF NOT EXISTS messages_thread_created ON messages(thread, created_at)")
 
 
 def wechat_callback_domain_ok(public: str) -> bool:
@@ -946,7 +947,7 @@ def register_studio(api, db, problem, now, uid, digest):
             rows = [dict(row) for row in con.execute(
                 """SELECT m.id, m.sender_id, m.body, m.created_at, COALESCE(p.name, '') AS sender_name
                    FROM messages m LEFT JOIN people p ON p.id=m.sender_id
-                   WHERE m.thread=? ORDER BY m.created_at""", (thread,))]
+                   WHERE m.thread=? ORDER BY m.created_at, m.rowid""", (thread,))]
             return {"thread": thread, "messages": rows}
 
     @api.post("/api/studio/messages")

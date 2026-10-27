@@ -38,7 +38,7 @@ const SIDE = [
 ];
 const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth", "profile", "memory", "stack", "board", "progress", "space"]);
 const COACH = new Set(["mine", "docs", "growth", "profile", "memory", "stack", "progress", "space"]);
-const NEED_SQUAD = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "log", "board", "progress"]);
+const NEED_SQUAD = new Set(["success", "mine", "topics", "skill", "talk", "docs", "vote", "captain", "log", "board", "progress"]);
 const NEED_CONFIRMED = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain"]);
 const HUB_FREE = new Set(["home", "hubMine", "hubContest", "friends", "past", "growth", "stack", "contest", "team", "profile", "memory", "settings", "messages", "space"]);
 const BRIEFS = {
@@ -189,20 +189,37 @@ function rememberSquad(id) {
   saveSession();
 }
 
+let threadLoad = 0;
 async function loadThread() {
-  if (!state.threadId || (state.threadKind !== "dm" && state.threadKind !== "squad")) return;
-  const query = state.threadKind === "dm"
-    ? `kind=dm&peer_id=${encodeURIComponent(state.threadId)}`
-    : `kind=squad&squad_id=${encodeURIComponent(state.threadId)}`;
+  if (!state.threadId || (state.threadKind !== "dm" && state.threadKind !== "squad")) {
+    state.threadMessages = [];
+    return;
+  }
+  const ticket = ++threadLoad;
+  const kind = state.threadKind;
+  const id = state.threadId;
+  const query = kind === "dm"
+    ? `kind=dm&peer_id=${encodeURIComponent(id)}`
+    : `kind=squad&squad_id=${encodeURIComponent(id)}`;
   const data = await api("GET", `/api/studio/messages?${query}`);
+  if (ticket !== threadLoad || state.threadKind !== kind || state.threadId !== id) return;
   state.threadMessages = data.messages || [];
+}
+
+function clearPrivateView() {
+  state.threadKind = "";
+  state.threadId = "";
+  state.threadMessages = [];
+  state.friendCard = null;
+  state.chats = {};
+  threadLoad += 1;
 }
 
 function canOpen(id) {
   if (id === "signup" || id === "login") return true;
   if (!state.token) return "先用手机号和密码登录。没有注册就用手机号注册。";
   if (HUB_FREE.has(id)) return true;
-  if (NEED_SQUAD.has(id) && !state.squad) return "先到「比赛系统 → 赛事信息 / 组队」加入或创建队伍。";
+  if (NEED_SQUAD.has(id) && !state.squad) return "还没有队伍。先点左侧「团队」创建或加入。";
   if (NEED_CONFIRMED.has(id) && !state.squad.squad.confirmed) return "先让每人贴介绍并选角色，再由队长确认。";
   if ((id === "skill" || id === "docs") && !state.squad.squad.topic) return "先在选题空间确认题目。";
   if (id === "captain" && !state.squad.me.captain) return "队长规划只有队长能打开。你的任务在我的空间，全队任务在团队空间。";
@@ -330,7 +347,11 @@ function viewProfile() {
       <label for="profile-skills">目前做得到的事</label>
       <input id="profile-skills" name="skills" value="${esc(me.skills || "")}" required>
       <button class="btn" type="submit">保存资料</button>
-    </form>`);
+    </form>
+    <div class="row">
+      <button class="btn ghost" type="button" data-go="settings">模型设置</button>
+      <button class="btn ghost" type="button" data-act="logout">退出登录</button>
+    </div>`);
 }
 
 function viewMemory() {
@@ -450,6 +471,7 @@ function viewContest() {
       <input id="curl" name="url" value="${esc(draft.url || "")}" placeholder="https://mp.weixin.qq.com/s/……">
       <div class="row" style="margin-top:14px">
         <button class="btn" type="submit" ${state.confirmingContest ? "disabled" : ""}>${state.confirmingContest ? "正在读取公众号/长图并整理…" : "搜索比赛"}</button>
+        <button class="btn ghost" type="button" data-go="team">去组队</button>
       </div>
       <p class="muted">搜到后这里只显示概要。细则写入赛事记忆，保存后才出现在「参加过的比赛」。</p>
     </form>`;
@@ -688,6 +710,7 @@ function viewMine() {
 }
 
 function viewTeamspace() {
+  if (!state.squad) return viewTeam();
   const squad = state.squad;
   const must = squad.tasks.filter((task) => task.priority === "must");
   const optional = squad.tasks.filter((task) => task.priority !== "must");
@@ -1004,7 +1027,8 @@ const PRIMARY = [
 function renderRail() {
   const rail = document.getElementById("rail");
   if (!rail) return;
-  const icons = PRIMARY.map(([id, label]) => `<button type="button" class="rail-icon ${state.screen === id ? "on" : ""}" data-go="${id}">${esc(label)}</button>`).join("");
+  const current = state.screen === "home" ? "messages" : state.screen;
+  const icons = PRIMARY.map(([id, label]) => `<button type="button" class="rail-icon ${current === id ? "on" : ""}" data-go="${id}">${esc(label)}</button>`).join("");
   rail.innerHTML = `<button type="button" class="me-btn" data-go="profile" title="修改个人信息">${avatarHtml(state.me?.avatar_url, state.me?.name || "我")}</button>
     <div class="rail-scroll">${icons}</div>`;
 }
@@ -1013,13 +1037,14 @@ function renderSubrail() {
   const sub = document.getElementById("subrail");
   const app = document.getElementById("app");
   if (!sub) return;
-  const open = state.screen === "messages" || state.screen === "friends";
+  const screen = state.screen === "home" ? "messages" : state.screen;
+  const open = screen === "messages" || screen === "friends";
   if (app) app.classList.toggle("has-sub", open);
   if (!open) {
     sub.innerHTML = "";
     return;
   }
-  if (state.screen === "friends") {
+  if (screen === "friends") {
     const friends = state.me?.friends || [];
     const items = friends.map((friend) => `<button type="button" data-act="openFriend" data-id="${esc(friend.user_id)}" class="${state.friendCard?.user_id === friend.user_id ? "on" : ""}">${esc(friend.name)}<br><span class="muted">${esc(friend.phone || "未显示手机号")}</span></button>`).join("");
     sub.innerHTML = `<div class="sub-head">好友</div><div class="sub-list">${items || "<p class=\"muted\">还没有好友。</p>"}</div>`;
@@ -1041,11 +1066,12 @@ function viewMessages() {
     <p class="muted">${esc(title)}。私聊只在好友之间。团队群里会写出发言人。投票仍不改题目和任务。</p>
     <div class="card">${lines || "<p class=\"muted\">左边点一个好友或团队群。</p>"}
       <form data-act="sendMessage" class="composer">
-        <input name="body" placeholder="写一句" ${state.threadId ? "" : "disabled"}>
+        <input name="body" maxlength="2000" placeholder="写一句，最多 2000 字" ${state.threadId ? "" : "disabled"}>
         <button class="btn" type="submit" ${state.threadId ? "" : "disabled"}>发送</button>
       </form>
+      <button class="btn ghost" type="button" data-act="reloadThread" ${state.threadId ? "" : "disabled"}>查看新消息</button>
     </div>
-    <p class="muted">个人模型的结论不会自动进群。在个人空间问完后，回到团队群粘贴发送。对方再点开这个对话就能看见。</p>`;
+    <p class="muted">个人模型的结论不会自动进群。在个人空间问完后，回到团队群粘贴发送。对方点「查看新消息」或重新点开这个对话就能看见。</p>`;
 }
 
 function viewBoard() {
@@ -1342,6 +1368,7 @@ async function go(id) {
 }
 
 async function adopt(data, _phone) {
+  clearPrivateView();
   state.token = data.token;
   state.needProfile = false;
   state.issuedCode = "";
@@ -1396,6 +1423,7 @@ const actions = {
     renderRail();
   },
   logout() {
+    clearPrivateView();
     state.token = "";
     state.me = null;
     state.squad = null;
@@ -1656,9 +1684,13 @@ const actions = {
     state.screen = "messages";
     await loadThread();
   },
+  async reloadThread() {
+    await loadThread();
+  },
   async sendMessage(form) {
     const body = form.body.value.trim();
     if (!body) throw new Error("先写一句。");
+    if (body.length > 2000) throw new Error("一条消息最多 2000 字。");
     const payload = state.threadKind === "dm"
       ? { kind: "dm", peer_id: state.threadId, body }
       : { kind: "squad", squad_id: state.threadId, body };
@@ -1860,7 +1892,7 @@ async function boot() {
     }
     if (!state.contestId && state.me.contests[0]) state.contestId = state.me.contests[0].id;
     saveSession();
-    state.screen = "home";
+    state.screen = "messages";
   } catch (error) {
     state.token = "";
     state.error = error.message;
