@@ -35,7 +35,7 @@ python3 -m venv .venv
 
 ## 真实模型配置
 
-内置预设为 **DeepSeek-V4-Pro / `deepseek-v4-pro`**，使用官方 `https://api.deepseek.com`。复制 `.env.example` 为 `.env`，在本地填写 `DEEPSEEK_API_KEY`，重启服务。没有有效密钥时会显示“等待配置”，不会附送或虚构模型额度。
+内置预设为 **DeepSeek-V4.1-Flash / `deepseek-flash`**，使用官方 `https://api.deepseek.com`。复制 `.env.example` 为 `.env`，在本地填写 `DEEPSEEK_API_KEY`，重启服务。没有有效密钥时会显示“等待配置”，不会附送或虚构模型额度。
 
 也可由队长进入“模型接入”，填自己的 API 根地址和 key，点击读取模型列表，再选择完整名称与 ID。密钥仅暂存本次服务进程内存，服务重启后需重新连接；切回内置会清除自带配置。模型列表来自服务提供者，读取成功不代表实际生成质量已经通过验证。只接受 `MODEL_ALLOWED_HOSTS` 中的 HTTPS 服务，不向任意内网地址或重定向目标转发凭据。
 

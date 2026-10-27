@@ -331,8 +331,8 @@ class WorkflowTests(unittest.TestCase):
 
     def test_F11_builtin_deepseek_full_name_without_invented_connection(self):
         info=self.workspace()["current_model"]
-        self.assertEqual(info["name"],"DeepSeek-V4-Pro")
-        self.assertEqual(info["model_id"],"deepseek-v4-pro")
+        self.assertEqual(info["name"],"DeepSeek-V4.1-Flash")
+        self.assertEqual(info["model_id"],"deepseek-flash")
         self.assertFalse(info["key_configured"])
 
     def test_F11_custom_model_discovery_selection_no_key_leak_and_restart_reset(self):

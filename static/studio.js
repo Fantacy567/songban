@@ -353,7 +353,7 @@ function viewSettings() {
         <label for="model-key">API 密钥</label>
         <input id="model-key" name="api_key" type="password" autocomplete="off" placeholder="${me.model_ready ? "已填写，要换再输入" : "只保存在服务器上"}">
         <label for="model-name">模型名</label>
-        <input id="model-name" name="model_id" placeholder="deepseek-v4-pro" value="${esc(me.model_name || "")}" required>
+        <input id="model-name" name="model_id" placeholder="deepseek-flash" value="${esc(me.model_name || "")}" required>
         <button class="btn" type="submit">保存我的模型</button>
       </form>
     </div>

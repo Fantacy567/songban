@@ -19,10 +19,10 @@ def model_configured():
 
 def builtin_model():
     if os.environ.get("DEEPSEEK_API_KEY", "").strip():
-        return {"api_key": os.environ["DEEPSEEK_API_KEY"].strip(), "base_url": "https://api.deepseek.com", "model_id": "deepseek-v4-pro", "name": "DeepSeek-V4-Pro", "provider": "DeepSeek 官方", "mode": "builtin"}
+        return {"api_key": os.environ["DEEPSEEK_API_KEY"].strip(), "base_url": "https://api.deepseek.com", "model_id": "deepseek-flash", "name": "DeepSeek-V4.1-Flash", "provider": "DeepSeek 官方", "mode": "builtin"}
     if all(os.environ.get(k, "").strip() for k in ("MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME")):
         return {"api_key": os.environ["MODEL_API_KEY"].strip(), "base_url": os.environ["MODEL_BASE_URL"].strip(), "model_id": os.environ["MODEL_NAME"].strip(), "name": os.environ["MODEL_NAME"].strip(), "provider": "服务端配置", "mode": "builtin"}
-    return {"api_key": "", "base_url": "https://api.deepseek.com", "model_id": "deepseek-v4-pro", "name": "DeepSeek-V4-Pro", "provider": "DeepSeek 官方", "mode": "builtin"}
+    return {"api_key": "", "base_url": "https://api.deepseek.com", "model_id": "deepseek-flash", "name": "DeepSeek-V4.1-Flash", "provider": "DeepSeek 官方", "mode": "builtin"}
 
 
 def team_model_config():

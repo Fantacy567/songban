@@ -839,7 +839,7 @@ def register_studio(api, db, problem, now, uid, digest):
         if any(ord(ch) < 32 for ch in api_key) or len(api_key) > 400:
             raise problem(422, "invalid_model_key", "密钥里不能有换行，也不要超过 400 个字符。")
         if not model_id or len(model_id) > 80 or any(ord(ch) < 32 for ch in model_id):
-            raise problem(422, "invalid_model_name", "填写模型名称，例如 deepseek-v4-pro。")
+            raise problem(422, "invalid_model_name", "填写模型名称，例如 deepseek-flash。")
         try:
             base = check_model_base(base)
         except PlannerError as exc:
