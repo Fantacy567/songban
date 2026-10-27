@@ -30,10 +30,13 @@ def team_model_config():
     if all(os.environ.get(k, "").strip() for k in ("TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME")):
         name = os.environ["TEAM_MODEL_NAME"].strip()
         return {"api_key": os.environ["TEAM_MODEL_API_KEY"].strip(), "base_url": os.environ["TEAM_MODEL_BASE_URL"].strip(), "model_id": name, "name": name, "provider": "团队服务", "mode": "team"}
+    builtin = builtin_model()
+    if builtin.get("api_key"):
+        return builtin
     dash = os.environ.get("DASHSCOPE_API_KEY", "").strip()
     if dash:
         return {"api_key": dash, "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "model_id": "qwen-plus", "name": "qwen-plus", "provider": "通义千问", "mode": "team"}
-    return builtin_model()
+    return builtin
 
 
 def check_model_base(base):
