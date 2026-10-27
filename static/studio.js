@@ -1055,23 +1055,35 @@ function renderSubrail() {
   sub.innerHTML = `<div class="sub-head">消息</div><div class="sub-list"><p class="rail-label">好友</p>${friends || "<p class=\"muted\">加了好友才能私聊。</p>"}<p class="rail-label">团队群</p>${squads || "<p class=\"muted\">还没有队伍。</p>"}<button type="button" data-go="vote">投票表决</button></div>`;
 }
 
+function threadTitle() {
+  if (state.threadKind === "dm") {
+    const friend = (state.me?.friends || []).find((item) => item.user_id === state.threadId);
+    return friend?.name || "好友";
+  }
+  if (state.threadKind === "squad") {
+    const squad = (state.me?.squads || []).find((item) => item.id === state.threadId);
+    return squad?.name || "团队群";
+  }
+  return "";
+}
+
 function viewMessages() {
+  if (!state.threadId) return "";
   const lines = (state.threadMessages || []).map((line) => {
     const mine = line.sender_id === state.me?.id;
-    const who = mine ? "" : `<span class="muted">${esc(line.sender_name || "队友")}</span>`;
-    return `<div class="bubble ${mine ? "me" : ""}">${who}${esc(line.body)}</div>`;
+    const who = mine ? "" : `<div class="wx-name">${esc(line.sender_name || "队友")}</div>`;
+    return `<div class="wx-row ${mine ? "me" : ""}">${who}<div class="wx-bubble">${esc(line.body)}</div></div>`;
   }).join("");
-  const title = state.threadKind === "dm" ? "和好友" : (state.threadKind === "squad" ? "团队群" : "选一个对话");
-  return `<h2>消息</h2>
-    <p class="muted">${esc(title)}。私聊只在好友之间。团队群里会写出发言人。投票仍不改题目和任务。</p>
-    <div class="card">${lines || "<p class=\"muted\">左边点一个好友或团队群。</p>"}
-      <form data-act="sendMessage" class="composer">
-        <input name="body" maxlength="2000" placeholder="写一句，最多 2000 字" ${state.threadId ? "" : "disabled"}>
-        <button class="btn" type="submit" ${state.threadId ? "" : "disabled"}>发送</button>
-      </form>
-      <button class="btn ghost" type="button" data-act="reloadThread" ${state.threadId ? "" : "disabled"}>查看新消息</button>
-    </div>
-    <p class="muted">个人模型的结论不会自动进群。在个人空间问完后，回到团队群粘贴发送。对方点「查看新消息」或重新点开这个对话就能看见。</p>`;
+  const err = state.error ? `<p class="error">${esc(state.error)}</p>` : "";
+  return `<section class="wx">
+    <div class="wx-bar"><strong>${esc(threadTitle())}</strong><button class="btn ghost" type="button" data-act="reloadThread">查看新消息</button></div>
+    <div class="wx-log">${lines}</div>
+    <form data-act="sendMessage" class="wx-compose">
+      ${err}
+      <input name="body" maxlength="2000" placeholder="发消息" autocomplete="off">
+      <button class="wx-send" type="submit">发送</button>
+    </form>
+  </section>`;
 }
 
 function viewBoard() {
@@ -1131,7 +1143,10 @@ function render() {
   renderRail();
   renderSubrail();
   const view = views[state.screen] || viewHome;
-  document.getElementById("main").innerHTML = banners() + view();
+  const messaging = state.screen === "messages" || state.screen === "home";
+  document.getElementById("main").innerHTML = messaging ? view() : banners() + view();
+  const log = document.querySelector(".wx-log");
+  if (log) log.scrollTop = log.scrollHeight;
   armCountdown();
 }
 
