@@ -67,7 +67,7 @@ TODO: 加分项：暗黑模式
 
 ## 给胡的前端接入
 
-详见 `docs/接口交接.md`。前端用接口返回的成员 `access_token` 设置 `Authorization: Bearer <token>`；不能自己提交职位来取得队长权限。另起本地前端时在 `ALLOWED_ORIGINS` 填明确 Origin，例如 `http://localhost:5173`，重启后端。不要把模型密钥写进前端配置。
+松伴（首页 `/`，`static/studio.html`）的分工和约束见 `docs/前后端宪法.md`。`docs/接口交接.md` 只描述上一版 `/api/projects`（`/classic`）。不要把模型密钥、短信密钥或微信密钥写进前端配置。
 
 ## 测试
 
