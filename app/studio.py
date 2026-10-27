@@ -144,6 +144,8 @@ def ensure_schema(con):
         con.execute("ALTER TABLE contests ADD COLUMN facts TEXT NOT NULL DEFAULT '{}'")
     if "memory" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN memory TEXT NOT NULL DEFAULT ''")
+    if "card_saved" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN card_saved INTEGER NOT NULL DEFAULT 1")
     code_cols = {row[1] for row in con.execute("PRAGMA table_info(phone_codes)")}
     if "attempts" not in code_cols:
         con.execute("ALTER TABLE phone_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
@@ -186,6 +188,7 @@ def public_contest(row):
     item["facts"] = facts
     item["fact_lines"] = facts_as_lines(facts)
     item["memory"] = item.get("memory") or item.get("source_text") or ""
+    item["card_saved"] = bool(item.get("card_saved"))
     return item
 
 
@@ -862,7 +865,7 @@ def register_studio(api, db, problem, now, uid, digest):
             contests = [
                 public_contest(row)
                 for row in con.execute(
-                    "SELECT id, name, deadline, submissions, facts, memory, source_text, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC",
+                    "SELECT id, name, deadline, submissions, facts, memory, source_text, card_saved, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC",
                     (user["id"],),
                 )
             ]
@@ -957,7 +960,7 @@ def register_studio(api, db, problem, now, uid, digest):
             user = person_from_header(con, authorization)
             cid = uid()
             con.execute(
-                "INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,memory,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,memory,card_saved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
                     cid,
                     user["id"],
@@ -967,6 +970,7 @@ def register_studio(api, db, problem, now, uid, digest):
                     json.dumps(found, ensure_ascii=False),
                     json.dumps(facts, ensure_ascii=False),
                     memory[:80000],
+                    0,
                     now(),
                 ),
             )
@@ -982,6 +986,17 @@ def register_studio(api, db, problem, now, uid, digest):
             result["found_count"] = sum(1 for line in result["fact_lines"] if line.get("filled"))
             result["pending_count"] = sum(1 for line in result["fact_lines"] if not line.get("filled"))
             return result
+
+    @api.post("/api/studio/contests/{cid}/card")
+    def save_contest_card(cid: str, authorization: str = Header(default="")):
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            row = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (cid, user["id"])).fetchone()
+            if not row:
+                raise problem(404, "not_found", "还没有这场比赛。")
+            con.execute("UPDATE contests SET card_saved=1 WHERE id=?", (cid,))
+            row = con.execute("SELECT * FROM contests WHERE id=?", (cid,)).fetchone()
+            return public_contest(row)
 
     @api.post("/api/studio/contests/{cid}/ask")
     def ask_contest(cid: str, body: dict, authorization: str = Header(default="")):

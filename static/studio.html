@@ -43,6 +43,12 @@
     .facts dt { margin:0; color:#666; font-size:13px; }
     .facts dd { margin:0; }
     .facts > div.pending dd { color:#999; }
+    .contest-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+    .contest-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px 20px; }
+    .contest-card.featured { max-width:560px; }
+    .contest-card h3 { margin:6px 0 10px; font-size:28px; line-height:1.25; }
+    .contest-chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
+    .contest-chips span { border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:13px; background:#fafafa; }
     .ok-line { margin:0 0 8px; font-size:13px; color:#1f8a4c; }
     .person { border:1px dashed var(--line); border-radius:8px; padding:10px; margin-top:8px; }
     .bar { height:8px; background:#e6e6e6; border-radius:99px; overflow:hidden; margin-top:6px; }
@@ -127,6 +133,6 @@
     <aside id="rail"></aside>
     <div id="stage"><main id="main"></main></div>
   </div>
-  <script src="/static/studio.js?v=20261027-24" defer></script>
+  <script src="/static/studio.js?v=20261027-25" defer></script>
 </body>
 </html>

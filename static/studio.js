@@ -67,6 +67,7 @@ const state = {
   menuOpen: false,
   chats: {},
   contestDraft: null,
+  contestPreview: null,
   contestAskReply: "",
   showContestFacts: true,
   confirmingContest: false,
@@ -369,51 +370,58 @@ function viewSettings() {
     <button class="btn ghost" type="button" data-act="logout">退出登录</button>`;
 }
 
-function factList(contest) {
-  const lines = contest.fact_lines || [];
-  if (!lines.length) return `<p class="muted">确认后会在这里列出时间、地点、人数、赛道、选拔、奖品等。</p>`;
-  const found = lines.filter((line) => line.filled !== false && line.value && line.value !== "待补充");
-  const summary = found.length
-    ? `<p class="ok-line">已搜到 ${found.length} 项：${found.map((line) => esc(line.label)).join("、")}</p>`
-    : `<p class="muted">公开渠道里细则很少，下面各项先标成「待补充」，可再贴公众号链接后重新确认。</p>`;
-  return `${summary}<dl class="facts">${lines.map((line) => {
-    const pending = !line.filled || line.value === "待补充";
-    return `<div class="${pending ? "pending" : ""}"><dt>${esc(line.label)}</dt><dd>${esc(line.value || "待补充")}</dd></div>`;
-  }).join("")}</dl>`;
+function savedContests() {
+  return (state.me?.contests || []).filter((contest) => contest.card_saved);
+}
+
+function briefFact(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text || text === "待补充") return "";
+  const first = text.split(/[。；;]/)[0].trim();
+  return first.length > 42 ? `${first.slice(0, 42)}…` : first;
+}
+
+function contestChips(contest) {
+  const facts = contest.facts || {};
+  const chips = [
+    ["时间", briefFact(facts.time) || when(contest.deadline)],
+    ["地点", briefFact(facts.location)],
+    ["赛道", briefFact(facts.tracks)],
+  ].filter((pair) => pair[1]);
+  if (!chips.length) return "";
+  return `<div class="contest-chips">${chips.map(([label, value]) => `<span>${esc(label)} ${esc(value)}</span>`).join("")}</div>`;
+}
+
+function contestCard(contest, actionsHtml) {
+  return `<article class="contest-card">
+      <p class="kicker">赛事卡</p>
+      <h3>${esc(contest.name)}</h3>
+      ${contestChips(contest)}
+      ${actionsHtml || ""}
+    </article>`;
 }
 
 function viewContest() {
+  const found = state.contestPreview;
+  if (found) {
+    return `<h2>赛事信息</h2>
+      <p class="muted"><button class="linkish" type="button" data-go="hubContest">← 比赛系统</button></p>
+      <article class="contest-card featured">
+        <p class="kicker">搜到的比赛</p>
+        <h3>${esc(found.name)}</h3>
+        ${contestChips(found)}
+        <p class="muted">细则已经放进赛事记忆。这里只留概要。</p>
+        <div class="row" style="margin-top:16px">
+          <button class="btn" type="button" data-act="saveContestCard" data-id="${esc(found.id)}">保存为赛事卡</button>
+          <button class="btn ghost" type="button" data-act="clearContestPreview">再搜一场</button>
+        </div>
+      </article>`;
+  }
   const draft = state.contestDraft || {};
-  const active = (state.me?.contests || []).find((item) => item.id === state.contestId) || state.me?.contests?.[0];
   const attach = draft.fileName
     ? `已附上文件：${esc(draft.fileName)}`
     : (draft.fileText ? "已附上拖入的文字资料" : "把文件或链接拖到这里，也可点选文件");
-  const cards = (state.me?.contests || []).map((contest) => `<div class="person">
-      <strong>${esc(contest.name)}</strong>
-      <p class="muted">结束：${esc(when(contest.deadline))}</p>
-      ${factList(contest)}
-      <div class="row">
-        <button class="btn" type="button" data-act="useContest" data-id="${esc(contest.id)}">用这场组队</button>
-        <button class="btn ghost" type="button" data-act="showContest" data-id="${esc(contest.id)}">查看关键信息</button>
-      </div>
-    </div>`).join("");
-  const askBox = active ? `<div class="card">
-      <p class="kicker">问比赛</p>
-      <form data-act="askContest">
-        <input type="hidden" name="contest_id" value="${esc(active.id)}">
-        <label for="cask">关于「${esc(active.name)}」的问题</label>
-        <textarea id="cask" name="question" rows="2" placeholder="例如：提交截止是什么时候？有哪些赛道？" required></textarea>
-        <button class="btn ghost" type="submit">提问</button>
-      </form>
-      ${state.contestAskReply ? `<div class="bubble"><strong>回答</strong><br>${esc(state.contestAskReply)}</div>` : ""}
-    </div>` : "";
-  const detail = active && state.showContestFacts ? `<div class="card">
-      <p class="kicker">关键信息 · 已写入记忆</p>
-      <p class="hero-name" style="font-size:24px">${esc(active.name)}</p>
-      ${factList(active)}
-      <p class="muted">之后发布任务、讨论方向时会按这份记忆提醒是否符合赛规。</p>
-    </div>` : "";
-  return `<h2>赛事信息</h2>
+  return `<h2>搜索比赛</h2>
     <p class="muted"><button class="linkish" type="button" data-go="hubContest">← 比赛系统</button></p>
     <form data-act="confirmContest" class="card">
       <label for="cname">比赛名称</label>
@@ -428,13 +436,10 @@ function viewContest() {
       <label for="curl">微信公众号网址</label>
       <input id="curl" name="url" value="${esc(draft.url || "")}" placeholder="https://mp.weixin.qq.com/s/……">
       <div class="row" style="margin-top:14px">
-        <button class="btn" type="submit" ${state.confirmingContest ? "disabled" : ""}>${state.confirmingContest ? "正在读取公众号/长图并整理…" : "确认比赛"}</button>
+        <button class="btn" type="submit" ${state.confirmingContest ? "disabled" : ""}>${state.confirmingContest ? "正在读取公众号/长图并整理…" : "搜索比赛"}</button>
       </div>
-      <p class="muted">确认后会读取文件与网址，并查找公开信息；关键结果写入记忆，不在此展示模型过程。</p>
-    </form>
-    ${detail}
-    ${askBox}
-    ${cards ? `<div class="card"><p class="kicker">已确认的比赛</p>${cards}</div>` : ""}`;
+      <p class="muted">搜到后这里只显示概要。细则写入赛事记忆，保存后才出现在「参加过的比赛」。</p>
+    </form>`;
 }
 
 function planRows() {
@@ -448,7 +453,7 @@ function planRows() {
 
 function viewTeam() {
   if (!state.squad) {
-    const contests = state.me?.contests || [];
+    const contests = savedContests();
     const options = contests.map((contest) => `<option value="${esc(contest.id)}" ${contest.id === state.contestId ? "selected" : ""}>${esc(contest.name)}</option>`).join("");
     return page(`<h2>组队</h2>
       <div class="split">
@@ -569,7 +574,7 @@ function viewHubContest() {
     <p class="muted"><button class="linkish" type="button" data-go="home">← 首页</button></p>
     ${clock}
     <div class="hub-modules">
-      ${hubCard("contest", "赛事信息", "确认比赛、查看关键信息、问赛规")}
+      ${hubCard("contest", "搜索比赛", "搜一场，保存成赛事卡")}
       ${hubCard("team", "组队", "创建队伍或用队伍码加入")}
       ${hubCard("teamspace", "团队空间", ready ? "任务树、成果架、仓库、讨论入口" : "组队并确认分工后可用")}
       ${hubCard("mine", "我的空间", ready ? "我这场的任务与截止" : "组队并确认分工后可用")}
@@ -611,19 +616,10 @@ function viewFriends() {
 }
 
 function viewPast() {
-  const contests = state.me?.contests || [];
-  const cards = contests.map((contest) => `<div class="person">
-      <strong>${esc(contest.name)}</strong>
-      <p class="muted">结束：${esc(when(contest.deadline))}</p>
-      ${factList(contest)}
-      <div class="row">
-        <button class="btn" type="button" data-act="useContest" data-id="${esc(contest.id)}">用这场组队</button>
-        <button class="btn ghost" type="button" data-act="showContest" data-id="${esc(contest.id)}">查看关键信息</button>
-      </div>
-    </div>`).join("");
+  const cards = savedContests().map((contest) => contestCard(contest, `<div class="row" style="margin-top:14px"><button class="btn" type="button" data-act="useContest" data-id="${esc(contest.id)}">用这场组队</button></div>`)).join("");
   return `<h2>参加过的比赛</h2>
     <p class="muted"><button class="linkish" type="button" data-go="hubMine">← 我的系统</button></p>
-    <div class="card">${cards || "<p class=\"muted\">还没有确认过比赛。去比赛系统 → 赛事信息。</p>"}</div>`;
+    <div class="contest-grid">${cards || "<p class=\"muted\">还没有赛事卡。去比赛系统 → 搜索比赛。</p>"}</div>`;
 }
 
 function viewStack() {
@@ -1369,23 +1365,35 @@ const actions = {
       });
       state.contestId = data.id;
       state.contestDraft = null;
-      state.showContestFacts = true;
+      state.contestPreview = data;
       state.contestAskReply = "";
       saveSession();
       state.me = await api("GET", "/api/studio/me");
-      state.note = data.notice || "比赛已确认，关键信息已写入记忆。";
+      state.note = "已搜到。细则在赛事记忆里，页面只留概要。";
       state.screen = "contest";
     } finally {
       state.confirmingContest = false;
       render();
     }
   },
+  async saveContestCard(button) {
+    const id = button.dataset.id || state.contestPreview?.id;
+    if (!id) throw new Error("先搜到一场比赛。");
+    await api("POST", `/api/studio/contests/${id}/card`);
+    state.contestPreview = null;
+    state.contestId = id;
+    saveSession();
+    state.note = "已保存为赛事卡。到「我的系统 → 参加过的比赛」查看。";
+    await reload();
+  },
+  async clearContestPreview() {
+    state.contestPreview = null;
+    state.note = "可以再搜一场。刚才的细则仍留在赛事记忆里。";
+  },
   async showContest(button) {
     state.contestId = button.dataset.id;
-    state.showContestFacts = true;
     saveSession();
-    state.note = "已显示这场比赛的关键信息。";
-    state.screen = "contest";
+    state.screen = "past";
   },
   async askContest(form) {
     const cid = form.contest_id.value || state.contestId;

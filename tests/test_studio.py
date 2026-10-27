@@ -525,6 +525,13 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(body["name"], "回响黑客松")
         self.assertIn("PPT", body["facts"]["submissions_text"])
         self.assertTrue(body["fact_lines"])
+        self.assertFalse(body["card_saved"])
+        self.assertTrue(body["memory"])
+        card = self.client.post(f"/api/studio/contests/{body['id']}/card", headers=headers)
+        self.assertEqual(card.status_code, 200, card.text)
+        self.assertTrue(card.json()["card_saved"])
+        listed = self.client.get("/api/studio/me", headers=headers).json()["contests"]
+        self.assertTrue(any(item["id"] == body["id"] and item["card_saved"] for item in listed))
         asked = self.client.post(
             f"/api/studio/contests/{body['id']}/ask",
             json={"question": "提交什么"},
