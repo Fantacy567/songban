@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "songban-connector",
+  "version": "0.9.2",
+  "description": "将获准分享的讨论同步至松伴团队资料库",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "松伴连接器",
+        "shortDescription": "将获准分享的讨论同步至松伴团队资料库",
+        "longDescription": "读取共同方向与本人任务，同步当前对话中的项目摘要。不会扫描其他聊天，不会自动发布团队决策。",
+        "developerName": "松伴",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png",
+        "brandColor": "#335FEA",
+        "defaultPrompt": [
+          "连接松伴，读取我的团队方向和任务",
+          "同步本轮项目进展到团队资料库"
+        ]
+      }
+    }
+  }
+}

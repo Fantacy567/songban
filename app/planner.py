@@ -39,12 +39,12 @@ def team_model_config():
     return builtin
 
 
-def check_model_base(base):
+def check_model_base(base, allow_local=False):
     base = str(base or "").strip().rstrip("/")
     try:
         parts = urlsplit(base)
         allowed = set(s.strip().lower() for s in os.environ.get("MODEL_ALLOWED_HOSTS", "api.deepseek.com,api.openai.com,dashscope.aliyuncs.com,open.bigmodel.cn,openrouter.ai").split(",") if s.strip())
-        local = parts.scheme == "http" and parts.hostname in {"localhost", "127.0.0.1"}
+        local = allow_local and parts.scheme == "http" and parts.hostname in {"localhost", "127.0.0.1"}
         remote = parts.scheme == "https" and parts.hostname in allowed and parts.port in (443, None)
         valid = (local or remote) and parts.hostname and not (parts.username or parts.password or parts.query or parts.fragment)
     except ValueError:
@@ -54,11 +54,11 @@ def check_model_base(base):
     return base
 
 
-def model_chat(config, system, user_text, transport=None, max_tokens=800):
+def model_chat(config, system, user_text, transport=None, max_tokens=800, allow_local=False):
     """One short chat completion. Returns the assistant text."""
     if not config or not config.get("api_key"):
         raise PlannerError("model_not_configured", "真实模型尚未配置。", 503)
-    base = check_model_base(config.get("base_url", ""))
+    base = check_model_base(config.get("base_url", ""), allow_local=allow_local)
     parts = urlsplit(base)
     try:
         request_body = {

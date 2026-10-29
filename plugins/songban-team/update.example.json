@@ -1,0 +1,12 @@
+{
+  "event_id": "replace-with-unique-event-id",
+  "tool": "你的智能体工具名称",
+  "session_label": "当前项目的后端工作",
+  "summary": "接口代码已写好，尚未实际验证，需要前端确认输入字段。",
+  "status": "blocked",
+  "evidence": ["app/example.py：待核对的修改"],
+  "blocker": "需要前端确认接口输入字段",
+  "views": [{"topic": "登录实现范围", "position": "先只做最简单登录，暂缓账号找回"}],
+  "excerpt": "用户：先把接口字段和胡确认。智能体：代码已写好，尚未验证。",
+  "origin": "personal_agent"
+}

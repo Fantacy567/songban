@@ -11,3 +11,18 @@ artifacts/*.webm
 artifacts/*.png
 artifacts/*.json
 artifacts/*.log
+
+# 松伴个人连接（含私有凭证，不提交）
+.songban/
+
+# 本机工具绑定与私人走查资料（源码模板位于 plugins/）
+.codex/
+.agents/skills/songban-team/
+docs/audit-2026-10-28/
+docs/core-collaboration/evidence/
+node_modules/
+.pytest_cache/
+
+# 本机环境变量变体
+.env.*
+!.env.example

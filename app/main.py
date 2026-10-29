@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from .advice import advice_markdown, rubric_coverage, scope_advice
 from .studio import ensure_schema, register_studio
+from .team_core import ensure_core_schema, register_core
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
@@ -33,7 +34,7 @@ def load_env():
             if line and not line.startswith("#") and "=" in line:
                 name, value = line.split("=", 1)
                 key = name.strip()
-                if key in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME", "DASHSCOPE_API_KEY", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE", "ALIYUN_SMS_MODE"}:
+                if key in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME", "DASHSCOPE_API_KEY", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "SONGBAN_CORE_ONLY", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "SONGBAI_ALLOW_TEST_CODES", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE", "ALIYUN_SMS_MODE"}:
                     cleaned = value.strip().strip("\"'")
                     # Project .env wins so local DeepSeek / 短信配置不被外层环境顶掉。
                     if cleaned:
@@ -122,7 +123,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -153,6 +154,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
         initial.execute("PRAGMA journal_mode=WAL")
         initial.executescript(SCHEMA)
         ensure_schema(initial)
+        ensure_core_schema(initial)
         columns = {row[1] for row in initial.execute("PRAGMA table_info(proposals)")}
         for column in ("model_id", "model_display_name", "response_model_id", "fallback_reason"):
             if column not in columns:
@@ -163,6 +165,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
 
     api = FastAPI(title="松伴 API", version="0.5.0", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     api.state.db_path = path
+    api.state.core_only = (os.environ.get("SONGBAN_CORE_ONLY", "1") != "0") if core_only is None else core_only
     configured_origins = [s.strip() for s in os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173").split(",") if s.strip()]
     if "*" in configured_origins:
         raise ValueError("ALLOWED_ORIGINS 必须列出明确地址，不允许星号")
@@ -186,7 +189,13 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
 
     @api.middleware("http")
     async def headers_and_size(request: Request, call_next):
-        if request.method in {"POST", "PUT"}:
+        path = request.url.path
+        if api.state.core_only:
+            legacy = path in {"/classic", "/workflow", "/static/studio.html", "/static/index.html", "/static/workflow.html"} or path.startswith("/api/projects")
+            old_studio = path.startswith("/api/studio/") and path not in {"/api/studio/login", "/api/studio/register", "/api/studio/codes"}
+            if legacy or old_studio:
+                return JSONResponse({"error": {"code": "feature_locked", "message": "本轮只开放个人智能体与团队统筹主线，其他功能暂时封锁。"}}, status_code=423)
+        if request.method in {"POST", "PUT", "PATCH"}:
             limit = 2_000_000 if request.url.path == "/api/studio/contests/import-file" else 300_000
             try:
                 if int(request.headers.get("content-length", "0")) > limit:
@@ -331,7 +340,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
                 con.execute("SELECT 1 FROM projects LIMIT 1").fetchone()
         except sqlite3.Error:
             raise Problem(503, "database_unavailable", "数据库暂不可用。") from None
-        return {"status": "ok", "service": "hackathon-collab", "version": "0.5.0", "model_configured": bool(model_configured())}
+        return {"status": "ok", "service": "hackathon-collab", "version": "0.9.2" if api.state.core_only else "0.5.0", "model_configured": bool(model_configured()), "core_only": api.state.core_only}
 
     @api.post("/api/projects", status_code=201)
     def create_project(body: ProjectInput):
@@ -619,13 +628,14 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None):
 
     @api.get("/", include_in_schema=False)
     def homepage():
-        return FileResponse(ROOT / "static" / "studio.html")
+        return FileResponse(ROOT / "static" / ("core.html" if api.state.core_only else "studio.html"))
 
     @api.get("/workflow", include_in_schema=False)
     def workflow():
         return FileResponse(ROOT / "static" / "workflow.html")
 
     register_studio(api, db, Problem, now, uid, digest)
+    register_core(api, db, Problem, now, uid, digest, core_model_runner)
 
     @api.get("/classic", include_in_schema=False)
     def classic():

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "songban-team": {
+      "command": "python3",
+      "args": ["/请替换为绝对路径/songban-team/bridge.py", "mcp"],
+      "env": {
+        "SONGBAN_URL": "http://127.0.0.1:8886",
+        "SONGBAN_TEAM_ID": "从团队网页复制队伍ID",
+        "SONGBAN_TOKEN": "在工具自己的安全配置中填写连接凭证"
+      }
+    }
+  }
+}

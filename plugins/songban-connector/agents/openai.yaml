@@ -1,0 +1,6 @@
+interface:
+  display_name: "松伴连接器"
+  short_description: "手动附带到本轮对话，将项目关键内容同步到团队资料库，供团队智能体核对和读取"
+  default_prompt: "使用 $songban-connector，将本轮与团队项目有关的关键问题和实际结论同步到松伴团队资料库。"
+policy:
+  allow_implicit_invocation: false

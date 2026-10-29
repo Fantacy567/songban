@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ipaddress
+import base64
 import json
 import re
 import shutil
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from html import unescape
 from pathlib import Path
 from urllib.parse import unquote, urldefrag, urljoin, urlsplit
@@ -306,8 +308,8 @@ def ocr_weixin_images(image_urls: list[str], transport=None, limit: int = MAX_WE
 
     def _one(idx: int, link: str) -> tuple[int, str]:
         try:
-            with httpx.Client(timeout=30, follow_redirects=False, transport=transport) as client:
-                response, _final = public_request(client, "GET", link, headers=headers)
+            with httpx.Client(timeout=30, follow_redirects=False, transport=transport, trust_env=False) as client:
+                response, _final = public_request(client, "GET", link, headers=headers, pin_dns=transport is None)
             if response.status_code != 200 or len(response.content) < 800:
                 return idx, ""
             ctype = response.headers.get("content-type", "")
@@ -365,12 +367,85 @@ def validate_public_url(url: str) -> str:
     return url
 
 
-def public_request(client, method: str, url: str, *, headers=None, limit: int = 5, **kwargs):
+def _resolved_public_target(url: str) -> tuple[str, str, str]:
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    try:
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError as exc:
+        raise IntelError("invalid_url", "链接端口不正确。") from exc
+    try:
+        addresses = []
+        for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
+            address = info[4][0]
+            ip = ipaddress.ip_address(address)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                raise IntelError("url_not_allowed", "不能抓取本机或内网地址，只能读取公开的互联网页面。")
+            if address not in addresses:
+                addresses.append(address)
+    except OSError as exc:
+        raise IntelError("fetch_failed", "网页域名无法解析。请检查链接。") from exc
+    if not addresses:
+        raise IntelError("fetch_failed", "网页域名无法解析。请检查链接。")
+    address = addresses[0]
+    target_host = f"[{address}]" if ":" in address else address
+    default_port = (parts.scheme == "https" and port == 443) or (parts.scheme == "http" and port == 80)
+    target_netloc = target_host if default_port else f"{target_host}:{port}"
+    original_host = f"[{host}]" if ":" in host else host
+    original_netloc = original_host if default_port else f"{original_host}:{port}"
+    return parts._replace(netloc=target_netloc).geturl(), original_netloc, host
+
+
+def _limited_response(client, method, url, *, headers, max_bytes, deadline_seconds, **kwargs):
+    started = time.monotonic()
+    with client.stream(method, url, headers=headers, **kwargs) as raw:
+        if raw.status_code in {301, 302, 303, 307, 308}:
+            return httpx.Response(raw.status_code, headers=raw.headers, content=b"", request=raw.request)
+        declared = raw.headers.get("content-length")
+        if declared:
+            try:
+                if int(declared) > max_bytes:
+                    raise IntelError("page_too_large", "网页内容过大，请改用上传文件或粘贴关键文字。")
+            except ValueError:
+                pass
+        chunks = []
+        size = 0
+        for chunk in raw.iter_bytes():
+            size += len(chunk)
+            if size > max_bytes:
+                raise IntelError("page_too_large", "网页内容过大，请改用上传文件或粘贴关键文字。")
+            if time.monotonic() - started > deadline_seconds:
+                raise IntelError("fetch_timeout", "打开网页超时。请检查网络，或改用上传文件。")
+            chunks.append(chunk)
+        decoded_headers = [
+            (name, value)
+            for name, value in raw.headers.multi_items()
+            if name.lower() not in {"content-encoding", "content-length"}
+        ]
+        return httpx.Response(raw.status_code, headers=decoded_headers, content=b"".join(chunks), request=raw.request)
+
+
+def public_request(client, method: str, url: str, *, headers=None, limit: int = 5, pin_dns: bool = True, max_bytes: int = MAX_FETCH_BYTES, deadline_seconds: float = 65.0, **kwargs):
     """Follow redirects only when every hop is still a public URL."""
     current = validate_public_url(url)
     redirects = {301, 302, 303, 307, 308}
     for _ in range(limit):
-        response = client.request(method, current, headers=headers or _fetch_headers(current), **kwargs)
+        request_headers = dict(headers or _fetch_headers(current))
+        target = current
+        request_kwargs = dict(kwargs)
+        if pin_dns:
+            target, host_header, sni_hostname = _resolved_public_target(current)
+            request_headers["Host"] = host_header
+            request_kwargs["extensions"] = {**request_kwargs.get("extensions", {}), "sni_hostname": sni_hostname}
+        response = _limited_response(
+            client,
+            method,
+            target,
+            headers=request_headers,
+            max_bytes=max_bytes,
+            deadline_seconds=deadline_seconds,
+            **request_kwargs,
+        )
         if response.status_code not in redirects:
             return response, current
         location = response.headers.get("location")
@@ -555,8 +630,8 @@ def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
     # 公众号页常 3MB+；用普通 GET + 跟跳转。stream 在微信域名上会拖死读超时。
     timeout = httpx.Timeout(60.0 if weixin else 18.0, connect=10.0)
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=False, transport=transport) as client:
-            response, final = public_request(client, "GET", current)
+        with httpx.Client(timeout=timeout, follow_redirects=False, transport=transport, trust_env=False) as client:
+            response, final = public_request(client, "GET", current, pin_dns=transport is None)
             if response.status_code != 200:
                 if weixin or is_weixin_article(final):
                     raise IntelError(
@@ -573,7 +648,7 @@ def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
                         # 再试一次带 nwr_flag 的地址
                         retry = prepare_weixin_url(urldefrag(final).url)
                         if retry != current:
-                            response, final = public_request(client, "GET", retry)
+                            response, final = public_request(client, "GET", retry, pin_dns=transport is None)
                             if response.status_code == 200:
                                 html = response.content[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
                         if weixin_error_page(html):
@@ -593,6 +668,61 @@ def fetch_public_page(url: str, transport=None) -> tuple[str, str]:
         raise IntelError("fetch_failed", "网页连不上。请检查网络，或改用上传文件。") from exc
 
 
+def fetch_contest_icon(page_url: str, transport=None) -> str:
+    """Return a small official page image as a data URL; failures are non-fatal."""
+    if not page_url:
+        return ""
+    try:
+        page_url = validate_public_url(page_url)
+        with httpx.Client(timeout=12, follow_redirects=False, transport=transport, trust_env=False) as client:
+            response, final = public_request(
+                client,
+                "GET",
+                page_url,
+                pin_dns=transport is None,
+                max_bytes=MAX_FETCH_BYTES,
+                deadline_seconds=18,
+            )
+            if response.status_code != 200:
+                return ""
+            ctype = response.headers.get("content-type", "").lower()
+            if "html" not in ctype and not response.content[:200].lstrip().lower().startswith((b"<!doctype", b"<html")):
+                return ""
+            html = response.content.decode("utf-8", errors="replace")
+            regions = _html_meta_regions(html)
+            candidates = []
+            for pattern in (
+                r'<meta[^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\'][^>]+content=["\']([^"\']+)',
+                r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\']',
+                r'<link[^>]+rel=["\'][^"\']*(?:icon|apple-touch-icon)[^"\']*["\'][^>]+href=["\']([^"\']+)',
+            ):
+                match = re.search(pattern, regions, re.I)
+                if match:
+                    candidates.append(unescape(match.group(1)).replace("&amp;", "&"))
+            if is_weixin_article(final):
+                candidates.extend(extract_weixin_image_urls(html, limit=2))
+            for candidate in candidates[:5]:
+                try:
+                    image_url = validate_public_url(urljoin(final, candidate))
+                    image, _ = public_request(
+                        client,
+                        "GET",
+                        image_url,
+                        headers={"User-Agent": USER_AGENT, "Accept": "image/avif,image/webp,image/png,image/jpeg,image/gif"},
+                        pin_dns=transport is None,
+                        max_bytes=500_000,
+                        deadline_seconds=15,
+                    )
+                except (IntelError, httpx.HTTPError):
+                    continue
+                media = image.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                if image.status_code == 200 and media in {"image/png", "image/jpeg", "image/webp", "image/gif"} and image.content:
+                    return f"data:{media};base64,{base64.b64encode(image.content).decode('ascii')}"
+    except (IntelError, httpx.HTTPError, ValueError):
+        return ""
+    return ""
+
+
 def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[str]:
     """Try DuckDuckGo then Bing HTML; never raise — empty list on failure."""
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "zh-CN,zh;q=0.9"}
@@ -607,7 +737,7 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
             return
 
     try:
-        with httpx.Client(timeout=8, follow_redirects=False, transport=transport) as client:
+        with httpx.Client(timeout=8, follow_redirects=False, transport=transport, trust_env=False) as client:
             try:
                 response, _final = public_request(
                     client,
@@ -615,6 +745,7 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
                     "https://html.duckduckgo.com/html/",
                     data={"q": query},
                     headers=headers,
+                    pin_dns=transport is None,
                 )
                 if response.status_code == 200:
                     for match in re.finditer(r'uddg=([^&"]+)', response.text):
@@ -630,6 +761,7 @@ def _collect_search_links(query: str, transport=None, limit: int = 8) -> list[st
                     "https://www.bing.com/search",
                     params={"q": query, "setlang": "zh-hans"},
                     headers=headers,
+                    pin_dns=transport is None,
                 )
                 if response.status_code == 200:
                     for match in re.finditer(
@@ -1125,6 +1257,9 @@ def synthesize_contest_draft(query: str, url: str, raw: str, sources: list[dict]
 def research_contest(query: str = "", url: str = "", text: str = "", transport=None) -> dict:
     raw, sources = gather_raw_material(query=query, url=url, text=text, transport=transport)
     draft = synthesize_contest_draft(query or strip_urls(text), url, raw, sources, transport=transport)
+    source_url = url or next((str(source.get("url") or "") for source in sources if source.get("url")), "")
+    draft["official_url"] = source_url
+    draft["icon_data"] = fetch_contest_icon(source_url, transport=transport) if source_url else ""
     draft["submissions_preview"] = []
     draft["fact_lines"] = facts_as_lines(draft.get("facts") or {})
     return draft

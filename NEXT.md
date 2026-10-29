@@ -1,3 +1,205 @@
+# GitHub代码同步 · 2026-10-29
+
+本次整理并提交当前完整源码：核心团队协作、原生连接器、资料库两行记录格式、只记录不触发分析、任务交叉验收与下一步提示，以及相关测试和交接文档。私人凭据、数据库、个人工具绑定、依赖缓存和本机走查证据排除。
+上传前验证：149项unittest全部通过（SONGBAN_CORE_ONLY=0），3份主要前端JS语法检查与Python编译检查通过。没有调用付费模型、没有部署公网服务。
+旧GitHub Actions使用不存在的environment.yml；已改为Python3.14、Node24、锁定Python依赖、Codex CLI 0.145.0及unittest。远端CI结果须推送后另查，不把本地通过当远端通过。
+本次不包含尚在澄清的家长商业版新功能；飞书资料库仍待继续。
+
+---
+
+# 开发交接 · 2026-10-29 · 现场指南三件事接入核心流程
+
+- 学军黑客松任务是把 hackathon-field-guide 里值得留下的行为接进当前松伴，不搬它的网站和视觉。只接三件事：告诉成员下一步、由另一名队友检查已报告成果、交付前只列当前记录里能核对的事实。
+- 新增 app/core_workflow.py 与 core_task_checks。检查必须由网页上的另一名成员提交，插件令牌不能代签；没有依据或前置成果未通过时不能标通过；上游成果更新后，下游已通过记录失效；新计划版本不继承旧检查。交接清单写明松伴没有主办方收件状态。
+- 资料库两行显示、只记录不分析、原生插件入口都保持不变。未恢复找比赛、灵感库、赛后训练和办赛。
+
+---
+
+# 显示格式更新 · 2026-10-29
+
+用户指定资料库每条严格两行：第一行加粗「注册姓名：用户输入」，第二行普通字「实际模型名：回复要点」。static/core.js新增conversationRecord，去掉每条标题/时间/标签/记录号/分析说明，开头插件附件标记仅在显示时隐藏；底层原话与身份来源不改。未知模型显示未获取，不把用户示例GPT6.1sol当实际模型。static资源版本20261029-4，刷新网页生效，无需重启服务。语法、两行格式、加粗、前缀移除与HTML转义检查通过；浏览器链路脚本相应更新文本定位。
+
+---
+
+# 开发交接 · 2026-10-29 · v0.9.2 只记录模式
+
+- 用户明确要求先不分析，仅上传用户原话、注册用户名、智能体回复关键信息、工具模型名。已实现user_message / assistant_summary / model_name；user_name由后端绑定账号people.name取得，不能伪造用户名。兼容旧摘要记录，不回写历史。
+- conversation-notes忽略观点/证据/阻塞分析字段，记录capture_only=true；无论auto_review是否开启，本类上传都不触发schedule。手动统筹与普通reports不受影响。library返回真实注册名并显示用户/智能体两段及模型名。模型未知显示未获取，不能套用用户示例GPT6.1sol。
+- 原生插件0.9.2已安装，技能改为只同步、不先读团队/不分析。实际模型用本机codex-model status核实为DeepSeek API deepseek-v4-pro（命令另有AppleScript非致命警告；未改任何模型设置）。
+- 本条用户需求已按四项格式入库：9c4f72fcb8394c93b3d0b44d5b1f629e；assistant_summary仅「已上传」，原话/账号姓名/模型名回读一致，未触发分析。证据capture_only_receipt.json。未扫描其他聊天。
+- 测试：139项完整回归通过；隔离浏览器上传后资料库自动刷新通过，并确认开启自动统筹时采集记录仍不产生建议，随后仅在隔离环境手动统筹验证资料可读。真实环境未触发分析或付费模型。
+- 8886进程PID62591/session59211运行0.9.2；DB备份pre-capture-only-20261029.sqlite3。当前会话仍没有暴露原生松伴工具，实际本条经已安装MCP程序明确补同步；不要说自动宿主拦截已实现。
+
+---
+
+# 修复交接 · 2026-10-29 · v0.9.1
+
+- 用户确认原生插件可在加号调用，但无上传。宿主日志证实mcp.json缺少type导致 failed to parse plugin MCP server / missing field type。0.9.0注册启用不等于MCP工具已加载；前次隔离测试直接调用server.py，漏测真实宿主加载。
+- app/connector_plugin.py生成MCP配置补type=stdio；插件更新0.9.1并实际安装。新增scripts/check_native_plugin_host.py，无模型turn的真实Codex app-server检查：读取/同步工具均发现，加载错误为空。加入test_connector_plugin回归。
+- 同时修复资料库停留页面不自动更新：revision变化时刷新libraryView，增加刷新资料库按钮。浏览器保持资料库打开后MCP上传，12秒内出现内容，隔离验收通过。
+- 138项全量回归通过（SONGBAN_CORE_ONLY=0，正常DNS权限），未使用付费模型。
+- 用户已在本对话明确附带plugin://songban-connector@songban-local，但本轮ALL_TOOLS仍无松伴工具。不能声称当前会话原生自动上传已验证。经用户授权通过已安装连接器MCP程序补传，library HTTP接口回读确认：本轮消息记录ecd900d17b454b0ebd39fcf95b45bc7a；修复摘要ed4f8d875e044f68a1a97d144eaf6fa3。这两条真实摘要均明确标注补传，非所有历史自动恢复。
+- 证据native_plugin_repair_receipt.json、selected_plugin_message_receipt.json、native_plugin_acceptance.json（含library_auto_refresh_verified）。
+- 下一步用户刷新松伴网页；当前旧会话需重新加载插件/新建对话后确认宿主工具实际可用。无宿主消息hook，不宣称自动捕获每条聊天。
+
+---
+
+# 开发交接 · 2026-10-29 · v0.9.0 原生松伴连接器
+
+- 用户纠正：要真正的插件与加号入口，不能用独立技能代替。已实现 plugins/songban-native（portable及兼容manifest、composerIcon、MCP、打包技能）、app/connector_plugin.py（官方CLI注册安装），网页默认一键连接原生插件，项目MCP保留兼容。
+- 故障已证实：旧shell技能普通沙箱读取本机失败，获准执行同样只读请求成功；不是8886服务关闭。原生MCP避免要求agent每轮执行shell上传，但宿主工具权限仍应遵守。
+- 本机真实安装 registered/enabled/bridge_verified=true，CLI已确认。安装路径 ~/.codex/plugins/songban-local/catalog/plugins/songban-connector；绑定在catalog外的private/connection.json，0600；无密钥复制进缓存。未改模型/provider，未重启Codex，未上传当前真实对话。
+- 旧 ~/.codex/skills/songban-connector/SKILL.md 已改名SKILL.md.retired，可恢复；不要再让用户$调用旧技能。
+- 当前会话ALL_TOOLS尚无松伴工具；原生菜单未实测（Computer Use禁止操作Codex自身）。必须区分已安装启用与当前会话加载，不能再宣称加号已出现。
+- 未实现宿主级自动消息hook；附带插件/明确授权后由agent整理调用MCP。安装不等于所有聊天自动共享。统筹开关/队长确认原样保留。
+- 新隔离浏览器一键安装→真实CLI→MCP→HTTP入库→去重→模型输入/引用→资料库通过，模型是协议替身。138项全量回归在SONGBAN_CORE_ONLY=0且有正常DNS权限环境下通过；未调用付费模型。
+- 8886已更新0.9.0，PID44002/session80040；DB备份data/backups/pre-native-plugin-20261029.sqlite3。没有停止其他用户服务。
+- 说明docs/core-collaboration/原生松伴连接器.md；证据native_plugin_acceptance.json、native_plugin_library.png。
+- 下一步：用户在加号插件入口/已安装插件目录查看松伴连接器，新对话实际附带，再核对返回note_id。若客户端未发现，不绕过安全限制操作应用，不将CLI安装当成UI确认。
+
+---
+
+# 开发交接 · 2026-10-28 · v0.8.2 选择式松伴连接器（已完成）
+
+用户纠正的目标：输入框加号/技能选择器附带“松伴连接器”，仅该回合关键内容进入团队资料库并被团队agent读取；不是仅按项目MCP接入或后台监听。
+
+## 实现与本机安装
+- plugins/songban-connector：标准SKILL、中文display_name“松伴连接器”、allow_implicit_invocation:false、一次性context/send脚本。--selected为必需标志，不扫描聊天历史、不设后台hook；仅整理当前回合相关摘要和必要摘录，实际返回note_id才报告成功。
+- ~/.codex/skills/songban-connector 已安装，binding.json仅指向用户已创建的桌面松伴连接配置，绑定只读验证通过。未修改全局model/provider、未重启应用，未上传当前未附带技能的真实对话。
+- team_core.py：POST conversation-notes要求selected:true；原子保存报告和library_notes；重复去重。GET library及新“团队资料库”页。模型输入显式包含team_library和有效来源ID。自动统筹开启则触发，否则下次统筹读取。
+- app/connector_skill.py：本机一键安装默认安装选择式全局技能，项目MCP作为兼容选项保留；旧项目技能已改手动调用，关闭隐式匹配。
+- 客户端选择来自技能指令及调用方selected标记，不是宿主不可伪造的权限凭证；技能依赖agent实际执行，不能宣称宿主级强制自动日志。
+
+## 验证与限制
+- 官方quick_validate通过（PyYAML仅放临时验证目录，未加项目依赖）。5项技能检查、3项资料库检查通过，最终完整回归134项通过。
+- 浏览器/真实脚本HTTP隔离验收：临时安装→未选中不上传→选中入库→重复去重→团队模型输入/引用→资料库展示。模型为明确的协议替身，不是再次实调付费模型。
+- 证据selected_turn_acceptance.json、selected_turn_library.png、selected_connector_runtime.json。真实团队资料库仍0条，没有把当前真实对话作为测试上传。
+- Computer Use禁止操作ChatGPT自身(com.openai.codex)，不能替用户点开加号；菜单出现未亲眼核实。不要换入口绕过。用户可在技能选择器搜索“松伴连接器”，或显式$songban-connector；列表未刷新可新开对话，无需重启应用。
+
+## 运行与交付
+- 8886已加载0.8.2，PID26149/session28598，沿用0.0.0.0监听；原数据备份data/backups/pre-selected-connector-20261028.sqlite3。
+- 技能无凭证包artifacts/songban-connector-skill.zip，说明docs/core-collaboration/选择式松伴连接器.md。
+- 本轮隔离8888/PID22472已关闭、临时测试数据已清理；保留用户8886。
+- 下一步仅需用户在当前回合真正附带技能，正常提出项目问题，再核对回答中的记录号和网页团队资料库。不能把技能文件已安装说成当前对话已被选中或同步。
+
+---
+
+# 开发交接 · 2026-10-28 · v0.8.1 一键安装（已完成）
+
+- 用户要一键部署，按插件接入上下文实现为“连接个人工具”页一键安装并连接；不是公网发布网站。
+- app/team_install.py：具体项目内安装，合并Codex/WorkBuddy/Cursor项目MCP配置，保留其他配置/注释与备份；不改全局~/.codex/config.toml、model/provider或自动切换。私有凭证写.songban/connection.json（0600），客户端配置只含路径。
+- app/team_core.py：GET install-options、POST teams/{sid}/install；仅同源本机网页、登录成员操作，拒绝远程/跨源/插件凭证。自动创建本人连接，真实MCP子进程取回任务验证；失败回退并撤销新凭证，重装撤销同人同队旧绑定。
+- static/core.js：选择工具/当前项目→一键按钮→显示安装、连接检查和回到工具打开项目的下一步。core.html缓存号-2。
+- bridge.py：SONGBAN_PROJECT_ROOT绑定项目，不依赖客户端启动目录；MCP/监听原链路保持。
+- 安装器11项＋接口4项新增测试通过，核心相关43项；最终完整回归126项通过。
+- scripts/core_install_e2e.cjs：真实浏览器对三个临时项目点击安装，保留原设置，实际运行安装脚本取回方向；全局Codex配置哈希不变。证据one_click_install.png/json、one_click_runtime.json。不等于实际客户端已启用，仍明确client_loaded:false。
+- 正式8886已更新v0.8.1，PID9265/session85599，沿用原0.0.0.0监听。数据库备份 data/backups/pre-oneclick-20261028.sqlite3；插件包已更新。
+- 隔离验收8888/PID6331已关闭并清理本轮测试数据；不要停止8886。
+- 用户下一步：本机网址登录→连接个人工具→选工具与工作项目→一键安装→回工具重开此项目，按工具提示信任连接。其他工具仍可使用通用插件，不宣称任意客户端一键通用。
+
+
+---
+
+# 开发交接 · 2026-10-28 · v0.8 核心团队智能体（已完成本轮）
+
+## 用户确定的唯一主线
+个人工具插件同步重要进展与必要对话摘录 → 团队对照观点/共同方向/评分/成员意愿 → 生成草案 → 队长确认 → 插件读取本人任务和统一方向 → 后续进度再次同步。其他功能暂时封锁，保留原资料。
+
+## 实现
+- app/team_core.py：复用people/squads；新核心表、绑定本人及单队的插件凭证（只存hash、30天、暂停/撤销）、同步去重、来源保留、不同观点、带引用任务草案、版本冲突、确认与历史。插件无管理权限。
+- static/core.html/css/js：现场/方向/连接工具/成员设置；首页已切新核心版，旧页面/业务接口默认423。可用 core_only=False 或 SONGBAN_CORE_ONLY=0 维护保留代码，不能默认改回。
+- plugins/songban-team：Python标准库MCP stdio、CLI、共享文件监听、持久补传、永久拒绝隔离；watch自动上传并每5秒将方向/本人任务取回 .songban/team-state.json。需要个人工具真实调用MCP或写出授权的共享文件，不抓取私有历史，不承诺任意工具内部全量监听。
+- 同版本未确认草案复用，避免反复计费；自动统筹可开关，短暂合并更新，失败可见、无无限重试。
+- 修复了任务进度离开80条最近记录后回到todo、旧任务永久拒绝堵塞补传、新团队加入后表单读旧版本等边界。
+
+## 当前证据（只指本轮）
+- 28项新增核心/插件测试通过；完整回归111项通过（正常DNS环境）。
+- scripts/core_e2e.cjs：真实网页双成员、两个MCP子进程、文件监听自动上传、不同观点、自动草案、队长确认、双端任务读取、本地文件取回、进度更新、凭证撤销、移动端无溢出/无pageerror。模型明确为协议测试替身。
+- scripts/core_real_model_check.py：另做真实DeepSeek调用，第一次不可解析已如实保留，补thinking disabled + JSON格式约束后复测200；真实模型保留冲突、引用实际来源、提出先验证后联调的任务且没有自动发布。
+- docs/core-collaboration/evidence/：截图、acceptance.json、real_model_check.json及first_attempt、runtime_check.json。
+- 尚未逐款在实际Codex/WorkBuddy客户端安装验收。不得把MCP子进程协议验证说成客户端安装全部完成。
+
+## 运行
+- 用户原8886已备份并重启加载新版，PID98183，exec session13186，监听方式沿用0.0.0.0。健康0.8.0/core_only:true。用户原账号、团队、聊天及任务计数一致。
+- 原库备份 data/backups/pre-core-20261028.sqlite3（含私人资料，不提交、不上传）。未覆盖原有未提交代码改动。
+- 本轮隔离测试服务8888/PID96800已停止，private-fixture.json已清理。不要停止8886。
+- 插件交付包 artifacts/songban-team-plugin-v1.zip；内不含凭证和数据库；网页也可登录下载。
+- 需求/交接/验收在 docs/core-collaboration/。旧宪法与README头部已标明本轮新范围。
+
+## 下一步
+用户登录8886 → 统一方向核对 → 每人生成本人连接凭证 → 在真实工具配置MCP或文件监听 → 真人试用，检查共享范围和实际任务效果。后续不擅自恢复找比赛/素材/培训/办赛。
+
+---
+
+# 开发交接 · 2026-10-28 · v0.7（比赛卡到任务图）
+
+## 本轮
+- 接上中断的业务流程图：搜索确认后保存比赛卡；个人页可打开全部比赛卡；团队页从比赛卡池组队。
+- 现场公布的比赛建队时写成「具体主题待揭晓」；自由命题由队长填写开发内容。成员在名字框里自选职位和具体职责。
+- 建队后消息栏出现同名团队群。聊天右侧是个人模型，回答可拖进输入框再发送，或上传到团队资料库。加人只在团队空间。
+- 任务看板去掉「队长手动加一条」，改为按成员名字展开的思维导图：编辑、加分支、拖进垃圾箱。
+- 作品截止倒计时收在屏幕顶部中央，鼠标移上去展开。没有官方页面时，明确写的是比赛卡上确认过的时间。
+
+## 验证
+- 新增流程测试覆盖比赛卡、现场命题、邀请入队、职责、思维导图删除子分支、资料库综述。
+- 页面字符串确认：比赛卡入口、侧边智能体、垃圾箱、顶部倒计时，以及看板不再出现手动加任务的大表单。
+
+---
+
+# 开发交接 · 2026-10-27 · v0.6（缺陷与安全修复）
+
+## 本轮修复
+- 功能：修复无队伍进入团队页崩溃、聊天切换时旧消息与新收件人错位、消息页吞掉错误提示、题目可重复覆盖、经典版复盘重复评分块、消息静默截断、畸形手机号触发 500、`PATCH` 绕过请求大小限制和本机 `.env` 污染测试。
+- 前端安全：成果架“可编辑成员”名称统一 HTML 转义，关闭一个存储型 XSS 入口。
+- 账号安全：未配置短信时默认拒绝签发验证码；只有显式 `SONGBAI_ALLOW_TEST_CODES=1` 的隔离开发环境才回显测试码。密码登录按规范化账号和来源累计失败，达到阈值暂停五分钟。
+- 外部访问：用户个人模型禁止 localhost/回环地址；比赛网页每一跳固定到已验证公网 IP，禁用环境代理，并按解压后的响应字节数流式中止超大页面。
+- 微信登录：OAuth `state` 与后续 ticket 都绑定发起浏览器的 HttpOnly/SameSite cookie，跨浏览器回调或兑换被拒绝。
+
+## 本轮验证
+- `.venv/bin/python -m unittest discover -s tests -v`：82 项全部通过。
+- Python 编译、全部 JavaScript 语法、`git diff --check`、`pip check` 全部通过。
+- 真实 HTTPS 固定 IP 抓取 `https://example.com/` 成功；受控 DNS 重绑定和 2.8MB 以上响应测试均在发起危险读取前被拒绝。
+- 系统 Chrome 真实浏览器回归通过：无队伍进入团队页、受限入口错误可见、聊天切换时旧会话立即清空且新会话正确加载；无未处理页面异常。
+- 未调用真实短信、微信或付费模型；浏览器验收使用显式开发测试码和临时数据库。
+
+---
+
+# 开发交接 · 2026-10-27 · v0.5（对话与项目接管）
+
+## 已读取的来源
+- Codex「学军黑客松」主会话及其 4 条项目分支：破壁用户调研、破壁 PPT、破壁分支、破壁视频剪辑。
+- 上海 ClawHunt 相关会话：赛事规则、后端训练、破壁复盘、赛内协作产品立项与 v0.2 首版交付。
+- Codex / Cursor 模型相关会话与本机最终规则：早期 Model Router 尝试已废弃；现行方案以 `~/.codex/MODEL-SWITCH.md` 和 `~/.codex/codex-model` 为准。
+- 当前仓库全部交接文档、Git 历史、Cursor 分支提交、接口与测试。Cursor 本地没有保存一条完整的「松伴」原生聊天正文，当前代码和提交是该阶段的权威记录。
+
+## 产品脉络
+- 学军黑客松阶段先后探索「知解」「旁观者」等教育方向，最终项目为 BreakGlass / 破壁，并获得赛道二等奖。
+- 上海 ClawHunt 阶段，用户希望承担队长、产品、后端和路演；产品收敛为黑客松赛内团队协作助手，随后命名为「松伴」。
+- 当前主产品是首页 `/` 的松伴，接口前缀 `/api/studio`；旧版赛内协作工作台保留在 `/classic`，接口前缀 `/api/projects`。
+
+## 当前代码状态
+- 当前分支 `cursor/wechat-message-pane-f574`，HEAD 与 `origin/main` 同为 `582e304`，工作树在接管前干净。
+- 最新一轮已完成飞书式左侧导航、好友/团队消息、群消息发言人、账号切换清理旧线程、同秒消息稳定排序、手动刷新消息、空白消息面板和打开会话后自动聚焦输入框。
+- 松伴现有能力包括：手机号注册/密码登录、短信服务端接入、微信登录服务端准备、好友与消息、比赛资料导入及公众号长图 OCR、组队与角色确认、选题、统一 Skill、资料库、表决、任务与进度、成果架、仓库记录、个人/团队模型、赛后成长。
+- 微信登录按钮按宪法保持隐藏；正式启用需要本人控制的微信开放平台网站应用、已备案正式域名与可公网回调地址，不能用临时隧道冒充。
+
+## 不可推翻的产品决定
+- 表决只记录意见，不自动修改题目、主干或任务；队长发布任务不等于表决。
+- 浏览器前端不直接抓取用户网址，不直接调用短信、模型或微信服务；敏感凭据只留服务端。
+- 不读取整段旧对话来生成产品结论，不编造微信头像，不假装微信登录或第三方绑定成功。
+- 手机号就是登录账号；前端按 `docs/前后端宪法.md` 与现有 `/api/studio` 接口协作。
+
+## 当时验证（已被上方 v0.6 结果取代）
+- 接管时执行 77 项测试，其中 1 项受本机 `PUBLIC_BASE_URL` 污染失败；v0.6 已隔离该环境并恢复全绿。
+- Starlette/httpx 仍有一条弃用警告，不影响执行结果。
+
+## 接手后的注意事项
+- `README.md` 和原 v0.4 交接主要描述旧 `/classic` 工作台，已落后于松伴当前实现；做新功能时优先看 `docs/前后端宪法.md`、`app/studio.py`、`static/studio.js` 和 `tests/test_studio.py`。
+- 不要把历史对话里暴露过的 API key 复制到代码、文档或回复中；历史密钥应视为已泄露。
+- 下一步应由用户指定当前优先目标；在没有新要求前，不主动改模型切换系统、不改产品锁定规则、不调用付费模型。
+
+---
+
 # 开发交接 · 2026-10-26 · v0.4
 
 ## v0.4 变更

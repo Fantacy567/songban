@@ -44,6 +44,10 @@ def must_deliver():
     return cloud_sms_ready() or mac_sms_enabled() or os.environ.get("SONGBAI_REQUIRE_SMS") == "1"
 
 
+def test_codes_allowed():
+    return os.environ.get("SONGBAI_ALLOW_TEST_CODES") == "1"
+
+
 def sms_status():
     if cloud_sms_ready():
         provider = "aliyun-enterprise" if enterprise_sms_ready() else "aliyun-pnvs"

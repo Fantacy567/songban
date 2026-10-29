@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from fastapi import File, Header, UploadFile
+from fastapi import File, Header, Request, Response, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from .planner import PlannerError, check_model_base, model_chat, team_model_config
@@ -24,7 +24,7 @@ from .contest_intel import (
     summarize_facts,
     supervise_against_contest,
 )
-from .sms import deliver_login_code, must_deliver, sms_status
+from .sms import deliver_login_code, must_deliver, sms_status, test_codes_allowed
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
@@ -38,14 +38,18 @@ CREATE TABLE IF NOT EXISTS friendships (
 );
 CREATE TABLE IF NOT EXISTS contests (
  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, deadline TEXT NOT NULL,
- source_text TEXT NOT NULL, submissions TEXT NOT NULL, created_at TEXT NOT NULL
+ source_text TEXT NOT NULL, submissions TEXT NOT NULL, created_at TEXT NOT NULL,
+ icon_data TEXT NOT NULL DEFAULT '', core_summary TEXT NOT NULL DEFAULT '',
+ official_url TEXT NOT NULL DEFAULT '', theme_status TEXT NOT NULL DEFAULT 'open',
+ deadline_checked_at TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS squads (
  id TEXT PRIMARY KEY, contest_id TEXT NOT NULL, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
  captain_id TEXT NOT NULL, confirmed INTEGER NOT NULL DEFAULT 0, topic TEXT NOT NULL DEFAULT '',
  topic_core TEXT NOT NULL DEFAULT '', trunk TEXT NOT NULL DEFAULT '', skill_body TEXT NOT NULL DEFAULT '',
  draft TEXT NOT NULL DEFAULT '', stage TEXT NOT NULL DEFAULT 'forming', finished INTEGER NOT NULL DEFAULT 0,
- created_at TEXT NOT NULL
+ created_at TEXT NOT NULL, project_brief TEXT NOT NULL DEFAULT '',
+ team_overview TEXT NOT NULL DEFAULT '', overview_at TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS squad_members (
  squad_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT '',
@@ -74,7 +78,8 @@ CREATE TABLE IF NOT EXISTS ballots (
 CREATE TABLE IF NOT EXISTS squad_tasks (
  id TEXT PRIMARY KEY, squad_id TEXT NOT NULL, title TEXT NOT NULL, owner_id TEXT NOT NULL,
  priority TEXT NOT NULL, due_at TEXT NOT NULL, talk_to TEXT NOT NULL DEFAULT '',
- alone INTEGER NOT NULL DEFAULT 1, progress INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+ alone INTEGER NOT NULL DEFAULT 1, progress INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+ parent_id TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS shelf (
  id TEXT PRIMARY KEY, squad_id TEXT NOT NULL, author_id TEXT NOT NULL, kind TEXT NOT NULL,
@@ -92,14 +97,18 @@ CREATE TABLE IF NOT EXISTS phone_codes (
  attempts INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS wechat_states (
- state TEXT PRIMARY KEY, created_at TEXT NOT NULL
+ state TEXT PRIMARY KEY, browser_hash TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS wechat_tickets (
  ticket TEXT PRIMARY KEY, openid TEXT NOT NULL, name TEXT NOT NULL, avatar TEXT NOT NULL DEFAULT '',
- unionid TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+ unionid TEXT NOT NULL DEFAULT '', browser_hash TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS wechat_invites (
  code TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS login_attempts (
+ key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+ blocked_until TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
 );
 """
 
@@ -142,6 +151,11 @@ def ensure_schema(con):
         con.execute("ALTER TABLE wechat_tickets ADD COLUMN avatar TEXT NOT NULL DEFAULT ''")
     if "unionid" not in ticket_cols:
         con.execute("ALTER TABLE wechat_tickets ADD COLUMN unionid TEXT NOT NULL DEFAULT ''")
+    if "browser_hash" not in ticket_cols:
+        con.execute("ALTER TABLE wechat_tickets ADD COLUMN browser_hash TEXT NOT NULL DEFAULT ''")
+    state_cols = {row[1] for row in con.execute("PRAGMA table_info(wechat_states)")}
+    if "browser_hash" not in state_cols:
+        con.execute("ALTER TABLE wechat_states ADD COLUMN browser_hash TEXT NOT NULL DEFAULT ''")
     contest_cols = {row[1] for row in con.execute("PRAGMA table_info(contests)")}
     if "facts" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN facts TEXT NOT NULL DEFAULT '{}'")
@@ -149,6 +163,26 @@ def ensure_schema(con):
         con.execute("ALTER TABLE contests ADD COLUMN memory TEXT NOT NULL DEFAULT ''")
     if "card_saved" not in contest_cols:
         con.execute("ALTER TABLE contests ADD COLUMN card_saved INTEGER NOT NULL DEFAULT 1")
+    if "icon_data" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN icon_data TEXT NOT NULL DEFAULT ''")
+    if "core_summary" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN core_summary TEXT NOT NULL DEFAULT ''")
+    if "official_url" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN official_url TEXT NOT NULL DEFAULT ''")
+    if "theme_status" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN theme_status TEXT NOT NULL DEFAULT 'open'")
+    if "deadline_checked_at" not in contest_cols:
+        con.execute("ALTER TABLE contests ADD COLUMN deadline_checked_at TEXT NOT NULL DEFAULT ''")
+    squad_cols = {row[1] for row in con.execute("PRAGMA table_info(squads)")}
+    if "project_brief" not in squad_cols:
+        con.execute("ALTER TABLE squads ADD COLUMN project_brief TEXT NOT NULL DEFAULT ''")
+    if "team_overview" not in squad_cols:
+        con.execute("ALTER TABLE squads ADD COLUMN team_overview TEXT NOT NULL DEFAULT ''")
+    if "overview_at" not in squad_cols:
+        con.execute("ALTER TABLE squads ADD COLUMN overview_at TEXT NOT NULL DEFAULT ''")
+    task_cols = {row[1] for row in con.execute("PRAGMA table_info(squad_tasks)")}
+    if "parent_id" not in task_cols:
+        con.execute("ALTER TABLE squad_tasks ADD COLUMN parent_id TEXT NOT NULL DEFAULT ''")
     code_cols = {row[1] for row in con.execute("PRAGMA table_info(phone_codes)")}
     if "attempts" not in code_cols:
         con.execute("ALTER TABLE phone_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
@@ -193,7 +227,24 @@ def public_contest(row):
     item["fact_lines"] = facts_as_lines(facts)
     item["memory"] = item.get("memory") or item.get("source_text") or ""
     item["card_saved"] = bool(item.get("card_saved"))
+    item["theme_status"] = item.get("theme_status") if item.get("theme_status") in {"open", "pending"} else "open"
     return item
+
+
+def contest_core_summary(facts: dict) -> str:
+    parts = []
+    for key, label in (("tracks", "赛道"), ("selection", "要求"), ("submissions_text", "提交"), ("other", "重点")):
+        value = str((facts or {}).get(key) or "").strip()
+        if value and value != "待补充":
+            compact = re.sub(r"\s+", " ", value)
+            parts.append(f"{label}：{compact[:100]}")
+    return "；".join(parts)[:360]
+
+
+def inferred_theme_status(facts: dict, source: str = "") -> str:
+    blob = "\n".join(str((facts or {}).get(key) or "") for key in ("tracks", "other")) + "\n" + (source or "")[:4000]
+    markers = ("现场公布", "现场揭晓", "赛题待公布", "主题待公布", "具体命题待揭晓", "比赛当天公布")
+    return "pending" if any(marker in blob for marker in markers) else "open"
 
 
 def wechat_status():
@@ -276,7 +327,9 @@ def as_utc(value):
 
 
 def normalize_phone(value):
-    phone = re.sub(r"[\s\-]", "", value or "")
+    if not isinstance(value, str):
+        return None
+    phone = re.sub(r"[\s\-]", "", value)
     if not re.fullmatch(r"\d{6,20}", phone):
         return None
     return phone
@@ -444,6 +497,8 @@ def growth_line(role, done_titles):
 
 
 def register_studio(api, db, problem, now, uid, digest):
+    wechat_cookie = "songban_wechat_flow"
+
     def log(con, squad_id, actor, detail):
         con.execute("INSERT INTO squad_log(squad_id,actor_id,detail,created_at) VALUES(?,?,?,?)", (squad_id, actor, detail, now()))
 
@@ -472,6 +527,7 @@ def register_studio(api, db, problem, now, uid, digest):
     def public_member(member, captain_id):
         avatar_url = str(member.get("wechat_avatar") or "").strip()
         return {"user_id": member["user_id"], "name": member["name"], "role": member["role"], "extract": member["extract"],
+                "responsibility": member.get("intro") or "",
                 "doing": member["doing"], "skill_installed": bool(member["skill_installed"]), "tool": member["tool"],
                 "captain": member["user_id"] == captain_id,
                 "avatar": member["name"][:1],
@@ -500,6 +556,7 @@ def register_studio(api, db, problem, now, uid, digest):
         events = [dict(row) for row in con.execute("SELECT * FROM squad_log WHERE squad_id=? ORDER BY id", (squad_id,))]
         for event in events:
             event["actor"] = names.get(event["actor_id"], "")
+        overview = squad.get("team_overview") or team_overview_fallback(members, notes, shelf, squad.get("project_brief") or "")
         return {"squad": {**squad, "draft": json.loads(squad["draft"] or "[]"), "confirmed": bool(squad["confirmed"]), "finished": bool(squad["finished"])},
                 "contest": contest, "me": {"id": user["id"], "name": user["name"], "phone": user["phone"], "skills": user["skills"],
                 "profile": user["profile"], "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
@@ -507,7 +564,20 @@ def register_studio(api, db, problem, now, uid, digest):
                 "doing": me["doing"], "role": me["role"]},
                 "members": [public_member(member, squad["captain_id"]) for member in members],
                 "ideas": {"top": top, "rest": rest}, "tasks": tasks, "library": notes, "votes": votes, "shelf": shelf, "log": events,
+                "team_overview": overview,
                 "source_label": LABEL}
+
+    def invalidate_overview(con, squad_id):
+        con.execute("UPDATE squads SET team_overview='', overview_at='' WHERE id=?", (squad_id,))
+
+    def team_overview_fallback(members, notes, shelf, project_brief):
+        roster = "；".join(
+            f"{member['name']}（{member['role'] or '角色待定'}：{(member.get('intro') or '职责待填写')[:80]}）"
+            for member in members
+        ) or "暂无成员"
+        uploads = len(notes) + len(shelf)
+        brief = project_brief or "具体开发内容待队长填写"
+        return f"项目：{brief[:180]}。成员：{roster[:500]}。团队资料库已有 {uploads} 条显式上传内容；未上传的私聊和个人模型对话不会被读取。"
 
     def issue_code(phone):
         code = f"{secrets.randbelow(1_000_000):06d}"
@@ -544,6 +614,8 @@ def register_studio(api, db, problem, now, uid, digest):
         phone = normalize_phone(body.get("phone", ""))
         if not phone:
             raise problem(422, "invalid_phone", "手机号用 6 到 20 位数字。")
+        if not must_deliver() and not test_codes_allowed():
+            raise problem(503, "sms_required", "短信验证尚未配置，不能签发登录验证码。")
         if must_deliver():
             with db() as con:
                 previous = con.execute("SELECT created_at FROM phone_codes WHERE phone=?", (phone,)).fetchone()
@@ -566,7 +638,7 @@ def register_studio(api, db, problem, now, uid, digest):
                         (phone, digest(f"{phone}:{code}"), expires, now()))
             created = con.execute("SELECT 1 FROM people WHERE phone=?", (phone,)).fetchone()
         payload = {"phone": phone, "expires_at": expires, "sent": sent, "account_exists": bool(created), "notice": notice}
-        if not sent:
+        if not sent and test_codes_allowed():
             payload["code"] = code
         return payload
 
@@ -623,25 +695,72 @@ def register_studio(api, db, problem, now, uid, digest):
                     "profile": profile[:2000], "growth": "", "github_linked": bool(body.get("github")), "feishu_linked": bool(body.get("feishu")),
                     "notice": "手机号已验证。下次用这个手机号和密码登录。"}
 
+    def login_keys(request, account):
+        source = request.client.host if request.client else "unknown"
+        canonical_account = normalize_phone(account) or account.casefold()
+        return (("account:" + digest(canonical_account), 5), ("source:" + digest(source), 20))
+
+    def login_blocked(con, keys):
+        current = datetime.fromisoformat(now())
+        for key, _limit in keys:
+            row = con.execute("SELECT blocked_until FROM login_attempts WHERE key=?", (key,)).fetchone()
+            if not row or not row["blocked_until"]:
+                continue
+            blocked_until = datetime.fromisoformat(row["blocked_until"])
+            if blocked_until.tzinfo is None:
+                blocked_until = blocked_until.replace(tzinfo=timezone.utc)
+            if current.tzinfo is None:
+                current = current.replace(tzinfo=timezone.utc)
+            if current < blocked_until:
+                return True
+        return False
+
+    def record_login_failure(con, keys):
+        current = datetime.fromisoformat(now())
+        blocked = False
+        for key, limit in keys:
+            row = con.execute("SELECT attempts FROM login_attempts WHERE key=?", (key,)).fetchone()
+            attempts = int(row["attempts"] or 0) + 1 if row else 1
+            blocked_until = ""
+            if attempts >= limit:
+                blocked_until = (current + timedelta(minutes=5)).isoformat()
+                blocked = True
+            con.execute(
+                """INSERT INTO login_attempts(key,attempts,blocked_until,updated_at) VALUES(?,?,?,?)
+                   ON CONFLICT(key) DO UPDATE SET attempts=excluded.attempts, blocked_until=excluded.blocked_until, updated_at=excluded.updated_at""",
+                (key, attempts, blocked_until, now()),
+            )
+        return blocked
+
     @api.post("/api/studio/login")
-    def login(body: dict):
+    def login(body: dict, request: Request):
         account = str(body.get("account") or body.get("username") or body.get("phone") or "").strip()
         password = str(body.get("password") or "")
         if not account or not password:
             raise problem(422, "login_required", "填写手机号和密码。")
         with db(True) as con:
+            keys = login_keys(request, account)
+            if login_blocked(con, keys):
+                raise problem(429, "login_wait", "登录失败次数过多，请五分钟后再试。")
             user = None
             phone = normalize_phone(account)
             if phone:
                 user = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
             if not user:
                 user = con.execute("SELECT * FROM people WHERE username=?", (account,)).fetchone()
-            if user and not (user["password_hash"] or ""):
-                raise problem(401, "password_missing", "这个手机号还没有密码。请用手机号注册，验证后设置密码。")
-            if not user or not password_matches(user["password_hash"], password):
+            missing_password = bool(user and not (user["password_hash"] or ""))
+            if missing_password or not user or not password_matches(user["password_hash"], password):
+                blocked = record_login_failure(con, keys)
+                con.commit()
+                time.sleep(0.2)
+                if blocked:
+                    raise problem(429, "login_wait", "登录失败次数过多，请五分钟后再试。")
+                if missing_password:
+                    raise problem(401, "password_missing", "这个手机号还没有密码。请用手机号注册，验证后设置密码。")
                 raise problem(401, "bad_login", "手机号或密码不对。")
             token_clear = secrets.token_urlsafe(24)
             con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), user["id"]))
+            con.executemany("DELETE FROM login_attempts WHERE key=?", ((key,) for key, _limit in keys))
             user = dict(user)
             return {"user_id": user["id"], "token": token_clear, "returning": True, "name": user["name"],
                     "phone": public_phone(user), "username": user.get("username") or "",
@@ -661,8 +780,9 @@ def register_studio(api, db, problem, now, uid, digest):
         if not status["ready"]:
             raise problem(409, "wechat_unavailable", status["missing"][0])
         state = secrets.token_urlsafe(18)
+        browser = secrets.token_urlsafe(24)
         with db(True) as con:
-            con.execute("INSERT INTO wechat_states(state, created_at) VALUES(?,?)", (state, now()))
+            con.execute("INSERT INTO wechat_states(state, browser_hash, created_at) VALUES(?,?,?)", (state, digest(browser), now()))
         redirect = os.environ["PUBLIC_BASE_URL"].rstrip("/") + "/api/studio/wechat/callback"
         url = "https://open.weixin.qq.com/connect/qrconnect?" + urllib.parse.urlencode({
             "appid": os.environ["WECHAT_APP_ID"].strip(),
@@ -671,16 +791,21 @@ def register_studio(api, db, problem, now, uid, digest):
             "scope": "snsapi_login",
             "state": state,
         }) + "#wechat_redirect"
-        return RedirectResponse(url)
+        response = RedirectResponse(url)
+        response.set_cookie(wechat_cookie, browser, max_age=600, httponly=True, secure=True, samesite="lax", path="/api/studio/wechat")
+        return response
 
     @api.get("/api/studio/wechat/callback")
-    def wechat_callback(code: str = "", state: str = ""):
+    def wechat_callback(request: Request, code: str = "", state: str = ""):
         if not wechat_status()["ready"]:
             return PlainTextResponse("微信登录还没配好。没有进入。", status_code=409)
         with db(True) as con:
-            saved = con.execute("SELECT created_at FROM wechat_states WHERE state=?", (state,)).fetchone()
+            saved = con.execute("SELECT browser_hash, created_at FROM wechat_states WHERE state=?", (state,)).fetchone()
             if not saved:
                 return PlainTextResponse("这次微信登录已经失效，请回到松伴再点一次。没有进入。", status_code=400)
+            browser = request.cookies.get(wechat_cookie, "")
+            if not browser or not secrets.compare_digest(saved["browser_hash"], digest(browser)):
+                return PlainTextResponse("这次微信登录不是从这个浏览器发起的。没有进入。", status_code=400)
             created = datetime.fromisoformat(saved["created_at"])
             current = datetime.fromisoformat(now())
             if created.tzinfo is None:
@@ -698,20 +823,23 @@ def register_studio(api, db, problem, now, uid, digest):
         expires = (datetime.fromisoformat(now()) + timedelta(minutes=10)).isoformat()
         with db(True) as con:
             con.execute(
-                "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
-                (ticket, openid, nickname, avatar, unionid, expires, now()),
+                "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,browser_hash,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                (ticket, openid, nickname, avatar, unionid, digest(browser), expires, now()),
             )
         public = os.environ["PUBLIC_BASE_URL"].rstrip("/")
         return RedirectResponse(f"{public}/?wechat_ticket={urllib.parse.quote(ticket)}")
 
     @api.post("/api/studio/wechat/finish")
-    def wechat_finish(body: dict):
+    def wechat_finish(body: dict, request: Request, response: Response):
         ticket = str(body.get("ticket") or "")
         invite = str(body.get("invite") or "").strip()
         with db(True) as con:
             row = con.execute("SELECT * FROM wechat_tickets WHERE ticket=?", (ticket,)).fetchone()
             if not row:
                 raise problem(401, "wechat_ticket", "这次微信登录已经失效，请再点一次用微信登录。")
+            browser = request.cookies.get(wechat_cookie, "")
+            if not browser or not secrets.compare_digest(row["browser_hash"], digest(browser)):
+                raise problem(401, "wechat_ticket", "这次微信登录不是从这个浏览器发起的，请再点一次用微信登录。")
             expires = datetime.fromisoformat(row["expires_at"])
             current = datetime.fromisoformat(now())
             if expires.tzinfo is None:
@@ -760,6 +888,7 @@ def register_studio(api, db, problem, now, uid, digest):
                 notice = "微信身份对上了。头像已换成微信头像。"
                 if friend_note:
                     notice += friend_note
+                response.delete_cookie(wechat_cookie, path="/api/studio/wechat")
                 return {"user_id": existing["id"], "token": token_clear, "returning": True, "name": row["name"][:40],
                         "phone": public_phone(existing), "skills": existing["skills"], "profile": existing["profile"],
                         "growth": existing["growth"], "github_linked": bool(existing["github_linked"]),
@@ -782,6 +911,7 @@ def register_studio(api, db, problem, now, uid, digest):
             notice = "微信登录已完成。头像使用微信头像。"
             if friend_note:
                 notice += friend_note
+            response.delete_cookie(wechat_cookie, path="/api/studio/wechat")
             return {"user_id": pid, "token": token_clear, "returning": False, "name": name[:40], "phone": "",
                     "skills": skills[:500], "profile": profile[:2000], "growth": "", "github_linked": False,
                     "feishu_linked": False, "wechat": True, "avatar_url": avatar[:500], "notice": notice}
@@ -869,7 +999,7 @@ def register_studio(api, db, problem, now, uid, digest):
             contests = [
                 public_contest(row)
                 for row in con.execute(
-                    "SELECT id, name, deadline, submissions, facts, memory, source_text, card_saved, created_at FROM contests WHERE owner_id=? ORDER BY created_at DESC",
+                    "SELECT * FROM contests WHERE owner_id=? ORDER BY created_at DESC",
                     (user["id"],),
                 )
             ]
@@ -956,6 +1086,8 @@ def register_studio(api, db, problem, now, uid, digest):
         kind = str(body.get("kind") or "")
         if len(text) < 1:
             raise problem(422, "empty", "先写一句。")
+        if len(text) > 2000:
+            raise problem(422, "message_too_long", "一条消息最多 2000 字。")
         with db(True) as con:
             user = person_from_header(con, authorization)
             if kind == "dm":
@@ -970,8 +1102,8 @@ def register_studio(api, db, problem, now, uid, digest):
             else:
                 raise problem(422, "thread_required", "选择一个好友或一支队伍。")
             mid = uid()
-            con.execute("INSERT INTO messages(id,thread,sender_id,body,created_at) VALUES(?,?,?,?,?)", (mid, thread, user["id"], text[:2000], now()))
-            return {"id": mid, "thread": thread, "sender_id": user["id"], "body": text[:2000]}
+            con.execute("INSERT INTO messages(id,thread,sender_id,body,created_at) VALUES(?,?,?,?,?)", (mid, thread, user["id"], text, now()))
+            return {"id": mid, "thread": thread, "sender_id": user["id"], "body": text}
 
     @api.post("/api/studio/contests/import-file")
     async def import_contest_file(authorization: str = Header(default=""), file: UploadFile = File(...)):
@@ -1014,26 +1146,31 @@ def register_studio(api, db, problem, now, uid, digest):
             draft = research_contest(query=name, url=url, text=text)
         except IntelError as exc:
             raise problem(exc.status, exc.code, exc.message) from None
-        except Exception as exc:
-            raise problem(502, "contest_lookup_failed", f"整理比赛资料失败：{exc}") from None
+        except Exception:
+            raise problem(502, "contest_lookup_failed", "整理比赛资料失败，请稍后重试。") from None
         source = draft.get("source_text") or text or name
         found = extract_submissions(source + "\n" + str((draft.get("facts") or {}).get("submissions_text") or ""))
         deadline = str(draft.get("deadline") or "").strip()
-        if not deadline:
-            deadline = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(timespec="seconds")
-        else:
+        if deadline:
             try:
                 datetime.fromisoformat(deadline)
             except ValueError:
-                deadline = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(timespec="seconds")
+                deadline = ""
         final_name = str(draft.get("name") or name).strip()[:80]
         facts = draft.get("facts") or {}
         memory = draft.get("memory") or source
+        official_url = str(draft.get("official_url") or url or "").strip()[:2000]
+        icon_data = str(draft.get("icon_data") or "")[:700000]
+        core_summary = str(draft.get("core_summary") or contest_core_summary(facts)).strip()[:360]
+        theme_status = inferred_theme_status(facts, source)
         with db(True) as con:
             user = person_from_header(con, authorization)
             cid = uid()
             con.execute(
-                "INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,memory,card_saved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                """INSERT INTO contests(
+                    id,owner_id,name,deadline,source_text,submissions,facts,memory,card_saved,created_at,
+                    icon_data,core_summary,official_url,theme_status,deadline_checked_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     cid,
                     user["id"],
@@ -1045,6 +1182,11 @@ def register_studio(api, db, problem, now, uid, digest):
                     memory[:80000],
                     0,
                     now(),
+                    icon_data,
+                    core_summary,
+                    official_url,
+                    theme_status,
+                    now() if deadline and official_url else "",
                 ),
             )
             # Persist a short memory line on the person for later cross-step reminders.
@@ -1061,15 +1203,61 @@ def register_studio(api, db, problem, now, uid, digest):
             return result
 
     @api.post("/api/studio/contests/{cid}/card")
-    def save_contest_card(cid: str, authorization: str = Header(default="")):
+    def save_contest_card(cid: str, body: dict | None = None, authorization: str = Header(default="")):
         with db(True) as con:
             user = person_from_header(con, authorization)
             row = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (cid, user["id"])).fetchone()
             if not row:
                 raise problem(404, "not_found", "还没有这场比赛。")
-            con.execute("UPDATE contests SET card_saved=1 WHERE id=?", (cid,))
+            status = str((body or {}).get("theme_status") or row["theme_status"] or "open")
+            if status not in {"open", "pending"}:
+                raise problem(422, "theme_status", "命题状态只能是自由命题或现场揭晓。")
+            con.execute("UPDATE contests SET card_saved=1, theme_status=? WHERE id=?", (status, cid))
             row = con.execute("SELECT * FROM contests WHERE id=?", (cid,)).fetchone()
             return public_contest(row)
+
+    @api.post("/api/studio/contests/{cid}/sync")
+    def sync_contest_deadline(cid: str, authorization: str = Header(default="")):
+        with db() as con:
+            user = person_from_header(con, authorization)
+            row = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (cid, user["id"])).fetchone()
+            if not row:
+                row = con.execute(
+                    """SELECT c.* FROM contests c JOIN squads s ON s.contest_id=c.id
+                       JOIN squad_members m ON m.squad_id=s.id WHERE c.id=? AND m.user_id=? LIMIT 1""",
+                    (cid, user["id"]),
+                ).fetchone()
+            if not row:
+                raise problem(404, "not_found", "没有这张赛事卡。")
+            contest = public_contest(row)
+        official_url = contest.get("official_url") or ""
+        if not official_url:
+            return {"changed": False, "deadline": contest.get("deadline") or "", "notice": "赛事卡没有官方链接，无法联网同步。"}
+        try:
+            draft = research_contest(query=contest["name"], url=official_url)
+        except (IntelError, Exception) as exc:
+            message = getattr(exc, "message", "官方页面暂时无法读取，保留上次确认的截止时间。")
+            return {"changed": False, "deadline": contest.get("deadline") or "", "notice": message}
+        candidate = str(draft.get("deadline") or "").strip()
+        if candidate:
+            try:
+                datetime.fromisoformat(candidate)
+            except ValueError:
+                candidate = ""
+        checked = now()
+        changed = bool(candidate and candidate != contest.get("deadline"))
+        with db(True) as con:
+            person_from_header(con, authorization)
+            if candidate:
+                con.execute("UPDATE contests SET deadline=?, deadline_checked_at=? WHERE id=?", (candidate, checked, cid))
+            else:
+                con.execute("UPDATE contests SET deadline_checked_at=? WHERE id=?", (checked, cid))
+        return {
+            "changed": changed,
+            "deadline": candidate or contest.get("deadline") or "",
+            "checked_at": checked,
+            "notice": "已按官方公开页面同步截止时间。" if candidate else "官方页面没有可核验的提交截止时间，未改动赛事卡。",
+        }
 
     @api.post("/api/studio/contests/{cid}/ask")
     def ask_contest(cid: str, body: dict, authorization: str = Header(default="")):
@@ -1127,30 +1315,50 @@ def register_studio(api, db, problem, now, uid, digest):
         name = str(body.get("name") or "").strip()
         if not name:
             raise problem(422, "name_required", "先写队伍名称。")
+        contest_id = body.get("contest_id")
+        if not isinstance(contest_id, str) or not contest_id:
+            raise problem(422, "contest_required", "先选择一场你导入的比赛。")
+        project_brief = str(body.get("project_brief") or "").strip()
         with db(True) as con:
             user = person_from_header(con, authorization)
-            contest = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (body.get("contest_id"), user["id"])).fetchone()
+            contest = con.execute("SELECT * FROM contests WHERE id=? AND owner_id=?", (contest_id, user["id"])).fetchone()
             if not contest:
                 raise problem(404, "not_found", "先选择一场你导入的比赛。")
+            if contest["theme_status"] == "pending":
+                project_brief = "具体主题待揭晓"
+            elif "project_brief" not in body:
+                project_brief = "待队长补充项目开发内容"
+            elif len(project_brief) < 2:
+                raise problem(422, "project_brief_required", "自由命题比赛请填写本次项目准备开发什么。")
             sid, code = uid(), uid()[:8]
-            con.execute("INSERT INTO squads(id,contest_id,name,code,captain_id,created_at) VALUES(?,?,?,?,?,?)", (sid, contest["id"], name[:40], code, user["id"], now()))
+            con.execute(
+                "INSERT INTO squads(id,contest_id,name,code,captain_id,project_brief,created_at) VALUES(?,?,?,?,?,?,?)",
+                (sid, contest["id"], name[:40], code, user["id"], project_brief[:2000], now()),
+            )
             con.execute("INSERT INTO squad_members(squad_id,user_id,role) VALUES(?,?,?)", (sid, user["id"], ""))
-            log(con, sid, user["id"], f"{user['name']} 创建队伍，成为队长。")
+            log(con, sid, user["id"], f"{user['name']} 创建队伍「{name[:40]}」，成为队长。团队群已创建。")
             return {"id": sid, "code": code, "captain": True}
 
     @api.patch("/api/studio/squads/{sid}")
     def rename_squad(sid: str, body: dict, authorization: str = Header(default="")):
-        name = str(body.get("name") or "").strip()
-        if not name:
-            raise problem(422, "name_required", "队伍名称不能空。")
         with db(True) as con:
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
             if user["id"] != squad["captain_id"]:
                 raise problem(403, "captain_required", "由队长修改队伍名称。")
-            con.execute("UPDATE squads SET name=? WHERE id=?", (name[:40], sid))
-            log(con, sid, user["id"], f"队长把队伍名称改为「{name[:40]}」。")
-            return {"name": name[:40]}
+            name = str(body.get("name") if body.get("name") is not None else squad["name"]).strip()
+            if "project_brief" in body:
+                brief = str(body.get("project_brief") or "").strip()
+                if not brief:
+                    raise problem(422, "project_brief_required", "项目开发内容不能空。")
+            else:
+                brief = str(squad.get("project_brief") or "")
+            if not name:
+                raise problem(422, "name_required", "队伍名称不能空。")
+            con.execute("UPDATE squads SET name=?, project_brief=? WHERE id=?", (name[:40], brief[:2000], sid))
+            invalidate_overview(con, sid)
+            log(con, sid, user["id"], f"队长更新队伍名称或项目开发内容。")
+            return {"name": name[:40], "project_brief": brief[:2000]}
 
     @api.post("/api/studio/squads/join")
     def join_squad(body: dict, authorization: str = Header(default="")):
@@ -1167,23 +1375,48 @@ def register_studio(api, db, problem, now, uid, digest):
             friends = con.execute("SELECT 1 FROM friendships WHERE user_id=? AND friend_id=?", (squad["captain_id"], user["id"])).fetchone()
             if not already:
                 log(con, squad["id"], user["id"], f"{user['name']} 用队伍码加入。")
+                invalidate_overview(con, squad["id"])
             return {"id": squad["id"], "friend_of_captain": bool(friends), "already_member": bool(already),
                     "notice": "你已经在这支队伍里。" if already else "队伍码可以直接加入，不必先成为好友。"}
 
     @api.post("/api/studio/squads/{sid}/intro")
     def save_intro(sid: str, body: dict, authorization: str = Header(default="")):
         role = str(body.get("role") or "").strip()
-        intro = str(body.get("intro") or "").strip()
-        if len(intro) < 8 or not role:
-            raise problem(422, "intro_required", "贴一段自我介绍，并选一个角色。")
+        intro = str(body.get("responsibility") or body.get("intro") or "").strip()
+        if len(intro) < 2 or not role:
+            raise problem(422, "intro_required", "填写本次负责的具体工作，并选择角色。")
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            squad_of(con, sid, user["id"])
+            extract = extract_intro(intro, role, user["skills"])
+            con.execute("UPDATE squad_members SET role=?, intro=?, extract=? WHERE squad_id=? AND user_id=?", (role[:40], intro[:4000], extract, sid, user["id"]))
+            invalidate_overview(con, sid)
+            log(con, sid, user["id"], f"{user['name']} 更新本场职位与具体职责。")
+            return {"extract": extract, "responsibility": intro[:4000]}
+
+    @api.post("/api/studio/squads/{sid}/invite-friend")
+    def invite_friend_to_squad(sid: str, body: dict, authorization: str = Header(default="")):
+        friend_id = str(body.get("friend_id") or "").strip()
         with db(True) as con:
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
-            if squad["confirmed"]:
-                raise problem(409, "team_locked", "分工草案已经确认。")
-            extract = extract_intro(intro, role, user["skills"])
-            con.execute("UPDATE squad_members SET role=?, intro=?, extract=? WHERE squad_id=? AND user_id=?", (role[:40], intro[:4000], extract, sid, user["id"]))
-            return {"extract": extract}
+            if user["id"] != squad["captain_id"]:
+                raise problem(403, "captain_required", "由队长从团队空间邀请好友入队。")
+            if squad["finished"]:
+                raise problem(409, "team_finished", "这场比赛已经结束，不能再加成员。")
+            friend = con.execute(
+                """SELECT p.id, p.name FROM people p JOIN friendships f ON f.friend_id=p.id
+                   WHERE f.user_id=? AND p.id=?""",
+                (user["id"], friend_id),
+            ).fetchone()
+            if not friend:
+                raise problem(404, "not_friend", "只能邀请已经互加的松伴好友。")
+            existed = con.execute("SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?", (sid, friend_id)).fetchone()
+            con.execute("INSERT OR IGNORE INTO squad_members(squad_id,user_id,role) VALUES(?,?,?)", (sid, friend_id, ""))
+            if not existed:
+                invalidate_overview(con, sid)
+                log(con, sid, user["id"], f"队长从团队空间邀请 {friend['name']} 入队。")
+            return {"joined": not bool(existed), "name": friend["name"]}
 
     @api.get("/api/studio/squads/{sid}")
     def get_squad(sid: str, authorization: str = Header(default="")):
@@ -1236,6 +1469,8 @@ def register_studio(api, db, problem, now, uid, digest):
             squad, _ = squad_of(con, sid, user["id"])
             if user["id"] != squad["captain_id"]:
                 raise problem(403, "captain_required", "由队长确认题目。")
+            if squad["topic"]:
+                raise problem(409, "topic_locked", "题目已经确认。要改题目，请把建议送进团队空间走表决。")
             idea = con.execute("SELECT * FROM ideas WHERE id=? AND squad_id=?", (body.get("idea_id"), sid)).fetchone()
             if not idea:
                 raise problem(404, "not_found", "这不是本队的候选。")
@@ -1286,7 +1521,45 @@ def register_studio(api, db, problem, now, uid, digest):
             vote = {"id": vid, "kind": kind, "applied": False}
         else:
             log(con, sid, user["id"], "一条讨论写入团队资料库。")
+        invalidate_overview(con, sid)
         return {"id": nid, "suggestion": suggestion, "vote": vote, "tasks_unchanged": True}
+
+    @api.post("/api/studio/squads/{sid}/overview")
+    def refresh_team_overview(sid: str, body: dict | None = None, authorization: str = Header(default="")):
+        with db() as con:
+            user = person_from_header(con, authorization)
+            squad, _ = squad_of(con, sid, user["id"])
+            members = members_of(con, sid)
+            notes = [dict(row) for row in con.execute("SELECT * FROM library_notes WHERE squad_id=? ORDER BY created_at", (sid,))]
+            shelf = [dict(row) for row in con.execute("SELECT * FROM shelf WHERE squad_id=? ORDER BY created_at", (sid,))]
+        fallback = team_overview_fallback(members, notes, shelf, squad.get("project_brief") or "")
+        config = team_model_config()
+        overview, label = fallback, LABEL
+        if config.get("api_key"):
+            roster = [
+                {"name": member["name"], "role": member["role"], "responsibility": member.get("intro") or "", "skills": member.get("skills") or ""}
+                for member in members
+            ]
+            uploads = [
+                {"author": item.get("author_id"), "body": str(item.get("body") or "")[:1200]}
+                for item in (notes + shelf)[-30:]
+            ]
+            system = "你是黑客松团队观察员。只根据成员身份、职位、具体职责和成员主动上传到团队资料库的内容，给出客观综合判断。指出覆盖、缺口、冲突和下一步，中文，300字内。不得假装读取私聊或未上传内容。"
+            try:
+                overview = model_chat(
+                    config,
+                    system,
+                    json.dumps({"project": squad.get("project_brief") or "", "members": roster, "uploaded_material": uploads}, ensure_ascii=False),
+                    allow_local=True,
+                )
+                label = config.get("name") or "团队模型"
+            except PlannerError:
+                overview = fallback
+        with db(True) as con:
+            person_from_header(con, authorization)
+            squad_of(con, sid, user["id"])
+            con.execute("UPDATE squads SET team_overview=?, overview_at=? WHERE id=?", (overview[:4000], now(), sid))
+        return {"overview": overview[:4000], "source_label": label, "updated_at": now()}
 
     @api.post("/api/studio/squads/{sid}/library")
     def add_library(sid: str, body: dict, authorization: str = Header(default="")):
@@ -1342,15 +1615,20 @@ def register_studio(api, db, problem, now, uid, digest):
             if not con.execute("SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?", (sid, owner)).fetchone():
                 raise problem(422, "invalid_owner", "负责人要在这支队伍里。")
             contest = public_contest(con.execute("SELECT * FROM contests WHERE id=?", (squad["contest_id"],)).fetchone())
-            due = str(body.get("due_at") or contest["deadline"])
+            due = str(body.get("due_at") or contest["deadline"] or "")
+            if not due:
+                raise problem(422, "due_required", "赛事卡还没有官方截止时间，请先填写这个任务的截止时间。")
             try:
                 if as_utc(due) > as_utc(contest["deadline"]):
                     raise problem(422, "invalid_due_date", "任务截止不能晚于比赛结束。")
             except (ValueError, TypeError):
                 raise problem(422, "invalid_due_date", "截止时间格式不对。") from None
             tid = uid()
-            con.execute("""INSERT INTO squad_tasks(id,squad_id,title,owner_id,priority,due_at,talk_to,alone,created_at)
-                VALUES(?,?,?,?,?,?,?,?,?)""", (tid, sid, title[:120], owner, priority, due, str(body.get("talk_to") or "")[:40], int(bool(body.get("alone", True))), now()))
+            parent_id = str(body.get("parent_id") or "").strip()
+            if parent_id and not con.execute("SELECT 1 FROM squad_tasks WHERE id=? AND squad_id=?", (parent_id, sid)).fetchone():
+                raise problem(422, "invalid_parent", "父分支不在这张任务图里。")
+            con.execute("""INSERT INTO squad_tasks(id,squad_id,title,owner_id,priority,due_at,talk_to,alone,created_at,parent_id)
+                VALUES(?,?,?,?,?,?,?,?,?,?)""", (tid, sid, title[:120], owner, priority, due, str(body.get("talk_to") or "")[:40], int(bool(body.get("alone", True))), now(), parent_id))
             log(con, sid, user["id"], f"队长发布任务：{title[:40]}。不等表决。")
             note = supervise_against_contest(title, contest.get("memory") or "", contest.get("facts") or {})
             return {"id": tid, "waited_for_vote": False, "supervise": note}
@@ -1361,19 +1639,42 @@ def register_studio(api, db, problem, now, uid, digest):
             user = person_from_header(con, authorization)
             squad, _ = squad_of(con, sid, user["id"])
             if user["id"] != squad["captain_id"]:
-                raise problem(403, "captain_required", "只有队长能改必须或可选、以及负责人。")
+                raise problem(403, "captain_required", "只有队长能编辑任务思维导图。")
             task = con.execute("SELECT * FROM squad_tasks WHERE id=? AND squad_id=?", (tid, sid)).fetchone()
             if not task:
                 raise problem(404, "not_found", "任务不存在。")
             priority = body.get("priority", task["priority"])
             owner = body.get("owner_id", task["owner_id"])
+            title = str(body.get("title") if body.get("title") is not None else task["title"]).strip()
             if priority not in {"must", "should"}:
                 raise problem(422, "task_required", "只能改成必须或可选。")
+            if not title:
+                raise problem(422, "task_required", "任务分支文字不能空。")
             if not con.execute("SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?", (sid, owner)).fetchone():
                 raise problem(422, "invalid_owner", "负责人要在这支队伍里。")
-            con.execute("UPDATE squad_tasks SET priority=?, owner_id=? WHERE id=?", (priority, owner, tid))
+            con.execute("UPDATE squad_tasks SET title=?, priority=?, owner_id=? WHERE id=?", (title[:120], priority, owner, tid))
             log(con, sid, user["id"], f"队长调整任务「{task['title']}」。没有整份重排。")
-            return {"id": tid, "priority": priority, "owner_id": owner}
+            return {"id": tid, "title": title[:120], "priority": priority, "owner_id": owner}
+
+    @api.delete("/api/studio/squads/{sid}/tasks/{tid}")
+    def delete_task_branch(sid: str, tid: str, authorization: str = Header(default="")):
+        with db(True) as con:
+            user = person_from_header(con, authorization)
+            squad, _ = squad_of(con, sid, user["id"])
+            if user["id"] != squad["captain_id"]:
+                raise problem(403, "captain_required", "只有队长能把任务分支拖进垃圾箱。")
+            task = con.execute("SELECT title FROM squad_tasks WHERE id=? AND squad_id=?", (tid, sid)).fetchone()
+            if not task:
+                raise problem(404, "not_found", "任务分支不存在。")
+            con.execute(
+                """WITH RECURSIVE branch(id) AS (
+                     SELECT id FROM squad_tasks WHERE id=? AND squad_id=?
+                     UNION ALL SELECT t.id FROM squad_tasks t JOIN branch b ON t.parent_id=b.id WHERE t.squad_id=?
+                   ) DELETE FROM squad_tasks WHERE id IN (SELECT id FROM branch)""",
+                (tid, sid, sid),
+            )
+            log(con, sid, user["id"], f"队长删除任务分支「{task['title']}」及其子分支。")
+            return {"deleted": True, "id": tid}
 
     @api.post("/api/studio/squads/{sid}/tasks/{tid}/progress")
     def progress(sid: str, tid: str, body: dict, authorization: str = Header(default="")):
@@ -1408,6 +1709,7 @@ def register_studio(api, db, problem, now, uid, digest):
             iid = uid()
             con.execute("INSERT INTO shelf(id,squad_id,author_id,kind,title,body,editors,created_at) VALUES(?,?,?,?,?,?,?,?)",
                         (iid, sid, user["id"], kind, title[:80], text[:8000], json.dumps(editors), now()))
+            invalidate_overview(con, sid)
             log(con, sid, user["id"], f"上传到成果架：{title[:40]}")
             return {"id": iid, "stored": "shelf", "vote": None}
 
@@ -1494,7 +1796,7 @@ def register_studio(api, db, problem, now, uid, digest):
         else:
             system = "你是这支队伍的方向统筹。只根据已经确认的事实回答下一步。用中文，说短一些。不要宣布题目、主干、提交清单或任务已经被改掉，那要队员自己去表决或由队长发布。"
             try:
-                answer = model_chat(config, system, f"已确认事实：\n{facts}\n\n队员问：{message[:2000]}")
+                answer = model_chat(config, system, f"已确认事实：\n{facts}\n\n队员问：{message[:2000]}", allow_local=True)
                 reply, label = f"{answer}\n\n已确认：{facts}", config.get("name") or "团队模型"
             except PlannerError as exc:
                 reply, label = f"{exc.message}\n\n已确认：{facts}", "团队模型"

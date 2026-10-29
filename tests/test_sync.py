@@ -12,6 +12,8 @@ from app.main import create_app
 
 class PulseTests(unittest.TestCase):
     def setUp(self):
+        self.env = patch.dict(os.environ, {"PUBLIC_BASE_URL": ""})
+        self.env.start()
         self.temp = tempfile.TemporaryDirectory()
         self.client = TestClient(create_app(Path(self.temp.name) / "t.sqlite3"))
         members = [{"name": n, "role": r, "skills": s, "available_hours": 4.0} for n, r, s in [("队长", "后端", "Python"), ("胡", "前端", "JavaScript")]]
@@ -25,6 +27,7 @@ class PulseTests(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         self.temp.cleanup()
+        self.env.stop()
 
     def pulse(self, who=1, pid=None):
         return self.client.get(f"/api/projects/{pid or self.pid}/pulse", headers={"Authorization": "Bearer " + self.tokens[who]})

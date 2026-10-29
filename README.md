@@ -1,3 +1,38 @@
+# 松伴 · 当前代码入口
+
+当前默认入口为核心协作工作台：连接个人工具 → 获准对话进入团队资料库 → 按需统筹 → 队长确认任务 → 成员执行与交叉验收。找比赛、社区和长期成长入口保留为后续方向；旧功能与历史说明在下方。
+
+本机网页「连接个人工具」可注册原生「松伴连接器」插件。资料库按「注册姓名：用户原话 / 模型名：回复要点」显示；当前对话上传只记录，不自动触发分析。没有宿主事件钩子，不承诺后台捕获所有聊天；客户端需要实际调用同步工具并收到记录号。
+
+- 原生插件源码：`plugins/songban-native/`；安装器：`app/connector_plugin.py`。
+- 安装/资料库说明：`docs/core-collaboration/原生松伴连接器.md`。
+- 启动：`.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8886`。
+- 默认核心工作台接口：`/api/core`；历史工作台与接口保留，但默认封锁。
+- 完整兼容回归：`SONGBAN_CORE_ONLY=0 .venv/bin/python -m unittest discover -s tests -q`。原生插件安装测试需要本机有 `codex` CLI；不会调用付费模型。
+
+## 克隆后不要复制私人配置
+
+`.env`、数据库、`.songban/`、`.codex/` 及本机走查证据不入库。请复制 `.env.example` 并自行配置需要的服务；在自己的松伴账号中创建团队并连接自己的工具。GitHub有代码不等于已部署公网服务。
+
+以下是分阶段历史说明；与当前行为冲突时，以以上入口及最新交接为准。
+
+---
+
+# 当前开发方向：松伴 · 团队同频
+
+默认只开放：个人工具同步重要进展 → 团队总智能体比较观点并提出安排 → 队长确认 → 个人工具取回任务 → 再次同步进度。其他入口锁定，旧资料保留。
+
+启动 `.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8886`，打开 http://127.0.0.1:8886/ 。
+
+- 开发范围：`docs/core-collaboration/需求与开发范围.md`
+- 前端/插件交接：`docs/core-collaboration/接口与插件交接.md`
+- 通用插件：`plugins/songban-team/README.md`（MCP＋命令行＋共享文件监听，不读取其他私人会话）
+- 本轮测试：`.venv/bin/python -m unittest discover -s tests -p 'test_team*.py' -v`
+
+以下保留历史说明，涉及旧入口时以本轮交接为准。
+
+---
+
 # 赛内协作助手 · 可运行首版
 
 为 2—8 人小队整理原文依据、确认分工、推进共享任务并交叉验收。实现范围见 `docs/需求文档.md`，流程见 `docs/业务流程.md`。
@@ -22,6 +57,8 @@ python3 -m venv .venv
 
 端口占用时换一个空闲端口，不要停止别的服务。服务终端按 Ctrl+C 结束。`requirements.txt` 是直接依赖；`requirements.lock.txt` 是本次实际安装的完整版本清单。
 
+手机号注册默认要求验证码实际发送成功。仅在隔离的本机开发环境，才可设置 `SONGBAI_ALLOW_TEST_CODES=1`，让未发送的测试验证码显示在页面；公网或共享网络严禁开启。密码登录连续失败会按账号和来源暂停五分钟。
+
 ## 第一次使用
 
 1. 创建项目，首位成员是队长。保存队长入口，分别发送其他成员入口。
@@ -37,7 +74,7 @@ python3 -m venv .venv
 
 内置预设为 **DeepSeek-V4.1-Flash / `deepseek-flash`**，使用官方 `https://api.deepseek.com`。复制 `.env.example` 为 `.env`，在本地填写 `DEEPSEEK_API_KEY`，重启服务。没有有效密钥时会显示“等待配置”，不会附送或虚构模型额度。
 
-也可由队长进入“模型接入”，填自己的 API 根地址和 key，点击读取模型列表，再选择完整名称与 ID。密钥仅暂存本次服务进程内存，服务重启后需重新连接；切回内置会清除自带配置。模型列表来自服务提供者，读取成功不代表实际生成质量已经通过验证。只接受 `MODEL_ALLOWED_HOSTS` 中的 HTTPS 服务，不向任意内网地址或重定向目标转发凭据。
+也可由队长进入“模型接入”，填自己的 API 根地址和 key，点击读取模型列表，再选择完整名称与 ID。密钥仅暂存本次服务进程内存，服务重启后需重新连接；切回内置会清除自带配置。模型列表来自服务提供者，读取成功不代表实际生成质量已经通过验证。只接受 `MODEL_ALLOWED_HOSTS` 中的 HTTPS 服务；用户配置不能指向 localhost、回环或内网地址。
 
 兼容旧配置：服务端可填写 `MODEL_API_KEY`、`MODEL_BASE_URL`、`MODEL_NAME` 作为自定义默认模型；`DEEPSEEK_API_KEY` 非空时官方预设优先。根地址由程序追加 `/chat/completions`，不能填完整请求路径。
 
@@ -87,6 +124,7 @@ node scripts/e2e.cjs
 ## 数据、部署准备与回退
 
 - 数据默认在 `data/collab.sqlite3`；可用 `DATABASE_PATH` 指向持久磁盘。SQLite、WAL、`.env`、虚拟环境和测试截图均被 `.gitignore` 忽略。
+- 比赛网页抓取会逐跳校验公网地址、固定实际连接 IP，并在解压后内容超过上限时中止；不要通过代理绕开这些限制。
 - 用 `.venv/bin/python scripts/backup_database.py` 创建一致性快照；不要在运行中仅复制主数据库文件而忽略 WAL。
 - 部署命令：`.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1`。需配置 HTTPS 入口、持久磁盘、模型环境变量、`PUBLIC_BASE_URL` 和明确 CORS；本轮只本地运行。
 - 容器：`docker build -t hackathon-collab .`，`docker run -p 8000:8000 -v hc-data:/data --env-file .env hackathon-collab`。数据库在 `/data`，必须挂持久卷；只能单进程（`--workers 1`），因为模型设置和自带密钥保存在进程内存。Dockerfile 尚未在本机构建验证（本机没有 Docker）。

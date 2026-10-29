@@ -140,7 +140,32 @@
     .popover button:hover, .popover a:hover { background:#f2f3f5; }
     .reg-wrap { max-width:440px; margin:8vh auto; }
     .reg-wrap .card { box-shadow:0 8px 28px rgba(31,35,41,.06); }
-    #stage { min-width:0; padding-top:12px; }
+    #stage { min-width:0; padding-top:12px; position:relative; }
+    #deadline-dock { position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:30; }
+    #deadline-dock[hidden] { display:none; }
+    .deadline-tab { background:#111; color:#fff; border-radius:0 0 12px 12px; padding:2px 16px 6px; min-width:88px; text-align:center; }
+    .deadline-peek { font-size:12px; letter-spacing:.04em; }
+    .deadline-full { display:none; padding:6px 4px 2px; }
+    .deadline-tab:hover .deadline-full, .deadline-tab:focus-within .deadline-full { display:block; }
+    .deadline-tab:hover .deadline-peek, .deadline-tab:focus-within .deadline-peek { display:none; }
+    .deadline-full strong { display:block; font-size:28px; font-variant-numeric:tabular-nums; }
+    .deadline-full p { margin:2px 0; font-size:12px; color:#ddd; }
+    .contest-icon { width:56px; height:56px; object-fit:cover; border-radius:12px; border:1px solid var(--line); }
+    .wx-split { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 300px; }
+    .agent { background:#fff; border-left:1px solid #d6d6d6; display:flex; flex-direction:column; min-height:0; }
+    .agent-log { flex:1; overflow:auto; padding:10px; }
+    .agent-chip { border:1px solid #ddd; border-radius:8px; padding:8px; margin:0 0 8px; background:#fafafa; cursor:grab; }
+    .agent-compose, .agent-head { padding:10px; border-bottom:1px solid #eee; }
+    .agent-compose { border-bottom:0; border-top:1px solid #eee; display:flex; gap:6px; }
+    .roster { position:absolute; right:12px; top:52px; width:240px; background:#fff; border:1px solid #ddd; border-radius:10px; padding:10px; z-index:4; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+    .wx { position:relative; }
+    .mind { display:flex; gap:14px; overflow:auto; align-items:flex-start; padding-bottom:12px; }
+    .mind-root { min-width:240px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
+    .mind-node { border:1px dashed #bbb; border-radius:8px; padding:8px; margin:8px 0 0 14px; background:#fff; }
+    .trash { margin-top:12px; border:2px dashed #c45c5c; border-radius:12px; padding:18px; text-align:center; color:#c45c5c; }
+    .trash.on { background:#fff4f4; }
+    #stage:has(.wx-split) { height:100vh; display:flex; flex-direction:column; padding-top:0; }
+    #stage:has(.wx-split) #main { flex:1; min-height:0; display:flex; padding:0; }
     .popover .switch { flex-direction:column; align-items:stretch; padding:4px 8px 2px; }
     .popover .switch label { font-size:12px; color:#8f959e; font-weight:500; }
     @media (max-width:860px) {
@@ -159,8 +184,8 @@
   <div id="app" class="app">
     <aside id="rail"></aside>
     <aside id="subrail"></aside>
-    <div id="stage"><main id="main"></main></div>
+    <div id="stage"><div id="deadline-dock" hidden></div><main id="main"></main></div>
   </div>
-  <script src="/static/studio.js?v=20261027-29" defer></script>
+  <script src="/static/studio.js?v=20261028-flow" defer></script>
 </body>
 </html>

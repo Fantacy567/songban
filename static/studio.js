@@ -39,7 +39,9 @@ const SIDE = [
 const CHAT = new Set(["team", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain", "growth", "profile", "memory", "stack", "board", "progress", "space"]);
 const COACH = new Set(["mine", "docs", "growth", "profile", "memory", "stack", "progress", "space"]);
 const NEED_SQUAD = new Set(["success", "mine", "topics", "skill", "talk", "docs", "vote", "captain", "log", "board", "progress"]);
-const NEED_CONFIRMED = new Set(["success", "mine", "teamspace", "topics", "skill", "talk", "docs", "vote", "captain"]);
+const NEED_CONFIRMED = new Set(["success", "mine", "topics", "skill", "talk", "docs", "vote", "captain"]);
+const ROLES = ["产品", "设计", "后端开发", "用户调研", "前端开发", "路演", "UI/视觉设计"];
+const COUNTDOWN_SCREENS = new Set(["messages", "home", "contest", "team", "board", "teamspace", "past", "space"]);
 const HUB_FREE = new Set(["home", "hubMine", "hubContest", "friends", "past", "growth", "stack", "contest", "team", "profile", "memory", "settings", "messages", "space"]);
 const BRIEFS = {
   需求文档: "目标：做出截止前能演示的一条路径。\n谁用：本队。\n主路径：选比赛、组队、选题、安装同一技能、发布任务。\n这场不做：主办方系统和给其他队伍排名。",
@@ -77,6 +79,10 @@ const state = {
   confirmingContest: false,
   flow: "",
   tick: null,
+  agentLines: [],
+  showRoster: false,
+  threadRoster: [],
+  boardEdit: false,
 };
 
 function esc(value) {
@@ -201,6 +207,16 @@ async function loadThread() {
   const query = kind === "dm"
     ? `kind=dm&peer_id=${encodeURIComponent(id)}`
     : `kind=squad&squad_id=${encodeURIComponent(id)}`;
+  if (kind === "squad") {
+    try {
+      const snap = await api("GET", `/api/studio/squads/${id}`);
+      if (ticket === threadLoad && state.threadKind === kind && state.threadId === id) state.threadRoster = snap.members || [];
+    } catch {
+      if (ticket === threadLoad) state.threadRoster = [];
+    }
+  } else if (ticket === threadLoad) {
+    state.threadRoster = [];
+  }
   const data = await api("GET", `/api/studio/messages?${query}`);
   if (ticket !== threadLoad || state.threadKind !== kind || state.threadId !== id) return;
   state.threadMessages = data.messages || [];
@@ -220,7 +236,7 @@ function canOpen(id) {
   if (!state.token) return "先用手机号和密码登录。没有注册就用手机号注册。";
   if (HUB_FREE.has(id)) return true;
   if (NEED_SQUAD.has(id) && !state.squad) return "还没有队伍。先点左侧「团队」创建或加入。";
-  if (NEED_CONFIRMED.has(id) && !state.squad.squad.confirmed) return "先让每人贴介绍并选角色，再由队长确认。";
+  if (NEED_CONFIRMED.has(id) && state.squad && !state.squad.squad.confirmed) return "先让每人贴介绍并选角色，再由队长确认。";
   if ((id === "skill" || id === "docs") && !state.squad.squad.topic) return "先在选题空间确认题目。";
   if (id === "captain" && !state.squad.me.captain) return "队长规划只有队长能打开。你的任务在我的空间，全队任务在团队空间。";
   return true;
@@ -426,11 +442,26 @@ function contestChips(contest) {
   return `<div class="contest-chips">${chips.map(([label, value]) => `<span>${esc(label)} ${esc(value)}</span>`).join("")}</div>`;
 }
 
+function safeIcon(value) {
+  const text = String(value || "");
+  return text.startsWith("data:image/") ? text : "";
+}
+
+function themeLabel(contest) {
+  return contest?.theme_status === "pending" ? "现场公布 · 具体主题待揭晓" : "自由命题";
+}
+
 function contestCard(contest, actionsHtml) {
+  const facts = contest.facts || {};
+  const icon = safeIcon(contest.icon_data);
+  const requirement = briefFact(facts.selection) || briefFact(facts.submissions_text);
   return `<article class="contest-card">
-      <p class="kicker">赛事卡</p>
+      ${icon ? `<img class="contest-icon" alt="" src="${esc(icon)}">` : `<p class="kicker">赛事卡</p>`}
       <h3>${esc(contest.name)}</h3>
       ${contestChips(contest)}
+      ${requirement ? `<p>要求 ${esc(requirement)}</p>` : ""}
+      <p>${esc(contest.core_summary || "核心内容会在搜索时由模型提炼。")}</p>
+      <p class="muted">${esc(themeLabel(contest))} · 作品截止 ${esc(when(contest.deadline) || "未写入")}</p>
       ${actionsHtml || ""}
     </article>`;
 }
@@ -440,16 +471,18 @@ function viewContest() {
   if (found) {
     return `<h2>赛事信息</h2>
       <p class="muted"><button class="linkish" type="button" data-go="hubContest">← 比赛系统</button></p>
-      <article class="contest-card featured">
-        <p class="kicker">搜到的比赛</p>
-        <h3>${esc(found.name)}</h3>
-        ${contestChips(found)}
-        <p class="muted">细则已经放进赛事记忆。这里只留概要。</p>
+      ${contestCard(found, `<div class="card" style="margin-top:12px">
+        <label for="theme-status">命题状态</label>
+        <select id="theme-status">
+          <option value="open" ${found.theme_status === "pending" ? "" : "selected"}>自由命题，队长填写开发内容</option>
+          <option value="pending" ${found.theme_status === "pending" ? "selected" : ""}>官方现场公布，先显示具体主题待揭晓</option>
+        </select>
+        <p class="muted">确认前可以改这一项。保存后写入你的比赛卡。</p>
         <div class="row" style="margin-top:16px">
           <button class="btn" type="button" data-act="saveContestCard" data-id="${esc(found.id)}">保存为赛事卡</button>
           <button class="btn ghost" type="button" data-act="clearContestPreview">再搜一场</button>
         </div>
-      </article>`;
+      </div>`)}`;
   }
   const draft = state.contestDraft || {};
   const attach = draft.fileName
@@ -489,78 +522,70 @@ function planRows() {
 function viewTeam() {
   if (!state.squad) {
     const contests = savedContests();
-    const options = contests.map((contest) => `<option value="${esc(contest.id)}" ${contest.id === state.contestId ? "selected" : ""}>${esc(contest.name)}</option>`).join("");
-    return page(`<h2>组队</h2>
-      <div class="split">
-        <form data-act="createSquad" class="card">
-          <p class="kicker">我来建队，创建的人是队长</p>
-          <label for="squad-contest">用哪场比赛</label>
-          <select id="squad-contest" name="contest_id" ${options ? "" : "disabled"}>${options || "<option value=\"\">还没有比赛</option>"}</select>
+    const selected = contests.find((contest) => contest.id === state.contestId) || null;
+    const pool = contests.map((contest) => contestCard(contest, `<div class="row" style="margin-top:14px"><button class="btn ${contest.id === selected?.id ? "" : "ghost"}" type="button" data-act="useContest" data-id="${esc(contest.id)}">${contest.id === selected?.id ? "已选这张比赛卡" : "用这张比赛卡组队"}</button></div>`)).join("");
+    const pending = selected?.theme_status === "pending";
+    const create = selected ? `<form data-act="createSquad" class="card">
+          <p class="kicker">比赛组队 · ${esc(selected.name)}</p>
+          <input type="hidden" name="contest_id" value="${esc(selected.id)}">
           <label for="squad-name">队伍名称</label>
           <input id="squad-name" name="name" maxlength="40" placeholder="例如：回响小队" required>
-          <button class="btn" type="submit" ${options ? "" : "disabled"}>创建队伍</button>
-        </form>
+          ${pending
+            ? `<p>具体主题待揭晓</p><p class="muted">官方公告写明现场公布，建队时不填写开发内容。</p>`
+            : `<label for="project-brief">本次项目准备开发什么</label><textarea id="project-brief" name="project_brief" required placeholder="自由命题：写下这次要做的内容"></textarea>`}
+          <button class="btn" type="submit">创建队伍</button>
+        </form>` : `<div class="card"><p>先从比赛卡池里点一张，再填写队名。</p></div>`;
+    return page(`<h2>比赛组队</h2>
+      <p class="muted">从你保存的比赛卡里选一场。还没有卡，先到赛事里搜索并确认。</p>
+      <div class="contest-grid">${pool || `<p class="muted">比赛卡池是空的。<button class="linkish" type="button" data-go="contest">去搜索比赛</button></p>`}</div>
+      <div class="split">
+        ${create}
         <form data-act="joinSquad" class="card">
-          <p class="kicker">我有队伍码</p>
+          <p class="kicker">用邀请码入队</p>
           <label for="join-code">队伍码</label>
           <input id="join-code" name="code" autocomplete="off" required>
           <button class="btn" type="submit">加入</button>
-          <p class="muted">不必先成为好友。</p>
+          <p class="muted">不必先成为好友。加人之后的名额在团队空间里管。</p>
         </form>
-      </div>
-      <form data-act="addFriend" class="card">
-        <p class="kicker">可选：加好友</p>
-        <label for="friend-phone">对方注册用的手机号</label>
-        <input id="friend-phone" name="phone" inputmode="numeric">
-        <button class="btn ghost" type="submit">加为好友</button>
-        <p class="muted">好友不是加入的门槛。对方还没注册时，把队伍码发给对方即可。</p>
-      </form>`);
+      </div>`);
   }
   const squad = state.squad.squad;
-  const ready = state.squad.members.length >= 2 && state.squad.members.every((member) => member.role);
-  const people = state.squad.members.map((member) => `<div class="person"><strong>${esc(member.name)}</strong> ${member.captain ? "<span class=\"tag\">队长</span>" : ""} <span class="tag">${esc(member.role || "还没选角色")}</span><p class="muted">${esc(member.extract || "还没贴介绍")}</p></div>`).join("");
-  const plan = planRows().map((line) => `<li>${esc(line.name)}：${esc(line.work)}（${line.priority === "must" ? "必须" : "可选"}）</li>`).join("");
+  const contest = state.squad.contest || {};
+  const pending = contest.theme_status === "pending";
+  const ready = state.squad.members.length >= 2 && state.squad.members.every((member) => member.role && (member.responsibility || member.extract));
+  const roleOptions = ROLES.map((role) => `<option>${esc(role)}</option>`).join("");
+  const people = state.squad.members.map((member) => `<div class="person"><strong>${esc(member.name)}</strong> ${member.captain ? "<span class=\"tag\">队长</span>" : ""} <span class="tag">${esc(member.role || "还没选职位")}</span><p>${esc(member.responsibility || member.extract || "还没写本次负责的内容")}</p></div>`).join("");
   return page(`<h2>组队</h2>
     <div class="card">
+      <p class="kicker">${esc(contest.name || "比赛")} · ${esc(themeLabel(contest))}</p>
       <form data-act="renameSquad" class="row">
         <label for="rename" class="muted">队伍名称</label>
         <input id="rename" name="name" value="${esc(squad.name)}" ${state.squad.me.captain ? "" : "readonly"}>
         ${state.squad.me.captain ? `<button class="btn ghost" type="submit">改名称</button>` : ""}
       </form>
-      <p class="kicker">队伍码 · 发给还不是好友的人</p>
+      ${pending
+        ? `<p>具体主题待揭晓</p>`
+        : (state.squad.me.captain ? `<form data-act="saveBrief"><label for="brief">项目开发内容</label><textarea id="brief" name="project_brief">${esc(squad.project_brief || "")}</textarea><button class="btn ghost" type="submit">保存开发内容</button></form>` : `<p>${esc(squad.project_brief || "待队长补充项目开发内容")}</p>`)}
+      <p class="kicker">邀请码</p>
       <p class="code">${esc(squad.code)}</p>
-      <button class="btn ghost" type="button" data-act="copyCode">复制队伍码</button>
-      <p class="muted">队友用自己的手机号注册后，在自己的浏览器里填写这个码。不要用队长的号再注册一次。</p>
+      <button class="btn ghost" type="button" data-act="copyCode">复制邀请码</button>
+      <p class="muted">建队后，消息栏会出现同名团队群。新成员请到团队空间加入。</p>
     </div>
     <div class="card">
-      <p class="kicker">每个人</p>
+      <p class="kicker">每个人一个名字框</p>
       ${people}
-      ${squad.confirmed ? "" : `<form data-act="saveIntro">
-        <label for="role">我的角色</label>
-        <select id="role" name="role">
-          <option>产品</option><option>前端</option><option>后端</option><option>设计</option><option>路演</option>
-        </select>
-        <label for="intro">长自我介绍</label>
-        <textarea id="intro" name="intro" required placeholder="贴你实际会做的事。不要贴密钥或整段旧对话，除非你打算让队里用到其中一段。"></textarea>
-        <button class="btn" type="submit">抽出我能做的部分</button>
-      </form>`}
-      <p><strong>${squad.confirmed ? "已确认的分工草案" : "确认前的预览"}</strong></p>
-      <ul>${plan}</ul>
-      ${squad.confirmed ? `<p class="muted">草案已定。任务要等队长在规划里逐项发布，这里不会整份重排。</p>` : `<button class="btn" type="button" data-act="confirmTeam" ${state.squad.me.captain && ready ? "" : "disabled"}>${state.squad.me.captain ? "确认这版分工" : "等队长确认"}</button>
-        <p class="muted">${ready ? "确认后出现对勾，并进入选题。" : "至少两人，且每人都贴了介绍并选了角色。"}</p>`}
-    </div>
-      ${squad.confirmed ? "" : `<form data-act="joinSquad" class="card">
-      <p class="kicker">手里有另一支队伍的码</p>
-      <label for="join-code">队伍码</label>
-      <input id="join-code" name="code" autocomplete="off">
-      <button class="btn ghost" type="submit">改加入这支队伍</button>
-      <p class="muted">建错队伍时用。加入后，这个页面换到队长那一支。</p>
-    </form>
-    <form data-act="addFriend" class="card">
-      <label for="friend-phone">可选：好友的手机号</label>
-      <input id="friend-phone" name="phone" inputmode="numeric">
-      <button class="btn ghost" type="submit">加为好友</button>
-    </form>`}`);
+      <form data-act="saveIntro">
+        <label for="role">我本次负责的职位</label>
+        <select id="role" name="role">${roleOptions}<option value="其他">其他，自己填写</option></select>
+        <label for="role-custom">其他职位</label>
+        <input id="role-custom" name="role_custom" placeholder="选了「其他」再填">
+        <label for="responsibility">本次具体负责哪一块</label>
+        <input id="responsibility" name="responsibility" required placeholder="例如：报名页、路演稿、用户访谈">
+        <button class="btn" type="submit">保存我的职位</button>
+      </form>
+      ${squad.confirmed ? `<p class="muted">分工已确认。任务在看板的思维导图里改，这里不再整份重排。</p>` : `<button class="btn" type="button" data-act="confirmTeam" ${state.squad.me.captain && ready ? "" : "disabled"}>${state.squad.me.captain ? "确认这版分工" : "等队长确认"}</button>
+        <p class="muted">${ready ? "至少两人，且每人都选了职位并写了负责内容。" : "至少两人，且每人都选了职位并写了负责内容。"}</p>`}
+    </div>`);
 }
 
 function viewSuccess() {
@@ -602,15 +627,15 @@ function viewHubContest() {
   const contest = state.squad?.contest;
   const clock = contest ? `<div class="card">
       <p class="kicker">${esc(contest.name)} · ${esc(stageName())}</p>
-      <p class="count" id="count" style="font-size:36px">--:--:--</p>
-      <p class="muted">结束：${esc(when(contest.deadline))}</p>
+      <p class="count" style="font-size:36px">${esc(when(contest.deadline))}</p>
+      <p class="muted">实时倒计时收在屏幕最上沿，鼠标移上去展开。这里是同一截止时间。</p>
     </div>` : "";
   return `<h2>比赛系统</h2>
     <p class="muted"><button class="linkish" type="button" data-go="home">← 首页</button></p>
     ${clock}
     <div class="hub-modules">
       ${hubCard("contest", "搜索比赛", "搜一场，保存成赛事卡")}
-      ${hubCard("team", "组队", "创建队伍或用队伍码加入")}
+      ${hubCard("team", "比赛组队", "从比赛卡池选一场，再创建队伍")}
       ${hubCard("teamspace", "团队空间", ready ? "任务树、成果架、仓库、讨论入口" : "组队并确认分工后可用")}
       ${hubCard("mine", "我的空间", ready ? "我这场的任务与截止" : "组队并确认分工后可用")}
     </div>
@@ -718,9 +743,23 @@ function viewTeamspace() {
   const people = squad.members.map((member) => `<div class="who">${avatarHtml(member.avatar_url, member.name || member.avatar)}<div>${esc(member.name)} · ${esc(member.role || "未选角色")}<br><span class="muted">${esc(member.doing || "还没说正在做什么")}</span></div></div>`).join("");
   const shelf = squad.shelf.map((item) => {
     const editable = item.author_id === squad.me.id || item.editors.includes(squad.me.id);
-    return `<div class="item"><strong>${esc(item.title)}</strong><br><span class="muted">${esc(item.kind)} · ${esc(nameOf(item.author_id))}</span><pre>${esc(item.body)}</pre>${editable ? `<form data-act="editShelf"><input type="hidden" name="id" value="${esc(item.id)}"><textarea name="body">${esc(item.body)}</textarea><button class="btn ghost" type="submit">保存修改</button></form>` : `<p class="muted">全队可见。${item.editors.length ? `可编辑：${item.editors.map(nameOf).join("、")}` : "还没有额外授权。"}</p>`}</div>`;
+    return `<div class="item"><strong>${esc(item.title)}</strong><br><span class="muted">${esc(item.kind)} · ${esc(nameOf(item.author_id))}</span><pre>${esc(item.body)}</pre>${editable ? `<form data-act="editShelf"><input type="hidden" name="id" value="${esc(item.id)}"><textarea name="body">${esc(item.body)}</textarea><button class="btn ghost" type="submit">保存修改</button></form>` : `<p class="muted">全队可见。${item.editors.length ? `可编辑：${item.editors.map((id) => esc(nameOf(id))).join("、")}` : "还没有额外授权。"}</p>`}</div>`;
   }).join("");
+  const invitees = (state.me?.friends || []).filter((friend) => !squad.members.some((member) => member.user_id === friend.user_id));
+  const invite = squad.me.captain ? `<form data-act="inviteFriend" class="card">
+      <p class="kicker">在团队空间加入成员</p>
+      <label for="invite-friend">邀请已互加的好友</label>
+      <select id="invite-friend" name="friend_id" ${invitees.length ? "" : "disabled"}>${invitees.map((friend) => `<option value="${esc(friend.user_id)}">${esc(friend.name)}</option>`).join("") || "<option value=\"\">还没有可邀请的好友</option>"}</select>
+      <button class="btn" type="submit" ${invitees.length ? "" : "disabled"}>邀请入队</button>
+      <p class="muted">群聊里只能看成员。加人只在这里。</p>
+    </form>` : `<p class="muted">新成员由队长在团队空间邀请，或使用邀请码。</p>`;
   return page(`<h2>团队空间</h2>
+    <div class="card">
+      <p class="kicker">团队模型的综合判断</p>
+      <p>${esc(squad.team_overview || "还没有综述。它只读取职位、职责，以及成员明确上传的资料。")}</p>
+      <button class="btn ghost" type="button" data-act="refreshOverview">根据资料库重新看一遍</button>
+    </div>
+    ${invite}
     <div class="card"><p class="kicker">本场必须完成</p>${submissionsOf(squad.contest.submissions)}</div>
     <div class="card"><p class="kicker">现在谁在做什么</p>${people}</div>
     <div class="card">
@@ -1068,36 +1107,72 @@ function threadTitle() {
 }
 
 function viewMessages() {
-  if (!state.threadId) return "";
+  if (!state.threadId) {
+    return `<h2>消息</h2><p class="muted">从左侧点开好友或团队群。创建队伍后，消息栏会出现同名团队群。</p>`;
+  }
   const lines = (state.threadMessages || []).map((line) => {
     const mine = line.sender_id === state.me?.id;
     const who = mine ? "" : `<div class="wx-name">${esc(line.sender_name || "队友")}</div>`;
     return `<div class="wx-row ${mine ? "me" : ""}">${who}<div class="wx-bubble">${esc(line.body)}</div></div>`;
   }).join("");
-  const err = state.error ? `<p class="error">${esc(state.error)}</p>` : "";
-  return `<section class="wx">
-    <div class="wx-bar"><strong>${esc(threadTitle())}</strong><button class="btn ghost" type="button" data-act="reloadThread">查看新消息</button></div>
-    <div class="wx-log">${lines}</div>
-    <form data-act="sendMessage" class="wx-compose">
-      ${err}
-      <input name="body" maxlength="2000" placeholder="发消息" autocomplete="off" autofocus>
-      <button class="wx-send" type="submit">发送</button>
-    </form>
+  const roster = state.threadKind === "squad" && state.showRoster
+    ? `<div class="roster"><p class="kicker">群成员</p>${(state.threadRoster || []).map((member) => `<p>${esc(member.name)} · ${esc(member.role || "未填职位")}</p>`).join("") || "<p class=\"muted\">还没有成员。</p>"}<p class="muted">加人请到团队空间，这里不能加。</p></div>`
+    : "";
+  const chips = (state.agentLines || []).map((line, index) => `<div class="agent-chip" draggable="true" data-agent-index="${index}"><p class="muted">我：${esc(line.me)}</p><p>${esc(line.reply)}</p><button class="btn ghost" type="button" data-act="uploadAgent" data-index="${index}">上传到团队资料库</button></div>`).join("");
+  return `<section class="wx-split">
+    <section class="wx">
+      <div class="wx-bar"><strong>${esc(threadTitle())}</strong><span>
+        ${state.threadKind === "squad" ? `<button class="btn ghost" type="button" data-act="toggleRoster">群成员</button>` : ""}
+        <button class="btn ghost" type="button" data-act="reloadThread">查看新消息</button>
+      </span></div>
+      ${roster}
+      <div class="wx-log">${lines}</div>
+      <form data-act="sendMessage" class="wx-compose">
+        <input id="msg-body" name="body" maxlength="2000" placeholder="发消息。可以把右侧回答拖到这里，再点发送" autocomplete="off" autofocus>
+        <button class="wx-send" type="submit">发送</button>
+      </form>
+    </section>
+    <aside class="agent">
+      <div class="agent-head"><strong>我的智能体</strong><p class="muted">${state.me?.model_ready ? `使用你接入的 ${esc(state.me.model_name || "模型")}。不会自动进群。` : "先在个人页保存你的 API。对话只留在这一侧，除非你拖去发送或上传。"}</p></div>
+      <div class="agent-log">${chips || `<p class="muted">在这里问你自己的模型。回答可以拖进左边输入框，或上传到团队资料库。</p>`}</div>
+      <form data-act="askAgent" class="agent-compose">
+        <input name="message" placeholder="问我的模型" ${state.squadId ? "" : "disabled"}>
+        <button class="btn" type="submit" ${state.squadId ? "" : "disabled"}>问</button>
+      </form>
+    </aside>
   </section>`;
+}
+
+function branchNodes(tasks, parentId) {
+  return tasks.filter((task) => (task.parent_id || "") === parentId);
+}
+
+function mindNode(task, tasks, editing) {
+  const children = branchNodes(tasks, task.id).map((child) => mindNode(child, tasks, editing)).join("");
+  const editor = editing ? `<form data-act="saveBranch"><input type="hidden" name="id" value="${esc(task.id)}"><input name="title" value="${esc(task.title)}" aria-label="分支文字"><button class="btn ghost" type="submit">保存文字</button></form>
+      <form data-act="addBranch"><input type="hidden" name="owner_id" value="${esc(task.owner_id)}"><input type="hidden" name="parent_id" value="${esc(task.id)}"><input name="title" placeholder="新的分支" required><button class="btn ghost" type="submit">加分支</button></form>
+      <button class="btn ghost" type="button" data-act="deleteBranch" data-id="${esc(task.id)}">拖进垃圾箱</button>` : `<strong>${esc(task.title)}</strong>`;
+  return `<div class="mind-node" draggable="${editing ? "true" : "false"}" data-branch-id="${esc(task.id)}">${editor}${children}</div>`;
 }
 
 function viewBoard() {
   const members = state.squad?.members || [];
   const tasks = state.squad?.tasks || [];
+  const editing = !!state.boardEdit && !!state.squad?.me?.captain;
   const cols = members.map((member) => {
-    const mine = tasks.filter((task) => task.owner_id === member.user_id);
-    const cards = mine.map((task) => `<div class="person"><strong>${esc(task.title)}</strong><p class="muted">${esc(task.priority === "must" ? "必须" : "可选")} · ${esc(task.progress || 0)}% · ${esc(when(task.due_at))}</p></div>`).join("") || "<p class=\"muted\">还没有任务。</p>";
-    return `<div class="col"><p class="kicker">${esc(member.name)}</p><p class="muted">${esc(member.doing || "还没写正在做的事")}</p>${cards}</div>`;
+    const roots = tasks.filter((task) => task.owner_id === member.user_id && !(task.parent_id || ""));
+    const nodes = roots.map((task) => mindNode(task, tasks.filter((item) => item.owner_id === member.user_id), editing)).join("") || `<p class="muted">还没有从名字延伸出去的分支。</p>`;
+    const addRoot = editing ? `<form data-act="addBranch"><input type="hidden" name="owner_id" value="${esc(member.user_id)}"><input type="hidden" name="parent_id" value=""><input name="title" placeholder="从这个名字长出一条" required><button class="btn ghost" type="submit">加分支</button></form>` : "";
+    return `<div class="mind-root"><p class="kicker">${esc(member.name)}</p><p class="muted">${esc(member.role || "未填职位")} · ${esc(member.responsibility || member.doing || "职责待填写")}</p>${nodes}${addRoot}</div>`;
   }).join("");
+  const trash = editing ? `<div class="trash" id="task-trash">把不要的分支拖到这里</div>` : "";
   return `<h2>任务看板</h2>
-    <p class="muted">每个人一列。任务存在队伍里，和个人进度是同一条。右侧是团队模型，它现在只回答方向，不会自己改任务。要改负责人，仍由队长在下面调整。</p>
-    <div class="board">${cols || "<p class=\"muted\">先加入或创建队伍。</p>"}</div>
-    ${state.squad?.me?.captain ? `<form data-act="publishTask" class="card"><p class="kicker">队长手动加一条</p><input type="hidden" name="priority" value="must"><input type="hidden" name="talk_to" value=""><label>任务</label><input name="title" required><label>负责人</label><select name="owner_id">${members.map((member) => `<option value="${esc(member.user_id)}">${esc(member.name)}</option>`).join("")}</select><label>截止</label><input name="due_at" type="datetime-local" required><button class="btn" type="submit">发布</button></form>` : ""}`;
+    <div class="row">
+      <p class="muted">每个人的名字是思维导图的起点。编辑时可以改文字、加分支，或把分支拖进垃圾箱。</p>
+      ${state.squad?.me?.captain ? `<button class="btn ghost" type="button" data-act="toggleBoardEdit">${editing ? "完成编辑" : "编辑"}</button>` : ""}
+    </div>
+    <div class="mind">${cols || "<p class=\"muted\">先加入或创建队伍。</p>"}</div>
+    ${trash}`;
 }
 
 function viewProgress() {
@@ -1122,7 +1197,10 @@ function viewSpace() {
       <div class="contest-chips">${chips || "<span>还没写技能</span>"}</div>
       <div class="row" style="margin-top:12px"><button class="btn ghost" type="button" data-go="profile">修改资料</button><button class="btn ghost" type="button" data-go="memory">个人记忆</button></div>
     </div>
-    <div class="card"><p class="kicker">做过的比赛</p>${savedContests().map((contest) => `<p>${esc(contest.name)}</p>`).join("") || "<p class=\"muted\">还没有赛事卡。</p>"}</div>
+    <div class="card"><p class="kicker">做过的比赛</p>
+      <button class="btn ghost" type="button" data-go="past">查看全部比赛卡</button>
+      ${savedContests().map((contest) => `<p>${esc(contest.name)}</p>`).join("") || "<p class=\"muted\">还没有赛事卡。</p>"}
+    </div>
     <div class="card"><p class="kicker">成长</p><pre>${esc(me.growth || "结束一场比赛后，这里按真实完成的任务记一句。")}</pre></div>`;
 }
 
@@ -1143,8 +1221,7 @@ function render() {
   renderRail();
   renderSubrail();
   const view = views[state.screen] || viewHome;
-  const messaging = state.screen === "messages" || state.screen === "home";
-  document.getElementById("main").innerHTML = messaging ? view() : banners() + view();
+  document.getElementById("main").innerHTML = banners() + view();
   const log = document.querySelector(".wx-log");
   if (log) log.scrollTop = log.scrollHeight;
   armCountdown();
@@ -1330,11 +1407,32 @@ function installContestDnD() {
   });
 }
 
+function activeContest() {
+  if (state.squad?.contest?.deadline) return state.squad.contest;
+  const saved = savedContests();
+  return saved.find((contest) => contest.id === state.contestId) || state.contestPreview || saved[0] || null;
+}
+
+function paintDeadlineDock() {
+  const dock = document.getElementById("deadline-dock");
+  if (!dock) return;
+  const contest = activeContest();
+  const show = !!(state.token && contest?.deadline && COUNTDOWN_SCREENS.has(state.screen));
+  dock.hidden = !show;
+  if (!show) return;
+  const source = contest.official_url
+    ? (contest.deadline_checked_at ? "依据最后一次从官方页面确认的作品截止时间" : "赛事卡已有官方链接，尚未复核。显示卡上的截止时间")
+    : "没有官方页面，显示你确认时写入比赛卡的截止时间";
+  dock.innerHTML = `<div class="deadline-tab" tabindex="0"><span class="deadline-peek">倒计时</span><div class="deadline-full"><strong id="count">--:--:--</strong><p>${esc(contest.name)}</p><p>${esc(source)}</p><p>截止 ${esc(when(contest.deadline))}</p>${contest.official_url ? `<button class="btn ghost" type="button" data-act="syncDeadline" data-id="${esc(contest.id)}">按官方页面复核</button>` : ""}</div></div>`;
+}
+
 function armCountdown() {
   clearInterval(state.tick);
   state.tick = null;
-  if (!["hubContest", "teamspace", "mine"].includes(state.screen) || !state.squad) return;
-  const end = new Date(state.squad.contest.deadline);
+  paintDeadlineDock();
+  const contest = activeContest();
+  if (!contest?.deadline || !COUNTDOWN_SCREENS.has(state.screen)) return;
+  const end = new Date(contest.deadline);
   const paint = () => {
     const node = document.getElementById("count");
     if (!node) return;
@@ -1537,11 +1635,13 @@ const actions = {
   async saveContestCard(button) {
     const id = button.dataset.id || state.contestPreview?.id;
     if (!id) throw new Error("先搜到一场比赛。");
-    await api("POST", `/api/studio/contests/${id}/card`);
+    const theme = document.getElementById("theme-status");
+    await api("POST", `/api/studio/contests/${id}/card`, { theme_status: theme?.value || "open" });
     state.contestPreview = null;
     state.contestId = id;
     saveSession();
-    state.note = "已保存为赛事卡。到「我的系统 → 参加过的比赛」查看。";
+    state.note = "已保存为赛事卡。个人页可以查看全部比赛卡。";
+    state.screen = "past";
     await reload();
   },
   async clearContestPreview() {
@@ -1587,13 +1687,19 @@ const actions = {
   },
   async createSquad(form) {
     const contestId = form.contest_id.value || state.contestId;
-    if (!contestId) throw new Error("先导入一场比赛。");
-    const data = await api("POST", "/api/studio/squads", { contest_id: contestId, name: form.name.value });
+    if (!contestId) throw new Error("先从比赛卡池选择一场比赛。");
+    const body = { contest_id: contestId, name: form.name.value };
+    if (form.project_brief) body.project_brief = form.project_brief.value.trim();
+    const data = await api("POST", "/api/studio/squads", body);
     state.contestId = contestId;
     rememberSquad(data.id);
     state.squad = await api("GET", `/api/studio/squads/${data.id}`);
     state.me = await api("GET", "/api/studio/me");
-    state.note = `队伍码 ${data.code}。把码发给队友。队友用自己的手机号进入后再加入。`;
+    state.threadKind = "squad";
+    state.threadId = data.id;
+    state.screen = "messages";
+    await loadThread();
+    state.note = `团队群「${state.squad.squad.name}」已出现在消息栏。`;
   },
   async joinSquad(form) {
     const data = await api("POST", "/api/studio/squads/join", { code: form.code.value.trim() });
@@ -1624,8 +1730,84 @@ const actions = {
     }
   },
   async saveIntro(form) {
-    const data = await api("POST", `/api/studio/squads/${state.squadId}/intro`, { role: form.role.value, intro: form.intro.value });
-    state.note = `抽出：${data.extract}。这还不是任务，等队长确认草案后再逐项发布。`;
+    let role = form.role.value;
+    if (role === "其他") role = form.role_custom.value.trim();
+    if (!role) throw new Error("选择职位，或自己写一个。");
+    const responsibility = form.responsibility.value.trim();
+    const data = await api("POST", `/api/studio/squads/${state.squadId}/intro`, { role, responsibility });
+    state.note = `已记下：${role} · ${data.responsibility || responsibility}`;
+    await reload();
+  },
+  async saveBrief(form) {
+    const data = await api("PATCH", `/api/studio/squads/${state.squadId}`, {
+      name: state.squad.squad.name,
+      project_brief: form.project_brief.value.trim(),
+    });
+    state.note = "项目开发内容已保存。";
+    state.squad.squad.project_brief = data.project_brief;
+    await reload();
+  },
+  async inviteFriend(form) {
+    const data = await api("POST", `/api/studio/squads/${state.squadId}/invite-friend`, { friend_id: form.friend_id.value });
+    state.note = data.joined ? `已邀请 ${data.name} 入队。` : `${data.name} 已经在队里。`;
+    await reload();
+  },
+  async refreshOverview() {
+    const data = await api("POST", `/api/studio/squads/${state.squadId}/overview`, {});
+    state.note = data.source_label ? `综述来自${data.source_label}。` : "已更新团队综述。";
+    await reload();
+  },
+  async syncDeadline(button) {
+    const id = button.dataset.id || state.squad?.contest?.id || state.contestId;
+    const data = await api("POST", `/api/studio/contests/${id}/sync`);
+    state.note = data.notice || (data.changed ? "官方截止时间有更新。" : "官方截止时间没有变化。");
+    await reload();
+  },
+  async toggleRoster() {
+    state.showRoster = !state.showRoster;
+  },
+  async askAgent(form) {
+    const message = form.message.value.trim();
+    if (!message) throw new Error("先写一句。");
+    if (!state.squadId) throw new Error("先加入一支队伍，侧边智能体才能使用你的 API。");
+    const data = await api("POST", `/api/studio/squads/${state.squadId}/coach`, { message });
+    state.agentLines.push({ me: message, reply: data.reply || "" });
+    form.message.value = "";
+  },
+  async uploadAgent(button) {
+    const line = state.agentLines[Number(button.dataset.index)];
+    if (!line) throw new Error("这条回答已经不在。");
+    if (!state.squadId) throw new Error("先加入队伍，才能放进团队资料库。");
+    await api("POST", `/api/studio/squads/${state.squadId}/library`, {
+      body: `个人模型回答\n我问：${line.me}\n模型答：${line.reply}`,
+    });
+    state.note = "已上传到团队资料库。没有自动发到聊天里。";
+    await reload();
+  },
+  async toggleBoardEdit() {
+    state.boardEdit = !state.boardEdit;
+  },
+  async addBranch(form) {
+    const title = form.title.value.trim();
+    if (!title) throw new Error("先写分支上的文字。");
+    await api("POST", `/api/studio/squads/${state.squadId}/tasks`, {
+      title,
+      owner_id: form.owner_id.value,
+      parent_id: form.parent_id.value,
+      priority: "must",
+      alone: true,
+    });
+    state.note = "分支已加到这个人的名字后面。";
+    await reload();
+  },
+  async saveBranch(form) {
+    await api("PATCH", `/api/studio/squads/${state.squadId}/tasks/${val(form, "id")}`, { title: val(form, "title").trim() });
+    state.note = "分支文字已更新。";
+    await reload();
+  },
+  async deleteBranch(button) {
+    await api("DELETE", `/api/studio/squads/${state.squadId}/tasks/${button.dataset.id}`);
+    state.note = "这条分支和它下面的分支已放进垃圾箱。";
     await reload();
   },
   async confirmTeam() {
@@ -1695,8 +1877,10 @@ const actions = {
   async openThread(button) {
     state.threadKind = button.dataset.kind;
     state.threadId = button.dataset.id;
+    state.threadMessages = [];
     if (state.threadKind === "squad") rememberSquad(state.threadId);
     state.screen = "messages";
+    render();
     await loadThread();
   },
   async reloadThread() {
@@ -1917,5 +2101,52 @@ async function boot() {
   render();
 }
 
+function installFlowDrag() {
+  if (window.__songbanFlowDrag) return;
+  window.__songbanFlowDrag = true;
+  document.addEventListener("dragstart", (event) => {
+    const chip = event.target.closest("[data-agent-index]");
+    if (chip) {
+      const line = state.agentLines[Number(chip.dataset.agentIndex)];
+      if (line) event.dataTransfer.setData("text/plain", line.reply || "");
+      return;
+    }
+    const branch = event.target.closest("[data-branch-id]");
+    if (branch && state.boardEdit) {
+      event.dataTransfer.setData("application/x-songban-branch", branch.dataset.branchId);
+      event.dataTransfer.effectAllowed = "move";
+    }
+  });
+  document.addEventListener("dragover", (event) => {
+    if (event.target.closest("#task-trash") || event.target.closest(".wx-compose")) event.preventDefault();
+  });
+  document.addEventListener("drop", async (event) => {
+    const trash = event.target.closest("#task-trash");
+    if (trash) {
+      event.preventDefault();
+      const id = event.dataTransfer.getData("application/x-songban-branch");
+      if (!id || !state.squadId) return;
+      try {
+        await api("DELETE", `/api/studio/squads/${state.squadId}/tasks/${id}`);
+        state.note = "这条分支已拖进垃圾箱。";
+        state.error = "";
+        await reload();
+      } catch (error) {
+        state.error = error.message;
+      }
+      render();
+      return;
+    }
+    const compose = event.target.closest(".wx-compose");
+    if (!compose) return;
+    const text = event.dataTransfer.getData("text/plain");
+    if (!text) return;
+    event.preventDefault();
+    const input = document.getElementById("msg-body");
+    if (input) input.value = text;
+  });
+}
+
 installContestDnD();
+installFlowDrag();
 boot();

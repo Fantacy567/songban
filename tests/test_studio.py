@@ -1,6 +1,8 @@
+import hashlib
 import os
 import tempfile
 import unittest
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +19,7 @@ from app.contest_intel import (
     heuristic_extract_facts,
     parse_weixin_article,
     prepare_weixin_url,
+    public_request,
     weixin_error_page,
 )
 from app.studio import coach_reply, extract_submissions, skill_text, strategic_kind
@@ -123,17 +126,41 @@ class ExtractTests(unittest.TestCase):
         self.assertNotIn("INTERNAL", text)
         self.assertIn("公开", title)
 
+    def test_dns_rebinding_is_blocked_before_the_request(self):
+        public = [(2, 1, 6, "", ("93.184.216.34", 80))]
+        private = [(2, 1, 6, "", ("127.0.0.1", 80))]
+        called = []
+
+        def handler(request):
+            called.append(str(request.url))
+            return httpx.Response(200, text="private")
+
+        with patch("app.contest_intel.socket.getaddrinfo", side_effect=[public, private]):
+            with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+                with self.assertRaises(IntelError) as caught:
+                    public_request(client, "GET", "http://rebind.example/secret")
+        self.assertEqual(caught.exception.code, "url_not_allowed")
+        self.assertEqual(called, [])
+
+    def test_public_page_stops_oversized_responses(self):
+        def handler(_request):
+            return httpx.Response(200, content=b"x" * 2_800_001, headers={"content-type": "text/plain"})
+
+        with self.assertRaises(IntelError) as caught:
+            fetch_public_page("http://example.com/large", transport=httpx.MockTransport(handler))
+        self.assertEqual(caught.exception.code, "page_too_large")
+
 
 class StudioFlowTests(unittest.TestCase):
     def setUp(self):
         self.env = patch.dict(
             os.environ,
-            {k: "" for k in [
+            {**{k: "" for k in [
                 "DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME",
                 "TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME", "DASHSCOPE_API_KEY",
                 "SONGBAI_REQUIRE_SMS", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET",
                 "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE",
-            ]},
+            ]}, "SONGBAI_ALLOW_TEST_CODES": "1"},
         )
         self.env.start()
         self.temp = tempfile.TemporaryDirectory()
@@ -165,6 +192,8 @@ class StudioFlowTests(unittest.TestCase):
         return {"Authorization": "Bearer " + token}
 
     def test_phone_is_the_login_and_profile_is_asked_once(self):
+        self.assertEqual(self.client.post("/api/studio/codes", json={"phone": 13800001111}).status_code, 422)
+        self.assertEqual(self.client.post("/api/studio/codes", json={"phone": ["13800001111"]}).status_code, 422)
         first = self.enter("13800001111", "孔祥梨", "产品、路演")
         self.assertFalse(first["returning"])
         again = self.enter("13800001111", "别人", "后端高手")
@@ -201,6 +230,23 @@ class StudioFlowTests(unittest.TestCase):
         self.assertIn("removeItem(\"studio-accounts\")", page)
         self.assertNotIn("换一个人", page)
 
+    def test_codes_are_not_exposed_without_explicit_test_mode(self):
+        with patch.dict(os.environ, {"SONGBAI_ALLOW_TEST_CODES": ""}):
+            result = self.client.post("/api/studio/codes", json={"phone": "13800001234"})
+        self.assertEqual(result.status_code, 503, result.text)
+        self.assertEqual(result.json()["error"]["code"], "sms_required")
+        self.assertNotIn("code", result.json())
+
+    def test_login_is_rate_limited_by_account(self):
+        self.enter("13800001235", "甲", "产品")
+        for _ in range(4):
+            failed = self.client.post("/api/studio/login", json={"account": "13800001235", "password": "wrong-pass"})
+            self.assertEqual(failed.status_code, 401, failed.text)
+        blocked = self.client.post("/api/studio/login", json={"account": "13800001235", "password": "wrong-pass"})
+        self.assertEqual(blocked.status_code, 429, blocked.text)
+        still_blocked = self.client.post("/api/studio/login", json={"account": "13800001235", "password": "pass1234"})
+        self.assertEqual(still_blocked.status_code, 429, still_blocked.text)
+
     def test_full_local_flow_without_external_accounts(self):
         captain = self.enter("13800001111", "孔祥梨", "产品、文档、路演")
         mate = self.enter("13800003333", "胡方耀", "前端、页面")
@@ -236,6 +282,9 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(self.client.post(f"/api/studio/squads/{sid}/topic", json={"idea_id": idea.json()["id"]}, headers=ma).status_code, 403)
         topic = self.client.post(f"/api/studio/squads/{sid}/topic", json={"idea_id": idea.json()["id"]}, headers=ca)
         self.assertEqual(topic.status_code, 200, topic.text)
+        locked = self.client.post(f"/api/studio/squads/{sid}/topic", json={"idea_id": other.json()["id"]}, headers=ca)
+        self.assertEqual(locked.status_code, 409, locked.text)
+        self.assertEqual(locked.json()["error"]["code"], "topic_locked")
         skill_a = self.client.get(f"/api/studio/squads/{sid}/skill", headers=ca).text
         skill_b = self.client.get(f"/api/studio/squads/{sid}/skill", headers=ma).text
         self.assertEqual(skill_a, skill_b)
@@ -347,6 +396,9 @@ class StudioFlowTests(unittest.TestCase):
 
         stamp = datetime.now(timezone.utc).isoformat()
         owner = self.enter("13800006666", "东道主", "产品")
+        browser = "test-browser-flow"
+        browser_hash = hashlib.sha256(browser.encode()).hexdigest()
+        self.client.cookies.set("songban_wechat_flow", browser, path="/api/studio/wechat")
         db_path = Path(self.temp.name) / "t.sqlite3"
         con = sqlite3.connect(db_path)
         con.row_factory = sqlite3.Row
@@ -354,13 +406,14 @@ class StudioFlowTests(unittest.TestCase):
         con.execute("UPDATE people SET wechat_openid=?, wechat_avatar=? WHERE id=?", ("openid-owner", "https://example.com/a.png", owner_id))
         con.execute("INSERT INTO wechat_invites(code, owner_id, created_at) VALUES(?,?,?)", ("invite-code", owner_id, stamp))
         con.execute(
-            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
+            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,browser_hash,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
             (
                 "ticket-new",
                 "openid-guest",
                 "访客昵称",
                 "https://thirdwx.qlogo.cn/avatar.png",
                 "union-guest",
+                browser_hash,
                 (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
                 stamp,
             ),
@@ -388,14 +441,16 @@ class StudioFlowTests(unittest.TestCase):
         host = self.client.get("/api/studio/me", headers=self.auth(owner["token"])).json()
         self.assertTrue(any(f["name"] == "访客昵称" for f in host["friends"]))
         con = sqlite3.connect(db_path)
+        self.client.cookies.set("songban_wechat_flow", browser, path="/api/studio/wechat")
         con.execute(
-            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,expires_at,created_at) VALUES(?,?,?,?,?,?,?)",
+            "INSERT INTO wechat_tickets(ticket,openid,name,avatar,unionid,browser_hash,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
             (
                 "ticket-again",
                 "openid-other",
                 "另一个人",
                 "https://thirdwx.qlogo.cn/other.png",
                 "union-other",
+                browser_hash,
                 (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
                 stamp,
             ),
@@ -409,6 +464,25 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(reused.status_code, 200, reused.text)
         self.assertIn("无效", reused.json()["notice"])
         self.assertFalse(any(f["name"] == "东道主" for f in self.client.get("/api/studio/me", headers=self.auth(reused.json()["token"])).json()["friends"]))
+
+    def test_wechat_state_and_ticket_are_bound_to_the_starting_browser(self):
+        env = {
+            "WECHAT_APP_ID": "wx" + "a" * 16,
+            "WECHAT_APP_SECRET": "s" * 32,
+            "PUBLIC_BASE_URL": "https://songban.example",
+        }
+        with patch.dict(os.environ, env), patch("app.studio.exchange_wechat_code", return_value=("openid-a", "甲", "https://thirdwx.qlogo.cn/a.png", "union-a")):
+            with TestClient(self.client.app, base_url="https://testserver") as first, TestClient(self.client.app, base_url="https://testserver") as second:
+                started = first.get("/api/studio/wechat/start", follow_redirects=False)
+                self.assertEqual(started.status_code, 307, started.text)
+                state = urllib.parse.parse_qs(urllib.parse.urlsplit(started.headers["location"]).query)["state"][0]
+                crossed = second.get(f"/api/studio/wechat/callback?code=code-a&state={state}", follow_redirects=False)
+                self.assertEqual(crossed.status_code, 400, crossed.text)
+                callback = first.get(f"/api/studio/wechat/callback?code=code-a&state={state}", follow_redirects=False)
+                self.assertEqual(callback.status_code, 307, callback.text)
+                ticket = urllib.parse.parse_qs(urllib.parse.urlsplit(callback.headers["location"]).query)["wechat_ticket"][0]
+                rejected = second.post("/api/studio/wechat/finish", json={"ticket": ticket, "name": "甲", "profile": "产品", "skills": "路演"})
+                self.assertEqual(rejected.status_code, 401, rejected.text)
 
     def test_sent_code_is_not_returned(self):
         with patch.dict(os.environ, {"SONGBAI_IMESSAGE": "1"}):
@@ -600,6 +674,9 @@ class StudioFlowTests(unittest.TestCase):
         self.assertEqual(blocked.status_code, 403)
         sent = self.client.post("/api/studio/messages", json={"kind": "dm", "peer_id": two["user_id"], "body": "你好"}, headers=self.auth(one["token"]))
         self.assertEqual(sent.status_code, 200, sent.text)
+        oversized = self.client.post("/api/studio/messages", json={"kind": "dm", "peer_id": two["user_id"], "body": "长" * 2001}, headers=self.auth(one["token"]))
+        self.assertEqual(oversized.status_code, 422, oversized.text)
+        self.assertEqual(oversized.json()["error"]["code"], "message_too_long")
         inbox = self.client.get(f"/api/studio/messages?kind=dm&peer_id={one['user_id']}", headers=self.auth(two["token"]))
         self.assertEqual(inbox.status_code, 200, inbox.text)
         self.assertEqual(inbox.json()["messages"][0]["body"], "你好")
@@ -616,6 +693,9 @@ class StudioFlowTests(unittest.TestCase):
         self.assertIn("wx-bubble", page)
         self.assertNotIn("左边点一个好友或团队群", page)
         self.assertIn("clearPrivateView", page)
+        self.assertIn("state.threadMessages = [];", page)
+        self.assertIn("state.squad && !state.squad.squad.confirmed", page)
+        self.assertIn("item.editors.map((id) => esc(nameOf(id)))", page)
         self.assertIn("去组队", page)
         self.assertIn("退出登录", page)
         self.assertNotIn("已确认的比赛", page)
@@ -626,6 +706,8 @@ class StudioFlowTests(unittest.TestCase):
         secret = "sk-personal-test-key"
         blocked = self.client.post("/api/studio/me/model", json={"base_url": "http://example.com/secret", "api_key": secret, "model_id": "local"}, headers=headers)
         self.assertEqual(blocked.status_code, 422)
+        loopback = self.client.post("/api/studio/me/model", json={"base_url": "http://127.0.0.1:8765/internal", "api_key": secret, "model_id": "local"}, headers=headers)
+        self.assertEqual(loopback.status_code, 422, loopback.text)
         saved = self.client.post("/api/studio/me/model", json={"base_url": "https://api.deepseek.com", "api_key": secret, "model_id": "deepseek-v4-pro"}, headers=headers)
         self.assertEqual(saved.status_code, 200, saved.text)
         me = self.client.get("/api/studio/me", headers=headers)
@@ -653,6 +735,77 @@ class StudioFlowTests(unittest.TestCase):
         self.assertIn("先做能演示的一条", direction.json()["reply"])
         self.assertNotIn("sk-team-test", team.call_args.args[2])
         self.assertEqual(team.call_args.args[0]["api_key"], "sk-team-test")
+
+    def test_saved_card_team_mindmap_and_library_follow_the_flow(self):
+        captain = self.enter("13800008881", "队长", "产品")
+        mate = self.enter("13800008882", "队友", "前端开发")
+        ca = self.auth(captain["token"])
+        ma = self.auth(mate["token"])
+        contest = self.client.post(
+            "/api/studio/contests",
+            json={"name": "现场赛", "deadline": self.deadline, "source_text": SOURCE},
+            headers=ca,
+        ).json()
+        saved = self.client.post(f"/api/studio/contests/{contest['id']}/card", json={"theme_status": "pending"}, headers=ca)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()["theme_status"], "pending")
+        self.assertTrue(saved.json()["card_saved"])
+        squad = self.client.post(
+            "/api/studio/squads",
+            json={"name": "松果", "contest_id": contest["id"], "project_brief": "不该被采用"},
+            headers=ca,
+        )
+        self.assertEqual(squad.status_code, 200, squad.text)
+        sid = squad.json()["id"]
+        snap = self.client.get(f"/api/studio/squads/{sid}", headers=ca).json()
+        self.assertEqual(snap["squad"]["project_brief"], "具体主题待揭晓")
+        self.client.post("/api/studio/friends", json={"phone": "13800008882"}, headers=ca)
+        invited = self.client.post(f"/api/studio/squads/{sid}/invite-friend", json={"friend_id": mate["user_id"]}, headers=ca)
+        self.assertEqual(invited.status_code, 200, invited.text)
+        self.assertTrue(invited.json()["joined"])
+        blocked = self.client.post(f"/api/studio/squads/{sid}/invite-friend", json={"friend_id": captain["user_id"]}, headers=ma)
+        self.assertEqual(blocked.status_code, 403)
+        intro = self.client.post(
+            f"/api/studio/squads/{sid}/intro",
+            json={"role": "前端开发", "responsibility": "做报名页"},
+            headers=ma,
+        )
+        self.assertEqual(intro.status_code, 200, intro.text)
+        self.assertEqual(intro.json()["responsibility"], "做报名页")
+        root = self.client.post(
+            f"/api/studio/squads/{sid}/tasks",
+            json={"title": "报名页", "owner_id": mate["user_id"], "priority": "must", "parent_id": ""},
+            headers=ca,
+        )
+        self.assertEqual(root.status_code, 200, root.text)
+        child = self.client.post(
+            f"/api/studio/squads/{sid}/tasks",
+            json={"title": "表单", "owner_id": mate["user_id"], "priority": "must", "parent_id": root.json()["id"]},
+            headers=ca,
+        )
+        self.assertEqual(child.status_code, 200, child.text)
+        renamed = self.client.patch(
+            f"/api/studio/squads/{sid}/tasks/{child.json()['id']}",
+            json={"title": "报名表单"},
+            headers=ca,
+        )
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        deleted = self.client.delete(f"/api/studio/squads/{sid}/tasks/{root.json()['id']}", headers=ca)
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(self.client.get(f"/api/studio/squads/{sid}", headers=ca).json()["tasks"], [])
+        noted = self.client.post(f"/api/studio/squads/{sid}/library", json={"body": "报名页只要手机号"}, headers=ma)
+        self.assertEqual(noted.status_code, 200, noted.text)
+        with patch("app.studio.team_model_config", return_value={}):
+            overview = self.client.post(f"/api/studio/squads/{sid}/overview", json={}, headers=ca)
+        self.assertEqual(overview.status_code, 200, overview.text)
+        self.assertIn("报名页", overview.json()["overview"])
+        self.assertIn("1 条", overview.json()["overview"])
+        page = self.client.get("/static/studio.js").text
+        self.assertIn("查看全部比赛卡", page)
+        self.assertIn("上传到团队资料库", page)
+        self.assertIn("把不要的分支拖到这里", page)
+        self.assertNotIn("队长手动加一条", page)
+        self.assertIn("deadline-dock", self.client.get("/").text)
 
 
 if __name__ == "__main__":

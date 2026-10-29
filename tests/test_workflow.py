@@ -256,6 +256,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn(secret, result.text)
         oversized = self.client.post("/api/projects", content="a"*300001, headers={"Content-Type":"application/json"})
         self.assertEqual(oversized.status_code, 413)
+        oversized_patch = self.client.patch("/api/studio/me", content="a"*300001, headers={"Content-Type":"application/json"})
+        self.assertEqual(oversized_patch.status_code, 413)
 
     def test_F09_model_protocol_mock_and_errors(self):
         self.sources()
