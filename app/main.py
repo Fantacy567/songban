@@ -177,6 +177,79 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
     settings_lock = threading.Lock()
     custom_models, discoveries, model_versions = {}, {}, {}
 
+    # The learning/experience flow is intentionally isolated from the team
+    # collaboration tables.  This first slice is a local demo adapter: the
+    # browser can complete the full flow without an account, while callers
+    # that want to exercise server persistence can use these versioned,
+    # in-memory session endpoints.  A production learning domain should move
+    # this state to its own authenticated tables before being enabled publicly.
+    learning_lock = threading.Lock()
+    learning_sessions = {}
+    learning_events = [
+        {
+            "id": "education-agent-weekend",
+            "title": "教育 Agent 创作周末",
+            "date": "11月7日—8日",
+            "location": "上海杨浦",
+            "summary": "教育主题，适合第一次参赛的你。",
+            "why": "从一个真实学习问题出发，完成一次可演示的小作品。",
+            "featured": True,
+            "rules": "活动日期：2026年11月7日至8日。教育主题，支持1—3人组队。提交一个可运行的作品链接、简短项目说明，并完成3分钟展示。具体年龄资格、AI使用范围和提交时间请向主办方核实。",
+        },
+        {
+            "id": "campus-ai-cocreate",
+            "title": "校园 AI 共创营",
+            "date": "11月14日—15日",
+            "location": "上海徐汇",
+            "summary": "从校园问题出发，可以结伴完成作品。",
+            "why": "适合把日常观察整理成一个小而完整的校园工具。",
+            "featured": False,
+            "rules": "活动日期：2026年11月14日至15日。具体主题、组队和提交要求请向主办方核实。",
+        },
+        {
+            "id": "open-learning-tools",
+            "title": "开放学习工具挑战",
+            "date": "11月21日—22日",
+            "location": "上海浦东",
+            "summary": "把学习中的小想法，变成可以展示的工具。",
+            "why": "适合先完成一个可走通的学习工具流程。",
+            "featured": False,
+            "rules": "活动日期：2026年11月21日至22日。具体资格与提交要求请向主办方核实。",
+        },
+    ]
+
+    def learning_session_snapshot(session):
+        value = dict(session)
+        value["onboarding"] = dict(session.get("onboarding") or {})
+        value["team"] = dict(session.get("team") or {})
+        value["idea"] = dict(session.get("idea") or {})
+        value["direction"] = dict(session.get("direction") or {})
+        value["delivery"] = dict(session.get("delivery") or {})
+        value["review"] = dict(session.get("review") or {})
+        value["tasks"] = [dict(task) for task in session.get("tasks", [])]
+        return value
+
+    def learning_seed_tasks():
+        return [
+            {
+                "id": "sketch-first-flow",
+                "title": "画出第一轮体验",
+                "status": "in_progress",
+                "deliverable": "三张相互连接的页面草图或链接。",
+                "steps": [
+                    "选一个具体问题，写下一句话目标",
+                    "画出开始、互动、结果三个页面",
+                    "把三页连接成可以顺着走的流程",
+                ],
+                "evidence": {},
+            },
+            {"id": "content-check", "title": "整理一个知识点", "status": "todo", "deliverable": "一段可核对的内容说明。", "steps": [], "evidence": {}},
+            {"id": "demo-rehearsal", "title": "完成一次完整演示", "status": "todo", "deliverable": "一条可以顺着走的演示流程。", "steps": [], "evidence": {}},
+            {"id": "peer-check", "title": "找一位同学试用", "status": "todo", "deliverable": "一条试用反馈记录。", "steps": [], "evidence": {}},
+            {"id": "project-note", "title": "写下项目说明", "status": "todo", "deliverable": "简短项目说明。", "steps": [], "evidence": {}},
+            {"id": "submission-list", "title": "对照活动要求核对提交清单", "status": "todo", "deliverable": "提交前核对结果。", "steps": [], "evidence": {}},
+        ]
+
     def selected_model(pid):
         with settings_lock:
             return dict(custom_models.get(pid) or builtin_model())
@@ -626,9 +699,103 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         lines.extend(["## 过程记录", *[f"- {e['created_at']} · {labels.get(e['actor_id'], '系统')} · {e['detail']}" for e in events]])
         return PlainTextResponse("\n".join(lines), media_type="text/markdown; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="hackathon-recap.md"'})
 
+    @api.get("/api/learning/v1/events")
+    def learning_events_list(role: str = "creator", interests: str = "", time: str = ""):
+        """Return the local sample activity catalog used by the experience UI."""
+        requested = {item.strip() for item in interests.split(",") if item.strip()}
+        result = []
+        for event_item in learning_events:
+            item = dict(event_item)
+            item["match_reason"] = item["why"]
+            if requested and "教育" in requested:
+                item["match_reason"] = "教育主题与你的兴趣相近，也适合从小作品开始。"
+            result.append(item)
+        return {"mode": "local_demo", "role": role, "time": time, "items": result, "notice": "活动为虚构样例；正式活动数据待接入。"}
+
+    @api.get("/api/learning/v1/events/{event_id}")
+    def learning_event_detail(event_id: str):
+        event_item = next((item for item in learning_events if item["id"] == event_id), None)
+        if not event_item:
+            raise Problem(404, "learning_event_not_found", "活动不存在或已下线。")
+        return {"mode": "local_demo", "item": dict(event_item), "notice": "保存规则原文不代表系统已核验资格或截止时间。"}
+
+    @api.post("/api/learning/v1/sessions", status_code=201)
+    def learning_session_create(body: dict | None = None):
+        body = body or {}
+        session_id = uid()
+        session = {
+            "id": session_id,
+            "mode": "local_demo",
+            "role": body.get("role", "creator"),
+            "created_at": now(),
+            "updated_at": now(),
+            "onboarding": {},
+            "selected_event": None,
+            "team": {"members": [{"id": "me", "name": "林同学", "role": "设计与创作", "sample": False}], "sample": False},
+            "idea": {"goal": "complete", "text": ""},
+            "direction": {"status": "draft", "title": "知识闯关小助手", "summary": "让学生用三步互动，理解一个知识点。"},
+            "tasks": learning_seed_tasks(),
+            "delivery": {"checks": [], "rehearsal_seconds": 60, "script": ""},
+            "review": {"reflection": "", "share": []},
+            "revision": 1,
+        }
+        with learning_lock:
+            learning_sessions[session_id] = session
+        return learning_session_snapshot(session)
+
+    @api.get("/api/learning/v1/sessions/{session_id}")
+    def learning_session_get(session_id: str):
+        with learning_lock:
+            session = learning_sessions.get(session_id)
+            if not session:
+                raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
+            return learning_session_snapshot(session)
+
+    @api.patch("/api/learning/v1/sessions/{session_id}")
+    def learning_session_update(session_id: str, body: dict):
+        allowed = {"role", "onboarding", "selected_event", "team", "idea", "direction", "tasks", "delivery", "review"}
+        with learning_lock:
+            session = learning_sessions.get(session_id)
+            if not session:
+                raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
+            expected = body.get("expected_revision")
+            if expected is not None and expected != session["revision"]:
+                raise Problem(409, "learning_revision_conflict", "体验资料已在另一窗口更新，请刷新后重试。", {"current_revision": session["revision"]})
+            for key in allowed:
+                if key in body:
+                    session[key] = body[key]
+            session["revision"] += 1
+            session["updated_at"] = now()
+            return learning_session_snapshot(session)
+
+    @api.post("/api/learning/v1/sessions/{session_id}/evidence")
+    def learning_session_evidence(session_id: str, body: dict):
+        task_id = str(body.get("task_id") or "")
+        if not task_id:
+            raise Problem(422, "learning_task_required", "请先选择要提交的任务。")
+        if not any(str(body.get(key) or "").strip() for key in ("summary", "url", "file_name")):
+            raise Problem(422, "learning_evidence_required", "请添加成果说明、链接或文件。")
+        with learning_lock:
+            session = learning_sessions.get(session_id)
+            if not session:
+                raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
+            task = next((item for item in session["tasks"] if item["id"] == task_id), None)
+            if not task:
+                raise Problem(404, "learning_task_not_found", "任务不存在或已更新。")
+            task["evidence"] = {"summary": str(body.get("summary") or "").strip(), "url": str(body.get("url") or "").strip(), "file_name": str(body.get("file_name") or "").strip()}
+            task["status"] = "reported_done"
+            session["revision"] += 1
+            session["updated_at"] = now()
+            return learning_session_snapshot(session)
+
     @api.get("/", include_in_schema=False)
     def homepage():
         return FileResponse(ROOT / "static" / ("core.html" if api.state.core_only else "studio.html"))
+
+    @api.get("/learning", include_in_schema=False)
+    @api.get("/learning/", include_in_schema=False)
+    def learning_homepage():
+        return FileResponse(ROOT / "static" / "learning.html")
 
     @api.get("/workflow", include_in_schema=False)
     def workflow():

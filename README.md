@@ -12,6 +12,7 @@
 - 安装/资料库说明：`docs/core-collaboration/原生松伴连接器.md`。
 - 启动：`.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8886`。
 - 默认核心工作台接口：`/api/core`；历史工作台与接口保留，但默认封锁。
+- 学习体验前台：`/learning`（独立于团队工作台的本地体验流程；前端位于 `static/learning.html`、`static/learning.css`、`static/learning.js`）。
 - 完整兼容回归：`SONGBAN_CORE_ONLY=0 .venv/bin/python -m unittest discover -s tests -q`。原生插件安装测试需要本机有 `codex` CLI；不会调用付费模型。
 
 ## 克隆后不要复制私人配置
