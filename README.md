@@ -29,6 +29,11 @@
 - 统一前台视觉契约：以参考 `#/event` 页面为 design-v1 基准，约束活动／实践页面壳、tokens、状态和验收；见 [`docs/planning/视觉宪法与 UI 契约.md`](docs/planning/视觉宪法与%20UI%20契约.md)。
 - 完整兼容回归：`SONGBAN_CORE_ONLY=0 .venv/bin/python -m unittest discover -s tests -q`。原生插件安装测试需要本机有 `codex` CLI；不会调用付费模型。
 
+## 本轮流程验收与短信配置
+
+- [完整流程验收报告（2026-10-31）](docs/reviews/完整流程验收报告-2026-10-31.md)：明确已跑通的协作子流程及完整比赛仍缺少的环节。
+- [短信服务配置与实际验收](docs/core-collaboration/短信服务配置.md)：仓库 Secrets、配置检查、真实发送验证与部署边界。
+
 ## 克隆后不要复制私人配置
 
 `.env`、数据库、`.songban/`、`.codex/` 及本机走查证据不入库。请复制 `.env.example` 并自行配置需要的服务；在自己的松伴账号中创建团队并连接自己的工具。GitHub有代码不等于已部署公网服务。

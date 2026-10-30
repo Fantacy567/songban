@@ -1,0 +1,26 @@
+name: SMS configuration check
+on:
+  workflow_dispatch:
+  push:
+    branches: ['fix/sms-configuration-20261031']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Check private configuration and Aliyun identity without sending SMS
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_SMS_SIGN_NAME: ${{ secrets.ALIYUN_SMS_SIGN_NAME }}
+          ALIYUN_SMS_TEMPLATE_CODE: ${{ secrets.ALIYUN_SMS_TEMPLATE_CODE }}
+          ALIYUN_SMS_MODE: ${{ secrets.ALIYUN_SMS_MODE }}
+          SONGBAI_REQUIRE_SMS: '1'
+          SONGBAI_ALLOW_TEST_CODES: '0'
+        run: python scripts/check_sms_config.py --check-identity
