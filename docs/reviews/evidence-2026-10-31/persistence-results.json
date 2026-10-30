@@ -1,0 +1,10 @@
+{
+  "model_without_configuration_status": 503,
+  "model_error": "model_not_configured",
+  "existing_plan_preserved": true,
+  "saved_reports_preserved": true,
+  "snapshot_tasks": 2,
+  "model_configured": false,
+  "restart_persists_plan": true,
+  "restart_persists_reports": true
+}

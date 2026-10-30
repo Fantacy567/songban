@@ -288,7 +288,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         path = request.url.path
         if api.state.core_only:
             legacy = path in {"/classic", "/workflow", "/static/studio.html", "/static/index.html", "/static/workflow.html"} or path.startswith("/api/projects")
-            old_studio = path.startswith("/api/studio/") and path not in {"/api/studio/login", "/api/studio/login-code", "/api/studio/register", "/api/studio/codes"}
+            old_studio = path.startswith("/api/studio/") and path not in {"/api/studio/login", "/api/studio/login-code", "/api/studio/register", "/api/studio/codes", "/api/studio/sms-status"}
             if legacy or old_studio:
                 return JSONResponse({"error": {"code": "feature_locked", "message": "本轮只开放个人智能体与团队统筹主线，其他功能暂时封锁。"}}, status_code=423)
         if request.method in {"POST", "PUT", "PATCH"}:
