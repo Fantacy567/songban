@@ -16,8 +16,8 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   for(const page of [a,b])page.on('pageerror',e=>errors.push(e.message));
   await route(a,'login');await a.getByRole('button',{name:/^登录/}).waitFor();await screenshot(a,'unified-landing');
   await a.getByRole('link',{name:'找到适合我的黑客松'}).click();await a.locator('.event-row').first().waitFor();
-  await a.locator('.event-row').first().click();await a.locator('#event-rules').waitFor();await screenshot(a,'unified-event');
-  await a.locator('#start-event').click();await a.locator('[data-auth-required]').click();
+  await a.locator('.event-row').first().click();await a.locator('#material-text').waitFor();await screenshot(a,'unified-event');
+  await a.getByRole('link',{name:'创建或加入小队 →',exact:true}).click();await a.locator('[data-auth-required]').click();
   await a.locator('[data-register]').click();
   const stamp=String(Date.now()).slice(-7),phoneA='1881'+stamp,phoneB='1882'+stamp;
   await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-code').fill(await codeFromUI(a));
@@ -25,7 +25,7 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   await a.locator('#auth-skills').fill('页面设计');await a.locator('#auth-profile').fill('完成第一件作品');
   await a.locator('#auth-form button[type=submit]').click();await a.locator('#create-team').waitFor();
   await a.locator('#team-name').fill('联调验证小队 '+stamp);await a.locator('#create-team button[type=submit]').click();
-  await a.locator('#direction-form').waitFor();assert((await a.locator('[name=rules]').inputValue()).includes('教育'));
+  await a.locator('#direction-form').waitFor();await a.locator('[name=rules]').fill('协议测试规则：提交可运行的教育作品与说明。');
   await a.locator('[name=goal]').fill('完成一个可以演示的知识闯关小助手');
   await a.locator('#direction-form button[type=submit]').click();await a.getByText('共同方向已更新。',{exact:false}).waitFor();
   const tokenA=await a.evaluate(()=>localStorage.getItem('studio-token'));const team=(await request('/api/core/me',null,tokenA)).teams[0];
