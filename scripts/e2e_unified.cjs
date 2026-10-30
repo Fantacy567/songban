@@ -57,6 +57,12 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
     }
   }
   console.log('PASS 30 responsive route checks at 390/768/1440');
+  const catalog=await request('/api/learning/v1/events');const shareEvent=catalog.items[1];
+  await route(a,'event?id='+encodeURIComponent(shareEvent.id));await a.locator('#event-rules').waitFor();
+  assert(a.url().includes('id='+encodeURIComponent(shareEvent.id)));
+  const recipient=await browser.newPage();await recipient.goto(a.url());await recipient.locator('#event-rules').waitFor();
+  assert.equal(await recipient.locator('.page-heading h1').innerText(),shareEvent.title);await recipient.close();
+  console.log('PASS shared event URL opens the same event in a fresh browser context');
   await route(a,'direction');await a.locator('[name=goal]').fill('未保存的长中文草稿，离开页面也应保留');
   await a.getByRole('link',{name:'任务',exact:true}).click();await a.getByRole('link',{name:'方向',exact:true}).click();
   assert.equal(await a.locator('[name=goal]').inputValue(),'未保存的长中文草稿，离开页面也应保留');
@@ -80,6 +86,20 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   await tab.waitForFunction(()=>state.me?.teams.length>0);
   assert.equal(await a.evaluate(()=>state.token),await tab.evaluate(()=>state.token));
   await tab.close();console.log('PASS cross-tab login/logout synchronization');
+  await route(a,'review');await a.locator('#reflection').waitFor();
+  await a.locator('#reflection').fill('重试验收：服务端已保存但响应丢失');
+  const reportsPattern='**/api/core/teams/*/reports';
+  await a.route(reportsPattern,async r=>{const upstream=await r.fetch();assert(upstream.ok());await r.abort('failed');});
+  await a.locator('#reflection-form button[type=submit]').click();await a.locator('#reflection-form .error').waitFor();
+  const activeToken=await a.evaluate(()=>localStorage.getItem('studio-token'));
+  const reportsAfterLostResponse=(await request('/api/core/teams/'+team.id,null,activeToken)).reports.length;
+  await a.unroute(reportsPattern);
+  await a.getByRole('link',{name:'任务',exact:true}).click();await a.getByRole('link',{name:'复盘',exact:true}).click();
+  assert.equal(await a.locator('#reflection').inputValue(),'重试验收：服务端已保存但响应丢失');
+  await a.locator('#reflection-form button[type=submit]').click();await a.getByText('复盘已保存到团队。',{exact:true}).waitFor();
+  const reportsAfterRetry=(await request('/api/core/teams/'+team.id,null,activeToken)).reports.length;
+  assert.equal(reportsAfterRetry,reportsAfterLostResponse);
+  console.log('PASS recap retry after navigation reuses the original event and avoids duplicate records');
   const fresh=await browser.newPage({viewport:{width:390,height:844}});
   await route(fresh,'login');const trigger=fresh.getByRole('button',{name:/^登录/});
   await trigger.click();await fresh.locator('#auth-phone').waitFor();await fresh.keyboard.press('Escape');

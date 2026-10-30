@@ -58,12 +58,15 @@ function captureDrafts() {
   root.querySelectorAll('form[data-dirty="true"]:not(#auth-form)').forEach(form=>{
     if(form.dataset.submitting)return;
     const fields=[...form.elements].filter(e=>e.name && !['password','file'].includes(e.type));
-    state.drafts.set(state.team+':'+form.id,fields.map(e=>[e.name,e.type==='checkbox'?e.checked:e.value]));
+    const draft=fields.map(e=>[e.name,e.type==='checkbox'?e.checked:e.value]);
+    draft.eventId=form.dataset.eventId;
+    state.drafts.set(state.team+':'+form.id,draft);
   });
 }
 function restoreDrafts() {
   root.querySelectorAll('form:not(#auth-form)').forEach(form=>{
     const draft=state.drafts.get(state.team+':'+form.id);if(!draft)return;
+    if(draft.eventId)form.dataset.eventId=draft.eventId;
     for(const [name,value] of draft){const input=form.elements.namedItem(name);if(input){if(input.type==='checkbox')input.checked=value;else input.value=value;}}
     form.dataset.dirty='true';const note=document.createElement('p');note.className='notice';note.dataset.draftNotice='true';note.textContent='已保留你未保存的输入，请核对最新团队资料后再保存。';form.prepend(note);
   });
@@ -92,7 +95,9 @@ function shell() {
   };
 }
 function render() {
-  const route=pageRoutes[state.page]||state.page;history.replaceState(null,'','#/'+route);
+  const route=pageRoutes[state.page]||state.page;
+  const query=state.page==='event'&&state.eventId?'?id='+encodeURIComponent(state.eventId):'';
+  history.replaceState(null,'','#/'+route+query);
   if(state.page==='login'){landing();return;}
   shell();
   if(state.page==='events'){eventsPage();return;}
@@ -169,7 +174,8 @@ async function eventPage(){
   try{
     if(!state.eventId){const list=await api('/api/learning/v1/events');state.eventId=list.items[0]?.id||'';}
     const data=await api('/api/learning/v1/events/'+encodeURIComponent(state.eventId));if(!c.isConnected)return;
-    const e=data.item;sessionStorage.setItem('songban-event',e.id);
+    const e=data.item;state.eventId=e.id;sessionStorage.setItem('songban-event',e.id);
+    history.replaceState(null,'','#/event?id='+encodeURIComponent(e.id));
     c.innerHTML=`<a class="text-link back-link" href="#/events">← 返回活动</a>${head('先了解，再开始 / 样例活动',e.title,e.date+' · '+e.location)}<section class="card event-detail"><p class="event-lead">${esc(e.summary||e.description)}</p><div class="event-facts"><div><h3>先做出什么</h3><p>一个能走完主流程的小作品，<br>一次完整演示。</p></div><div><h3>可以怎么参与</h3><p>和熟悉的同伴一起，<br>按实际能投入的时间安排。</p></div><div><h3>还需要核实</h3><p>年龄资格、AI 使用政策、<br>报名和正式提交时间。</p></div></div><label for="event-rules">本场规则，也可以粘贴你自己的比赛要求</label><textarea id="event-rules" rows="5">${esc(e.rules||'')}</textarea><p class="caption">这里先保留草稿；创建小队并确认方向后，会保存到真实团队。样例规则需自行核实。</p></section><div class="action-row"><p class="muted">把要求保存好，创作时就不会漏掉。</p><button class="primary" id="start-event">就从这场开始 ${icon('arrow')}</button></div>`;
     $('#start-event').onclick=()=>{state.selectedRules='活动：'+e.title+'（样例，请核实）\n'+$('#event-rules').value;go('team');};
   }catch(error){if(c.isConnected)c.innerHTML=`<p class="error">${esc(error.message)}</p><a href="#/events">返回活动列表</a>`;}
@@ -192,7 +198,7 @@ function deliveryPage(){
 }
 function recapPage(){
   const d=state.data,w=d.workflow;$('#content').innerHTML=head('回头看看，每一步都有意义','这一次，我们走到了这里。','复盘来自当前团队记录；未知的结果，留给实际体验来回答。')+`<section class="card"><div class="recap-numbers"><div><strong>${w.total_tasks}</strong><span>已确认任务</span></div><div><strong>${w.accepted_tasks}</strong><span>当前成果有同伴检查</span></div><div><strong>${d.reports.length}</strong><span>最近进展记录</span></div></div><h2>我们最初想做什么</h2><p class="wrap">${esc(d.direction.goal||'尚未填写共同方向')}</p><h2>下一步</h2><p>${esc(w.next_action.title)}</p><p class="muted">${esc(w.next_action.reason)}</p></section><form class="card" id="reflection-form"><h2>留下一句真实的收获。</h2><label for="reflection">这次尝试了什么，哪里还想继续练习？</label><textarea id="reflection" name="summary" maxlength="3000" required placeholder="说说具体发生的事，也可以记录卡住的地方。"></textarea><p class="caption">保存为一条本人进展，团队成员可以看到。</p><button type="submit" class="primary">保存到团队记录 ${icon('arrow')}</button></form><section class="card"><h2>最近的脚印</h2>${reports()}</section>`;
-  bindForm('#reflection-form',async(form,fd)=>{await api(endpoint('/reports'),{summary:'复盘：'+values(fd).summary,event_id:crypto.randomUUID(),tool:'网页复盘',origin:'human',status:'discussion'});state.drafts.delete(state.team+':reflection-form');await refresh(true);toast('复盘已保存到团队。');});
+  bindForm('#reflection-form',async(form,fd)=>{await api(endpoint('/reports'),{summary:'复盘：'+values(fd).summary,event_id:form.dataset.eventId||(form.dataset.eventId=crypto.randomUUID()),tool:'网页复盘',origin:'human',status:'discussion'});state.drafts.delete(state.team+':reflection-form');await refresh(true);toast('复盘已保存到团队。');});
 }
 async function refresh(force=false){
   if(!state.token||!state.team||state.syncing)return;
