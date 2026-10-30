@@ -26,6 +26,20 @@ class NativePluginTests(unittest.TestCase):
   with patch.object(server,'binding',return_value={}),patch.object(server,'request',return_value={}):
    with self.assertRaises(server.ConnectorError):server.invoke('songban_sync_selected_turn',args,'test')
 
+ def test_full_reply_transport_and_readonly_library_tools(self):
+  from urllib.parse import parse_qs,urlsplit
+  long_reply='完整可见回复'*9000
+  body=server.payload({'event_id':'long-turn','user_message':'请解释','assistant_summary':'解释要点','assistant_message':long_reply,'full_reply_authorized':True})
+  self.assertEqual(body['assistant_message'],long_reply)
+  with patch.object(server,'binding',return_value={}),patch.object(server,'request',return_value={'items':[]}) as request:
+   server.invoke('songban_search_team_library',{'query':'设计','stage':'discussion'},'test')
+   query=parse_qs(urlsplit(request.call_args.args[1]).query)
+   self.assertEqual(query['q'],['设计']);self.assertEqual(query['brief'],['true'])
+  with patch.object(server,'binding',return_value={}),patch.object(server,'request',return_value={'id':'note'}) as request:
+   server.invoke('songban_read_library_record',{'record_id':'note'},'test');self.assertEqual(request.call_args.args[1],'/library/note')
+  readonly={x['name']:x.get('annotations',{}).get('readOnlyHint') for x in server.TOOLS}
+  self.assertTrue(readonly['songban_search_team_library']);self.assertTrue(readonly['songban_read_library_record'])
+
  def test_real_cli_register_preserves_other_settings_and_keeps_secrets_out_of_cache(self):
   with tempfile.TemporaryDirectory(prefix='native-plugin-test-') as d:
    home=Path(d);conf=home/'.codex/config.toml';conf.parent.mkdir();conf.write_text('model="test-model"\nmodel_provider="openai"\n[plugins."other@demo"]\nenabled=false\n')

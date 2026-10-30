@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "songban-connector",
-  "version": "0.9.2",
+  "version": "1.0.0",
   "description": "将获准分享的讨论同步至松伴团队资料库",
   "extensions": {
     "com.openai": {

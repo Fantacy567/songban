@@ -81,9 +81,10 @@ class LearningShellTests(unittest.TestCase):
     def test_unified_visual_shell_contract(self):
         home = self.client.get("/")
         learning = self.client.get("/learning")
-        self.assertIn("songban.css?v=20261030-design-v1.1", home.text)
-        self.assertIn("songban.js?v=20261030-design-v1.1", home.text)
-        self.assertIn("songban-views.js?v=20261030-design-v1.1", learning.text)
+        self.assertIn("songban.css?v=20261031-design-v1.2", home.text)
+        self.assertIn("songban.js?v=20261031-design-v1.2", home.text)
+        self.assertIn("songban-views.js?v=20261031-design-v1.2", learning.text)
+        self.assertIn("songban-library.js?v=20261031-design-v1.2", home.text)
         self.assertIn('data-shell="songban-v1"', home.text)
         css = self.client.get('/static/songban.css').text
         for token in ('--sb-bg:#faf9f6', '--sb-purple:#8c71ed', '.app-shell', '.app-header', '.sidebar', '.surface'):

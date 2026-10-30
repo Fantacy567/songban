@@ -6,7 +6,7 @@
 
 默认 `/` 和 `/learning` 现在提供同一套「活动／实践」前台，参考所给预览站重写品牌首页、登录弹窗、活动与团队页面。保留手机号＋密码登录，新增短信验证码登录；两种方式使用同一账号和团队。实现与验收边界见 [统一前台接入说明](docs/core-collaboration/统一前台接入说明.md)。
 
-- 页面：`static/songban.html`、`songban.css`、`songban.js`、`songban-views.js`，保持原生静态文件，无构建步骤。
+- 页面：`static/songban.html`、`songban.css`、`songban.js`、`songban-views.js`、`songban-library.js`，保持原生静态文件，无构建步骤。
 - 真实协作：注册／登录 → 创建或加入小队 → 保存方向 → 统筹／队长确认 → 同步成果 → 同伴检查 → 交付核对／复盘。团队数据沿用 `/api/core`。
 - 登录：密码走 `POST /api/studio/login`；验证码走 `POST /api/studio/login-code`；验证码发送仍走 `/api/studio/codes`。短信服务未配置时明确返回错误，不模拟已发送。
 - 活动目录仍是带明确标记的虚构样例；团队模型需要服务端配置。浏览器测试使用隔离的短信和模型替身，不证明真实供应商已经可用。
@@ -31,7 +31,7 @@
 
 ## 连接器与赛后成长记录
 
-现有网页「实践 → 个人工具」保留 Codex 原生插件及 Codex/Cursor/WorkBuddy 项目 MCP 接入。当前记录用户原话与 AI 回复要点，不保证所有对话完整自动采集。团队速读、家长成长报告及下一场记忆的新增意图见[专项宪法](docs/planning/松伴连接器与赛后成长报告宪法.md)，多 Agent 分工仍是讨论方案。
+现有网页「实践 → 个人工具」保留 Codex 原生插件及 Codex/Cursor/WorkBuddy 项目 MCP 接入。选题讨论与任务页已接入共享入口；获准的用户原话及可见模型回复以两段显示，按成员配色，支持关键词/成员/环节/任务筛选、历史分页和MCP检索原文。旧摘要与全文分别标注，不保证所有对话自动采集。详见[本轮资料库接入](docs/core-collaboration/对话资料库与连接器接入.md)。团队速读、家长成长报告及下一场记忆的新增意图见[专项宪法](docs/planning/松伴连接器与赛后成长报告宪法.md)，多 Agent 分工仍是讨论方案。
 
 ## 本轮流程验收与短信配置
 

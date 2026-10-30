@@ -17,7 +17,7 @@ import urllib.parse
 import urllib.request
 
 VERSION='1.0'
-MAX_BYTES=60000
+MAX_BYTES=280000
 
 
 def encode(x):return json.dumps(x,ensure_ascii=False,sort_keys=True,allow_nan=False)
@@ -82,7 +82,7 @@ def call(path,body=None):
 
 def prepare(body):
     if not isinstance(body,dict):raise BridgeError('进展文件必须是JSON对象。')
-    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin'}
+    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized'}
     if set(body)-allowed:raise BridgeError('进展含不支持的字段，请按示例填写。')
     # Round trip redacts only string values; never interpolates JSON as code.
     def walk(v):
@@ -165,6 +165,39 @@ TOOLS=[
 ]
 
 
+CONVERSATION_SCHEMA={'type':'object','properties':{
+ 'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
+ 'user_message':{'type':'string'},'assistant_message':{'type':'string'},'assistant_summary':{'type':'string'},'model_name':{'type':'string'},
+ 'conversation_stage':{'type':'string','enum':['discussion','development','recap']},'task_key':{'type':'string'},'plan_version':{'type':'integer'}
+},'required':['selected','event_id','user_message','assistant_summary'],'additionalProperties':False}
+TOOLS.extend([
+ {'name':'songban_sync_selected_turn','description':'将明确授权的本轮用户原话和AI可见回复归档到团队资料库。完整回复须full_reply_authorized=true；不修改任务状态。','inputSchema':CONVERSATION_SCHEMA},
+ {'name':'songban_search_team_library','description':'从本队真实资料库检索线索，返回记录号和分页游标。只检索，不运行模型。','inputSchema':{'type':'object','properties':{'query':{'type':'string'},'author_id':{'type':'string'},'stage':{'type':'string'},'task_key':{'type':'string'},'cursor':{'type':'integer'},'limit':{'type':'integer','minimum':1,'maximum':50}},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
+ {'name':'songban_read_library_record','description':'按资料记录号读取本队完整对话原文。','inputSchema':{'type':'object','properties':{'record_id':{'type':'string'}},'required':['record_id'],'additionalProperties':False},'annotations':{'readOnlyHint':True}}
+])
+
+
+def library_tool(name,args):
+    if name=='songban_sync_selected_turn':
+        if args.get('selected') is not True:raise BridgeError('本轮没有明确授权共享。')
+        body=dict(args);body.pop('selected')
+        # A caller must supply a stable ID before a possibly interrupted write.
+        if not isinstance(body.get('event_id'),str) or not body['event_id'].strip():raise BridgeError('缺少本轮稳定记录号。')
+        data=prepare(body);data['selected']=True
+        r=call('/conversation-notes',data)
+        if not r.get('note_id'):raise BridgeError('未返回记录号，不能确认上传成功。')
+        return r
+    if name=='songban_search_team_library':
+        if set(args)-{'query','author_id','stage','task_key','cursor','limit'}:raise BridgeError('检索参数不正确。')
+        data=dict(args)
+        if 'query' in data:data['q']=data.pop('query')
+        data.setdefault('limit',5);data['brief']='true'
+        return call('/library?'+urllib.parse.urlencode(data))
+    ident=args.get('record_id')
+    if set(args)!={'record_id'} or not isinstance(ident,str) or not re.fullmatch('[A-Za-z0-9_-]{1,120}',ident):raise BridgeError('请提供本队真实资料记录号。')
+    return call('/library/'+ident)
+
+
 def mcp():
     for line in sys.stdin:
         if len(line)>1000000:
@@ -184,6 +217,7 @@ def mcp():
                     if not isinstance(args,dict):raise BridgeError('工具参数必须是对象。')
                     if name=='songban_get_team_context' and not args:answer=call('/context')
                     elif name=='songban_get_my_tasks' and not args:answer=call('/my-tasks')
+                    elif name in ('songban_sync_selected_turn','songban_search_team_library','songban_read_library_record'):answer=library_tool(name,args)
                     elif name=='songban_sync_progress':
                         data=prepare(args);enqueue(data);answer=flush()
                     else:raise BridgeError('未知工具或参数不正确。')

@@ -25,6 +25,7 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   await a.locator('#auth-skills').fill('页面设计');await a.locator('#auth-profile').fill('完成第一件作品');
   await a.locator('#auth-form button[type=submit]').click();await a.locator('#create-team').waitFor();
   await a.locator('#team-name').fill('联调验证小队 '+stamp);await a.locator('#create-team button[type=submit]').click();
+  await a.getByRole('link',{name:/讨论后填写共同方向/}).click();
   await a.locator('#direction-form').waitFor();assert((await a.locator('[name=rules]').inputValue()).includes('教育'));
   await a.locator('[name=goal]').fill('完成一个可以演示的知识闯关小助手');
   await a.locator('#direction-form button[type=submit]').click();await a.getByText('共同方向已更新。',{exact:false}).waitFor();

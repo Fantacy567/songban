@@ -22,6 +22,7 @@ from .planner import PlannerError, check_model_base, team_model_config
 from .team_install import TOOLS, InstallError, is_local_request, project_path, install_project
 from .connector_skill import install_connector_skill
 from .connector_plugin import install_connector_plugin
+from .conversation_library import register_library, library_counts
 from .core_workflow import SCHEMA as WORKFLOW_SCHEMA, enrich_handoffs, build_workflow, handoff_markdown
 
 SCHEMA = """
@@ -174,11 +175,13 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
             WHERE m.squad_id=? ORDER BY m.rowid''',(squad['id'],)).fetchall()
         members=[{'id':r['id'],'name':r['name'],'role':r['role'],'strengths':r['strengths'] if r['strengths'] is not None else r['skills'],'willingness':r['willingness'] or '', 'hours':r['hours'] if r['hours'] is not None else None} for r in rows]
         reports=[{'id':r['id'],'seq':r['seq'],'user_id':r['user_id'],'created_at':r['created_at'],**json.loads(r['body'])} for r in con.execute('SELECT * FROM core_reports WHERE squad_id=? ORDER BY seq DESC LIMIT 80',(squad['id'],))]
+        for report in reports:
+            if report.pop('assistant_message',None):report['has_full_reply']=True
         library=[{'id':r['id'],'body':r['body'],'source':r['suggestion']} for r in con.execute('SELECT l.* FROM library_notes l JOIN core_reports r ON r.id=l.id WHERE l.squad_id=? ORDER BY r.seq DESC LIMIT 40',(squad['id'],))]
         active=json.loads(s['active_plan'])
         for task in active.get('tasks',[]):
             # Task state must not disappear when its report leaves the recent-feed window.
-            row=con.execute("SELECT id,body,created_at FROM core_reports WHERE squad_id=? AND user_id=? AND json_extract(body,'$.task_key')=? AND json_extract(body,'$.plan_version')=? ORDER BY seq DESC LIMIT 1",(squad['id'],task['owner_id'],task['key'],s['plan_version'])).fetchone()
+            row=con.execute("SELECT id,body,created_at FROM core_reports WHERE squad_id=? AND user_id=? AND json_extract(body,'$.task_key')=? AND json_extract(body,'$.plan_version')=? AND COALESCE(json_extract(body,'$.capture_only'),0)=0 ORDER BY seq DESC LIMIT 1",(squad['id'],task['owner_id'],task['key'],s['plan_version'])).fetchone()
             latest=({'id':row['id'],**json.loads(row['body'])} if row else None)
             task['status']=latest['status'] if latest else 'todo'
             task['latest_report_id']=latest['id'] if latest else None
@@ -201,6 +204,8 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         with jobs_lock:
             running=squad['id'] in jobs
         result={'team':{'id':squad['id'],'name':squad['name'],'code':squad['code'],'captain_id':squad['captain_id']},'me':{'id':actor['id'],'captain':actor['id']==squad['captain_id']},'direction':json.loads(s['direction']),'revision':s['revision'],'plan_version':s['plan_version'],'active_plan':active,'members':members,'reports':reports,'team_library':library,'differences':differences,'proposal':proposal_data,'auto_review':bool(s['auto_review']),'review_running':running,'last_error':s['last_error'],'updated_at':s['updated_at'],'model':{'configured':bool(team_model_config().get('api_key')),'model_id':team_model_config().get('model_id',''),'test_runner':runner is not None},'limits':{'reports_shown':80,'source':'个人工具/成员自报，证据未独立核实','anti_hallucination':'比较来源可帮助发现冲突，不保证结论正确'}}
+        result['library_stats']=library_counts(con,squad['id'])
+        result['my_connector_count']=con.execute('SELECT COUNT(*) FROM core_connections WHERE squad_id=? AND user_id=? AND revoked=0 AND paused=0 AND expires_at>?',(squad['id'],actor['id'],now())).fetchone()[0]
         result['workflow']=build_workflow(result,now())
         return result
 
@@ -406,7 +411,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         return {'saved':True}
 
     def report_body(body):
-        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','model_name'}
+        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized'}
         if set(body)-allowed:raise problem(422,'unknown_fields','进展含未支持字段；成员身份由连接确定，不能自行指定。')
         event=txt(body.get('event_id'),'事件ID',120,True)
         status=body.get('status','discussion')
@@ -433,11 +438,16 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         return event,{'tool':txt(body.get('tool','未注明工具'),'工具名称',80,True),'session_label':txt(body.get('session_label',''),'会话名称',120),'summary':txt(body.get('summary'),'重要进展',3500,True),'status':status,'evidence':[txt(e,'证据',1000,True) for e in evidence],'blocker':txt(body.get('blocker',''),'受阻情况',1600),'views':vs,'excerpt':txt(body.get('excerpt',''),'获准分享的摘录',4000),'occurred_at':occurred,'task_key':task_key,'plan_version':version,'origin':origin,'verification':'个人自报，证据未独立核实'}
 
     def save_report(sid,body,authorization,archive=False):
-        capture={k:body[k] for k in ('user_message','assistant_summary','model_name') if k in body}
+        if not archive and 'assistant_message' in body:raise problem(422,'conversation_endpoint_required','完整对话请通过连接器共享到资料库，不要作为任务完成报告提交。')
+        capture={k:body[k] for k in ('user_message','assistant_summary','assistant_message','model_name','conversation_stage') if k in body}
         event,payload=report_body(body)
         if archive:
-            for k,label,limit in (('user_message','用户原话',16000),('assistant_summary','回复关键信息',3500),('model_name','模型名称',160)):
+            for k,label,limit in (('user_message','用户原话',16000),('assistant_summary','回复关键信息',3500),('assistant_message','模型回复原文',60000),('model_name','模型名称',160)):
                 if k in capture:payload[k]=txt(capture[k],label,limit,k!='model_name')
+            if 'conversation_stage' in capture:
+                if capture['conversation_stage'] not in ('discussion','development','recap'):raise problem(422,'invalid_stage','请选择选题讨论、任务执行或赛后复盘。')
+                payload['conversation_stage']=capture['conversation_stage']
+            if body.get('full_reply_authorized') is True:payload['full_reply_authorized']=True
             payload['capture_only']=True
         fingerprint=digest(dump(payload));ident=uid();changed=False
         def archive_note(con,note_id,actor_id):
@@ -459,10 +469,14 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
                 if payload['task_key']:
                     plan=json.loads(s['active_plan'])
                     task=next((t for t in plan.get('tasks',[]) if t['key']==payload['task_key']),None)
-                    if payload['plan_version']!=s['plan_version'] or not task or task['owner_id']!=actor['id']:
+                    if archive and payload['plan_version']!=s['plan_version']:
+                        history=con.execute('SELECT body FROM core_plan_history WHERE squad_id=? AND version=?',(sid,payload['plan_version'])).fetchone()
+                        task=next((t for t in json.loads(history['body']).get('tasks',[]) if t['key']==payload['task_key']),None) if history else None
+                    if (not archive and payload['plan_version']!=s['plan_version']) or not task or task['owner_id']!=actor['id']:
                         raise problem(409,'task_outdated','任务不属于你或安排版本已更新，请先读取最新任务。')
                 recent=con.execute("SELECT COUNT(*) FROM core_reports WHERE connection_id=? AND created_at>=?",(actor['connection_id'],(datetime.fromisoformat(now())-timedelta(minutes=1)).isoformat(timespec='seconds'))).fetchone()[0]
                 if recent>=30:raise problem(429,'sync_rate_limited','同步过快，请合并重要进展，稍后重试。')
+                if archive:payload['recorded_stage']=payload.get('conversation_stage') or ('development' if s['plan_version'] else 'discussion')
                 con.execute('INSERT INTO core_reports(id,squad_id,user_id,connection_id,event_id,payload_hash,body,created_at) VALUES(?,?,?,?,?,?,?,?)',(ident,sid,actor['id'],actor['connection_id'],event,fingerprint,dump(payload),now()))
                 if archive:archive_note(con,ident,actor['id'])
                 changed=True
@@ -470,7 +484,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
             if changed:bump(con,sid)
             revision=s['revision']+int(changed);auto=bool(s['auto_review']) and not archive
         if auto and changed:schedule(sid,actor['id'])
-        return {'report_id':ident,'note_id':ident if archive else None,'duplicate':duplicate,'revision':revision,'analysis_triggered':False if archive else bool(auto and changed),'notice':'已记录用户原话与回复关键信息，未触发团队分析。' if archive else '进展已同步；本人自报不等于独立验证。'}
+        return {'report_id':ident,'note_id':ident if archive else None,'duplicate':duplicate,'revision':revision,'analysis_triggered':False if archive else bool(auto and changed),'notice':'已保存获准共享的对话记录，未触发团队分析或修改任务状态。' if archive else '进展已同步；本人自报不等于独立验证。'}
 
     @api.post('/api/core/teams/{sid}/reports')
     def post_report(sid:str,body:dict,authorization:str=Header(default='')):
@@ -481,16 +495,14 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         if body.get('selected') is not True:raise problem(422,'selection_required','仅同步本轮显式附带松伴连接器的项目关键内容。')
         body={k:v for k,v in body.items() if k!='selected'}
         body['tool']='松伴连接器 · 对话记录'
+        if body.get('assistant_message') and not body.get('assistant_summary') and not body.get('summary'):body['summary']='完整模型回复已保存，打开记录查看。'
         if body.get('assistant_summary'):body['summary']=body['assistant_summary']
+        if body.get('assistant_message') and body.get('full_reply_authorized') is not True:raise problem(422,'full_reply_consent_required','共享完整回复前，请明确同意把本轮原文共享给本队。')
+        body['status']='discussion'
         body.pop('views',None);body.pop('evidence',None);body.pop('blocker',None)
         return save_report(sid,body,authorization,archive=True)
 
-    @api.get('/api/core/teams/{sid}/library')
-    def library(sid:str,authorization:str=Header(default='')):
-        with db() as con:
-            access(con,sid,authorization)
-            rows=con.execute('SELECT l.*,r.body AS report_body,p.name AS author FROM library_notes l JOIN core_reports r ON r.id=l.id JOIN people p ON p.id=l.author_id WHERE l.squad_id=? ORDER BY r.seq DESC LIMIT 120',(sid,)).fetchall()
-            return {'items':[{**dict(r),'report':{**json.loads(r['report_body']),'user_name':r['author']}} for r in rows],'notice':'只记录选中回合的用户原话、注册姓名、回复关键信息和模型名。上传不会触发团队分析；历史记录保持原样。'}
+    register_library(api,db,access,problem)
 
     @api.get('/api/core/teams/{sid}/context')
     def get_context(sid:str,authorization:str=Header(default='')):

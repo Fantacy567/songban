@@ -63,7 +63,7 @@ def request(d,suffix,data=None):
 
 def payload(data):
  if not isinstance(data,dict):raise ConnectorError('本轮摘要必须是JSON对象。')
- allowed={'event_id','session_label','summary','status','views','evidence','excerpt','blocker','occurred_at','user_message','assistant_summary','model_name'}
+ allowed={'event_id','session_label','summary','status','views','evidence','excerpt','blocker','occurred_at','user_message','assistant_summary','assistant_message','model_name','conversation_stage','task_key','plan_version','full_reply_authorized'}
  if set(data)-allowed:raise ConnectorError('本轮摘要含不支持字段；不能自行指定成员或其他队伍。')
  def clean(v):
   if isinstance(v,str):return redact(v)
@@ -75,7 +75,7 @@ def payload(data):
  result.setdefault('event_id','turn-'+uuid.uuid4().hex)
  result.update({'tool':'松伴连接器 · 显式选择回合','origin':'personal_agent','selected':True})
  if not isinstance(result.get('summary'),str) or not result['summary'].strip():raise ConnectorError('没有可同步的本轮项目内容。')
- if len(json.dumps(result,ensure_ascii=False,allow_nan=False).encode())>50000:raise ConnectorError('本轮摘要过长，请提炼关键内容，不要发送整段历史。')
+ if len(json.dumps(result,ensure_ascii=False,allow_nan=False).encode())>280000:raise ConnectorError('本轮对话超过上传大小限制，请分段共享，不会静默截断。')
  return result
 
 
