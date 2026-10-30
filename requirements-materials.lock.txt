@@ -1,0 +1,15 @@
+# Windows Python 3.12 versions used in local acceptance on 2026-10-31.
+-r requirements-materials.txt
+numpy==2.3.5
+lxml==6.1.1
+packaging==26.3
+six==1.17.0
+onnxruntime==1.31.1
+opencv-python==5.0.0.93
+pyclipper==1.4.0
+PyYAML==6.0.3
+shapely==2.2.0
+flatbuffers==25.12.19
+protobuf==7.36.2
+tqdm==4.70.1
+colorama==0.4.6

@@ -1,0 +1,6 @@
+# Install alongside requirements.txt. Local OCR includes Chinese/English ONNX weights.
+pypdf==6.10.0
+python-docx==1.2.0
+Pillow==13.0.0
+pypdfium2==5.14.0
+rapidocr-onnxruntime==1.4.4
