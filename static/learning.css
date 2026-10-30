@@ -3,6 +3,11 @@
   --purple:#8c71ed; --purple-deep:#7352df; --lavender:#efebff; --selected:#e4dbfc;
   --lime:#d3f24f; --apricot:#ffe1ad; --border:#dfdfde; --line:#e9e7e4;
   --danger:#b44949; --success:#4f7e63; --shadow:0 24px 90px rgba(38,32,51,.13);
+  --sb-bg:var(--bg); --sb-surface:var(--surface); --sb-ink:var(--ink); --sb-muted:var(--muted);
+  --sb-purple:var(--purple); --sb-purple-deep:var(--purple-deep); --sb-lavender:var(--lavender);
+  --sb-selected:var(--selected); --sb-lime:var(--lime); --sb-apricot:var(--apricot);
+  --sb-border:var(--border); --sb-line:var(--line); --sb-radius-card:17px; --sb-radius-control:13px;
+  --sb-space-1:8px; --sb-space-2:12px; --sb-space-3:16px; --sb-space-4:24px; --sb-space-5:32px; --sb-space-6:44px;
   font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
   color:var(--ink); background:var(--bg); font-synthesis:none; text-rendering:optimizeLegibility;
   -webkit-font-smoothing:antialiased;

@@ -82,10 +82,10 @@ class LearningShellTests(unittest.TestCase):
     def test_unified_visual_shell_contract(self):
         home = self.client.get("/")
         learning = self.client.get("/learning")
-        self.assertIn("core.css?v=20261030-unified", home.text)
-        self.assertIn("core.js?v=20261030-unified", home.text)
-        self.assertIn("learning.css?v=20261030-unified", learning.text)
-        self.assertIn("learning.js?v=20261030-unified", learning.text)
+        self.assertIn("core.css?v=20261030-design-v1", home.text)
+        self.assertIn("core.js?v=20261030-design-v1", home.text)
+        self.assertIn("learning.css?v=20261030-design-v1", learning.text)
+        self.assertIn("learning.js?v=20261030-design-v1", learning.text)
         self.assertIn("data-shell=\"songban-v1\"", self.client.get("/static/core.js").text)
         learning_js = self.client.get("/static/learning.js").text
         self.assertIn('href="/"', learning_js)
