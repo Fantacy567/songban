@@ -77,6 +77,26 @@ class LearningShellTests(unittest.TestCase):
         self.assertEqual(home.status_code, 200, home.text)
         self.assertIn("core.js", home.text)
         self.assertNotIn("learning.js", home.text)
+        self.assertIn('/learning#/login', self.client.get("/static/core.js").text)
+
+    def test_unified_visual_shell_contract(self):
+        home = self.client.get("/")
+        learning = self.client.get("/learning")
+        self.assertIn("core.css?v=20261030-unified", home.text)
+        self.assertIn("core.js?v=20261030-unified", home.text)
+        self.assertIn("learning.css?v=20261030-unified", learning.text)
+        self.assertIn("learning.js?v=20261030-unified", learning.text)
+        self.assertIn("data-shell=\"songban-v1\"", self.client.get("/static/core.js").text)
+        learning_js = self.client.get("/static/learning.js").text
+        self.assertIn('href="/"', learning_js)
+        self.assertIn("团队工作台", learning_js)
+        self.assertIn("data-shell=\"songban-v1\"", learning_js)
+        learning_css = self.client.get("/static/learning.css").text
+        for token in ("--bg:#faf9f6", "--purple:#8c71ed", ".app-shell", ".app-header", ".sidebar", ".surface"):
+            self.assertIn(token, learning_css)
+        core_css = self.client.get("/static/core.css").text
+        self.assertIn(".portal-links", core_css)
+        self.assertIn(".nav-link", core_css)
 
     def test_learning_session_survives_app_restart(self):
         created = self.client.post("/api/learning/v1/sessions", json={"role": "creator"})

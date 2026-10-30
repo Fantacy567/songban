@@ -13,6 +13,7 @@
 - 启动：`.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8886`。
 - 默认核心工作台接口：`/api/core`；历史工作台与接口保留，但默认封锁。
 - 学习体验前台：`/learning`（独立于团队工作台的本地体验流程；前端位于 `static/learning.html`、`static/learning.css`、`static/learning.js`）。
+- 统一前台视觉契约：以参考 `#/event` 页面为 design-v1 基准，约束活动／实践页面壳、tokens、状态和验收；见 [`docs/planning/视觉宪法与 UI 契约.md`](docs/planning/视觉宪法与%20UI%20契约.md)。
 - 完整兼容回归：`SONGBAN_CORE_ONLY=0 .venv/bin/python -m unittest discover -s tests -q`。原生插件安装测试需要本机有 `codex` CLI；不会调用付费模型。
 
 ## 克隆后不要复制私人配置
