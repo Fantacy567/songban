@@ -1,0 +1,213 @@
+{
+  "date": "2026-10-29T22:38:29+0800",
+  "scope": "隔离TCP服务、临时数据库、临时HOME合成Codex日志；未连接8886、未读取.env、未调用模型",
+  "steps": [
+    {
+      "name": "会话列表只含元数据且能读出>64KB首行的会话",
+      "ok": true,
+      "status": 200,
+      "ids": [
+        "synthetic-core01-session-b",
+        "synthetic-core01-session-a"
+      ]
+    },
+    {
+      "name": "新进程初始状态为未连接",
+      "ok": true,
+      "status": {
+        "status": "disconnected",
+        "sent": 0,
+        "error": ""
+      }
+    },
+    {
+      "name": "缺授权/未登录/非本机/令牌冒充/跨团队均被拒绝",
+      "ok": true,
+      "got": {
+        "缺少授权consent": 422,
+        "consent非true": 422,
+        "未登录列会话": 401,
+        "未登录开启": 401,
+        "非本机Host": 403,
+        "经代理转发": 403,
+        "跨站来源": 403,
+        "连接令牌冒充网页登录-列表": 401,
+        "连接令牌冒充网页登录-开启": 403,
+        "另队账号开启本队": 403,
+        "另队账号读本队状态": 403,
+        "另队账号停本队": 403,
+        "任意路径会话": 404
+      },
+      "expected": {
+        "缺少授权consent": 422,
+        "consent非true": 422,
+        "未登录列会话": 401,
+        "未登录开启": 401,
+        "非本机Host": 403,
+        "经代理转发": 403,
+        "跨站来源": 403,
+        "连接令牌冒充网页登录-列表": 401,
+        "连接令牌冒充网页登录-开启": 403,
+        "另队账号开启本队": 403,
+        "另队账号读本队状态": 403,
+        "另队账号停本队": 403,
+        "任意路径会话": 404
+      }
+    },
+    {
+      "name": "拒绝后仍未连接且资料库为空",
+      "ok": true
+    },
+    {
+      "name": "本机网页登录用户授权后开始持续同步",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "连接后历史内容不入库",
+      "ok": true
+    },
+    {
+      "name": "第一回合自动入库，记录号可从library读回",
+      "ok": true,
+      "note_id": "22c492f9a8754fe2b01194f4082db937",
+      "status": {
+        "thread_id": "synthetic-core01-session-a",
+        "connection_id": "36a1da2c7eb44be1a58cc6cd7d1bab0f",
+        "status": "running",
+        "sent": 1,
+        "error": "",
+        "last_note_id": "22c492f9a8754fe2b01194f4082db937"
+      }
+    },
+    {
+      "name": "注册姓名/原文/要点/实际模型名正确且伪凭据脱敏",
+      "ok": true,
+      "user_message": "第一轮：把登录接口接到前端。部署前确认 API_KEY=[已隐藏] 不要外泄",
+      "assistant_summary": "登录接口已接好。\n要点：前端调用 /login 返回200；Bearer [已隐藏]",
+      "model": "synthetic-model-x1"
+    },
+    {
+      "name": "第二回合分别自动入库，未知模型不猜测",
+      "ok": true,
+      "model": ""
+    },
+    {
+      "name": "思考/工具输出/注入内容/旧历史/其他会话均未出现",
+      "ok": true,
+      "leaked": []
+    },
+    {
+      "name": "同队第二账号可见",
+      "ok": true
+    },
+    {
+      "name": "另队账号读本队资料库被拒，自己团队为空",
+      "ok": true
+    },
+    {
+      "name": "重复事件只生成一条记录",
+      "ok": true,
+      "library_rows_for_turn1": 1
+    },
+    {
+      "name": "临时写入失败显示等待重试而非成功",
+      "ok": true,
+      "status": {
+        "thread_id": "synthetic-core01-session-a",
+        "connection_id": "36a1da2c7eb44be1a58cc6cd7d1bab0f",
+        "status": "retrying",
+        "sent": 2,
+        "error": "本轮尚未确认上传，稍后重试；请勿当作已同步。",
+        "last_note_id": "443f0d67971e4b9b8c7364d5f7bdd446"
+      }
+    },
+    {
+      "name": "恢复后补传一次且不重复",
+      "ok": true,
+      "status": {
+        "thread_id": "synthetic-core01-session-a",
+        "connection_id": "36a1da2c7eb44be1a58cc6cd7d1bab0f",
+        "status": "running",
+        "sent": 3,
+        "error": "",
+        "last_note_id": "2f164079b4fb43018de2df3d0baa60ec"
+      }
+    },
+    {
+      "name": "停止后状态为已停止且连接撤销",
+      "ok": true
+    },
+    {
+      "name": "停止后追加回合不入库",
+      "ok": true
+    },
+    {
+      "name": "重连不补传停用期间内容，只同步重连后回合",
+      "ok": true
+    },
+    {
+      "name": "在连接列表暂停(随后恢复)后立即停止且不上传",
+      "ok": true,
+      "status": "stopped"
+    },
+    {
+      "name": "在连接列表撤销后立即停止且不上传",
+      "ok": true,
+      "status": "stopped"
+    },
+    {
+      "name": "第二账号独立连接，姓名由其认证账号确定",
+      "ok": true
+    },
+    {
+      "name": "服务正常关闭时撤销进行中的持续同步连接",
+      "ok": true
+    },
+    {
+      "name": "启动新隔离进程后状态为未连接，不偷偷恢复采集",
+      "ok": true,
+      "status": {
+        "status": "disconnected",
+        "sent": 0,
+        "error": ""
+      }
+    },
+    {
+      "name": "成员被移出团队后不再上传（核心版无退出入口，直接在隔离库删除成员关系模拟）",
+      "ok": true
+    },
+    {
+      "name": "只记录不分析：无草案、未调用模型",
+      "ok": true
+    },
+    {
+      "name": "服务日志不含伪凭据",
+      "ok": true
+    }
+  ],
+  "port_1": 50837,
+  "port_2": 51108,
+  "library_two_lines": [
+    [
+      "乙·合成成员：乙的一轮：整理演示脚本",
+      "synthetic-model-y2：演示脚本已分三段。"
+    ],
+    [
+      "甲·合成成员：第五轮：重新连接后",
+      "synthetic-model-x1：重连后的回复"
+    ],
+    [
+      "甲·合成成员：第三轮：临时失败时写入。",
+      "synthetic-model-x1：第三轮回复。"
+    ],
+    [
+      "甲·合成成员：第二轮：补充错误提示文案。",
+      "模型名未获取：已补充三种错误提示。"
+    ],
+    [
+      "甲·合成成员：第一轮：把登录接口接到前端。部署前确认 API_KEY=[已隐藏] 不要外泄",
+      "synthetic-model-x1：登录接口已接好。\n要点：前端调用 /login 返回200；Bearer [已隐藏]"
+    ]
+  ]
+}

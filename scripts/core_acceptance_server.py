@@ -14,7 +14,7 @@ import uvicorn
 
 def fixture_plan(context):
     members=context['members'];reports=context['reports'];sources=[r['id'] for r in reports] or ['direction']
-    return {'summary':'协议测试：对照两名成员提供的观点，先验证接口，再让页面接入。此回复不是来自真实模型。','findings':[{'topic':'接口是否已经可用','decision':'保留双方报告，先检查真实请求结果。','reason':'后端说代码写好，前端仍未收到；两者都不能证明已联调成功。','source_ids':sources[:2],'needs_check':True}], 'tasks':[{'key':'T1','title':'验证接口并提供调用示例','owner_id':members[0]['id'],'acceptance':'正常与空输入各发一次请求，提供返回内容','depends_on':[],'source_ids':sources[:1]},{'key':'T2','title':'将页面接到已验证接口','owner_id':members[-1]['id'],'acceptance':'在页面提交并显示真实结果','depends_on':['T1'],'source_ids':sources[-1:]}], 'questions':['还缺接口实际验证结果。']}
+    return {'summary':'协议测试：对照两名成员提供的观点，先验证接口，再让页面接入。此回复不是来自真实模型。','findings':[{'topic':'接口是否已经可用','decision':'保留双方报告，先检查真实请求结果。','reason':'后端说代码写好，前端仍未收到；两者都不能证明已联调成功。','source_ids':sources[:2],'needs_check':True}], 'tasks':[{'key':'T1','title':'验证接口并提供调用示例','owner_id':members[0]['id'],'acceptance':'正常与空输入各发一次请求，提供返回内容','depends_on':[],'source_ids':sources[:1],'execution':{'tool':'终端','steps':['按团队已有启动说明启动后端','发送一次正常请求','发送一次空输入请求','保存两次实际返回'],'ai_prompt':'目标：验证接口。边界：接口地址未提供时先问队长，不要猜测路径。产物：两次请求的实际返回。','deliverable':'两次请求的实际返回','help_hint':'贴出报错原文，向队长求助'}},{'key':'T2','title':'将页面接到已验证接口','owner_id':members[-1]['id'],'acceptance':'在页面提交并显示真实结果','depends_on':['T1'],'source_ids':sources[-1:],'execution':{'tool':'浏览器','steps':['等T1通过检查','在页面提交一次正常输入','截图显示结果'],'ai_prompt':'','deliverable':'一张显示真实结果的截图','help_hint':'附上截图，在团队里说明差异'}}], 'questions':['还缺接口实际验证结果。']}
 
 
 if __name__=='__main__':

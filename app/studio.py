@@ -652,6 +652,9 @@ def register_studio(api, db, problem, now, uid, digest):
         username = normalize_username(body.get("username") or body.get("account") or "")
         if username is None:
             raise problem(422, "invalid_account", "账号用 2 到 20 位中文、字母或数字。")
+        onboarding = body.get("onboarding", False)
+        if not isinstance(onboarding, bool):
+            raise problem(422, "invalid_input", "onboarding 只能是 true 或 false。")
         with db(True) as con:
             status = code_matches(con, phone, code)
             if status != "ok":
@@ -684,7 +687,9 @@ def register_studio(api, db, problem, now, uid, digest):
             name = str(body.get("name") or "").strip()
             profile = str(body.get("profile") or "").strip()
             skills = str(body.get("skills") or "").strip()
-            if not name or not profile or not skills:
+            if onboarding and not name:
+                raise problem(422, "profile_required", "验证码对了。第一次还要填写名字。")
+            if not onboarding and (not name or not profile or not skills):
                 raise problem(422, "profile_required", "验证码对了。第一次还要填写名字、画像和目前做得到的事。")
             pid, token_clear = uid(), secrets.token_urlsafe(24)
             con.execute("""INSERT INTO people(id,phone,name,profile,skills,github_linked,feishu_linked,token_hash,created_at,password_hash,username)

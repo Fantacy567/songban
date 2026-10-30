@@ -1,3 +1,35 @@
+# INTERVIEW-03 · 2026-10-30 注册后进入动态访谈网页（Cursor完成，待Codex验收；真实浏览器实点未验证）
+报告docs/reviews/interview-03-ui.md。注册去掉画像/技能必填，前端发onboarding:true（studio.py只对新注册放宽，旧客户端和旧账号重注册不变，验证码/密码/名字检查不变）；新注册进入访谈介绍，点“开始访谈”才调用模型，可跳过；导航新增“个人访谈”（无团队也可用）。新增static/interview.js：一次一问、第n/30问；提交中禁止重复；失败保留输入，同一回答沿用request_id；409重新读取、不自动重发；可提前结束（两步确认）；草稿用中文字段，标注自述/推测并对应本人回答，显式“确认这份画像”，可暂不确认（草稿保留）。只存内存、全部esc；退出/换账号/离开/登录过期后的旧响应丢弃；团队轮询不重画访谈页。core.js 7处小改，缓存版本-13/interview-1/css-8。
+tests/test_interview_onboarding 6项通过；scripts/interview_ui_check.cjs 13组场景通过（无浏览器）；16处反向改坏全部被抓到；接口相关52项通过；全量214项中208项通过（6项沙箱已知）；CORE-02渲染检查通过。原生浏览器不可用，实点未验证；未发真实短信，未调用真实模型，8886未动，未提交推送。
+R1：修复监理复现的问题——回答进行中切到“＋ 创建或加入团队”时，旧回答会把创建团队页覆盖成访谈页。只改interview.js（版本-2）：访谈视图包在#iv-view里；ivMine检查代次、所属账号和令牌，ivLive再要求访谈视图仍在页面上。晚到的成功只把进度记在内存、不重画；晚到的409和读取不重画、不在后台重新读取；回到访谈页时读取最新状态。不改state.page，避免团队轮询画到创建团队页上。监理复现脚本结果变为create_team_after:true；新增team_new_page场景组（旧成功、旧409、旧读取、回来读取最新），共14组通过；新增3处反向改坏全部被抓到；页面判断现被#iv-view检查覆盖，单独改坏它不会被发现（如实记录）。52项和全量208/214与之前相同，CORE-02渲染检查通过。
+
+# INTERVIEW-02 · 2026-10-30 个人访谈持久化与认证接口（Cursor完成，待Codex验收）
+报告（含接口卡）docs/reviews/interview-02-persistence.md。新增app/interview_store.py：三张新表（core_interviews/messages/requests），以及GET /api/core/interview和POST start/answer/finish/confirm。复用网页登录person()，插件令牌403；服务端从历史计数并生成消息ID；request_id处理重复提交；模型调用期间不开事务，写入前再核对版本；进程内忙碌保护；模型失败状态不变、可原样重试；未配置模型返回503；确认不调用模型。team_core/main只加可选接线（create_app(interview_runner=None)），STAGES加job_seeking。
+tests/test_interview_api.py 20项通过（协议替身，无.env镜像，临时SQLite，合成账号），10种反向改坏全部被抓到；相关回归73项通过；全量208项中202项通过（3项.cursor沙箱、3项公网DNS）。页面/注册未接入；跨进程可能重复调用模型，但只保存一份结果。未提交推送，8886未动。
+
+# INTERVIEW-01 · 2026-10-30 自适应访谈引擎（Cursor完成，待Codex验收）
+报告docs/reviews/interview-01-adaptive-engine.md。新增app/interview.py：next_turn(request, runner)按完整有效记录+服务端asked_count返回ask（一个问题，编号=asked_count+1）或profile_draft（条目带basis自述/推测与用户消息ID证据，待确认、未公开、不写团队资料）。Python强制30问上限、结构/长度、证据只引用用户消息、经历与时间只能自述、单问启发式、标记/凭据/诊断与隐私用词拦截；模型错误可重试且不泄露密钥、不改传入记录。复用team_model_config/check_model_base/PlannerError，未改其他文件。
+tests/test_interview.py 16项通过（协议替身+httpx.MockTransport，不连网），5种反向改坏均失败；无.env镜像全量178项中172通过（3项.cursor沙箱、3项公网DNS抓取）。未做页面/持久化/注册接入/真实模型效果/上线；CORE-02真实页面验收仍未完成。
+R1：证据ID先校验元素类型/格式(fullmatch)再去重；HTTP 200外壳逐层类型检查；json解析捕获RecursionError；runner返回值须为(文字,模型名)；next_turn不再deepcopy输入。新增10项（含监理复现evidence:[{}]），共26项通过，5种反向改坏均失败。
+
+# CORE-02 · 2026-10-29 任务草案照做说明（Cursor完成，待Codex验收）
+报告docs/reviews/core-02-executable-tasks.md，证据docs/reviews/core-02-evidence/tcp_acceptance.json。每项新任务加execution{tool,steps 1-8,ai_prompt可空,deliverable,help_hint}；validate_plan校验类型/数量/长度/空值，不合格整份草案不采用、原计划不变；确认/活动计划/my-tasks/历史/handoff.md原样保留；旧任务显示“旧任务尚无操作说明”。max_tokens 3500→8000。
+单元5项+相关回归70项中67项通过（3项test_team_install沙箱禁建.cursor）；TCP隔离16项通过；CORE-01 TCP 26项复跑通过；core.js无浏览器渲染检查通过。真实Chrome未实测（沙箱内无法启动），scripts/executable_tasks_browser.cjs待跑。协议替身不代表真实模型质量。8886未更新，未提交推送。
+修订1（监理复核）：只改static/core.js（版本-8）。页面内存记录已展开说明，标识=团队+计划版本/草案ID+任务编号+说明内容指纹；不相关资料更新后保持展开/收起，说明变、换版、换草案、换团队、退出登录都不带旧状态；编辑保护不变。渲染检查新增10项通过；浏览器脚本补了2项检查，但沙箱内Chrome启动SIGABRT未跑，待监理原生核对。
+修订2（R2）：core.js版本-9。refresh()保护期间（聚焦/未保存表单/busy）的有效更新记state.pending，保护解除后下一次轮询即使同版本也用最新数据补画一次；请求返回时团队或凭证已变则丢弃；强制刷新/载入/退出清pending。渲染检查新增11项直接测真实refresh()（轮询补画与render分开计数）通过，两处反向改坏均被抓到。浏览器补2项检查，沙箱内Chrome仍SIGABRT未跑。
+修订3（R3）：core.js版本-10。读取请求按发出顺序编号（state.seq/applied），比已采用更早发出的响应直接丢弃，不按revision判断，因此同版本失焦补画和同版本强制刷新照常；load()同规则。渲染检查新增5项乱序检查驱动真实refresh()通过（后发302先回、先发301后回不倒退；保护中乱序保留新版并失焦补画；强制刷新/切页前的旧轮询盖不掉），去掉序号判断的反向验证会失败。本轮按要求未再启动Chrome，浏览器待监理核对。
+修订3补充（R3第二次）：core.js版本-11。只按序号不够（服务端读库先后≠发出先后）。新增adopt()：同凭证+团队上下文内revision更低一律丢弃，同revision才按序号定先后，更高采用；换队/换登录不比较旧revision；force拿到低版本仍用手上新数据渲染；被丢弃的响应仍做保护后补画判断；旧请求错误、旧load结果、旧凭证401不作用于新上下文。新增8项驱动真实refresh()/api()的检查通过（含监理精确复现r1先回310→r2后回309），5种反向改坏均被抓到。未启动Chrome。
+修订3补充二（R3第三次）：core.js版本-12。load()在/me前锁定凭证、所选团队和代次state.loads，返回后三者仍有效才写state.me/选队/发团队请求，否则丢弃结果和错误。新增5项驱动真实load()检查通过（旧/me迟返不写旧用户、不把B换回A、不用新凭证请求旧队；旧load晚于新load不覆盖；正常首登选队）；检查脚本加了“请求一直不结束则失败”的守卫；两种反向改坏都在精确断言处失败。未启动Chrome。
+
+# CORE-01 · 2026-10-29 持续同步最小闭环（Cursor完成，待Codex验收）
+报告docs/reviews/core-01-connector.md，证据docs/reviews/core-01-evidence/tcp_acceptance.json。补齐：真实Codex阶段名final_answer、以event_msg/user_message为用户原文并排除环境/技能注入、首行>64KB会话可列出、连接列表暂停/撤销立即停任务、临时错误重试/权限或拒收停止、服务关闭撤销持续连接。
+scripts/continuous_sync_acceptance.py真实TCP隔离（无.env镜像、临时库/HOME合成日志、空闲端口）26项通过；test_continuous_sync 8项通过；相关回归65项中3项test_team_install因沙箱禁建.cursor目录报错。浏览器未实测：沙箱内Chrome无法启动、沙箱外未获批准，脚本scripts/continuous_sync_browser.cjs未跑。8886未更新，未选真实会话，未提交推送。不实施CORE-02。
+
+# 2026-10-29 持续同步开发中（用户转优先重写飞书）
+已新增app/conversation_sync.py、team_core持续同步接口、core.js持续连接卡片、tests/test_continuous_sync.py。只读取用户在本机网页选定Codex日志的新增完整回合，不含历史/其他对话/思考；服务重启须重连。停止/撤销检查，稳定事件ID重试，真实账号名入库，不自动分析。
+5项新增隔离测试通过；全量154项在受限DNS下3项旧抓网页测试失败，随后授权网络重跑，结果看/tmp/songban-continuous-tests.log。尚未更新8886服务、未开启真实对话同步、未提交推送。需完成真实TCP合成日志→自动入库→停止不上传验证，再上线本机；不能宣称用户已自动同步。
+用户最新纠正：松伴两部分，黑客松指导为主、团队协作为基础。教育用户入口，父母月付十几元设想，支持孩子低成本用AI创作实际作品、匹配比赛队友、赛事评分理念融入指导。团队执行/任务查询/赛后记忆支撑留存，未验证效果不编数据。机构优先收费方案不再主线。现在优先实际重写飞书8份文档和画板。
+
 # GitHub代码同步 · 2026-10-29
 
 本次整理并提交当前完整源码：核心团队协作、原生连接器、资料库两行记录格式、只记录不触发分析、任务交叉验收与下一步提示，以及相关测试和交接文档。私人凭据、数据库、个人工具绑定、依赖缓存和本机走查证据排除。
@@ -248,3 +280,35 @@
 - Node=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node；NODE_PATH=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules；PLAYWRIGHT_BROWSERS_PATH=.browser-cache；系统Chrome。
 - 首版正式方案仅确认一次，未实现公网账号、录音、代码托管、GitHub自动验收或科学最优分工保证。
 - 下一步：可用模型额度后完成真实生成验收；用户与胡进行真人接口联调，按需求选择下一版范围。
+# CORE-03 · 2026-10-30 团队阶段访谈与阶段复盘（本轮完成，待真实浏览器验收）
+
+- 团队模型已配置到本机被 Git 忽略的 `.env`：`https://api.clawhunt.site/v1`、`doubao-seed-2.1-pro`；`/models` 与最小 Chat Completions 请求已成功，未发送团队资料。Key 未写入源码或前端。
+- 新增阶段实体与接口：首版计划确认后，队长创建阶段，团队模型为每位成员生成至少3个、最多5个问题；成员只能读取和回答自己的问题。
+- 新增全员暂停确认：所有成员确认后，队长才能生成阶段建议；建议输入包括阶段回答、获准同步的团队资料、报告和手工 GitHub 仓库快照；建议需队长再次确认，不能自动改方向或正式任务。
+- 新增个人任务步骤勾选：网页和连接器均可更新自己的步骤状态，团队总览读取同一状态；勾选不等于同伴验收。
+- 连接器新增 `songban_get_phase`、`songban_submit_phase_answer`、`songban_confirm_phase_pause`、`songban_check_my_task_step`；技能与 README 已说明授权边界。
+- 验证：Python AST、Node `--check` 通过；`unittest` 核心回归 66 项通过；隔离阶段端到端验收通过（2成员、每人3题、回答、全员暂停、建议、队长确认）。完整真实浏览器、真实 GitHub API 自动快照和真实模型阶段建议尚未做；GitHub 快照当前由队长网页提交实际仓库信息，避免凭空宣称已读取仓库。
+
+# 2026-10-30 · 新手完整流程接通（本轮）
+
+- `app/main.py` 保留 `/` 为团队工作台，同时放开赛事公告、注册、组队、队伍任务和提交材料所需的 `/api/studio/*`；只继续锁住旧项目编辑器、旧私聊和 `/classic`，避免用户在注册到组队中途被 423 拦住。
+- 新增 `/contest-flow` 入口，工作台左侧“赛事与组队”直接进入赛事公告导入和创建/加入队伍页面；旧选题页改为引导回团队现场，不再要求手工重复抄方案。
+- `app/team_core.py`：全员确认连接器上传后，首次分析会把资料库中的用户原话、AI回复重点和模型名整理为可投票候选卡；候选仍带真实 conversation 来源，队长再选定项目。
+- 团队统筹提示补充口语化执行规则：页面样式先用假内容跑通，数据服务先说明输入和返回并做正常/空输入测试，UI 先做页面和点击流程，双方字段确定后再接真实数据。
+- `scripts/full_beginner_flow_acceptance.py` 使用临时数据库、合成验证码和协议替身，完成 34 项：注册、访谈确认、赛事、建队、加入、分工、连接器对话、全员确认、AI分析、投票、定题、任务发布、半成品报告、同伴检查、提交材料、赛后成长档案。
+- 验证：核心 66 项 unittest 通过；`scripts/executable_tasks_acceptance.py` 隔离 TCP 验收通过；全链路 34/34 通过；Python/JS 语法检查通过；本机 8886 已重载，`GET /health` 返回 ok。
+
+# 2026-10-30 · 赛事顺序与选题阶段边界修复（本轮）
+
+- 读取并对照 `2292576833/hackathon-field-guide`：吸收“阶段状态、唯一下一步、首次打开初始化、真实事实与AI建议分开”的原则；不搬运主办方后台、评委评分、招募撮合等与参赛队伍无关模块。
+- `app/team_core.py`：队长确定选题时把 `core_phases.status` 写为 `selected`；阶段快照增加 `stage`；选题确定后新增方案、确认上传、AI分析、投票和重复定题均返回阶段已结束，防止旧页面继续操作。
+- `static/core.js`：团队现场增加“这场比赛的顺序”时间线；选题确定后隐藏候选方案、分析和投票按钮，只显示项目简介、核心链路和“查看开发任务”；开发阶段继续显示个人任务、团队进度、成果检查和提交面板。
+- `static/core.css` / `static/core.html`：增加阶段时间线与已定题样式，并更新静态资源版本号避免浏览器继续使用旧脚本。
+- 验证：`tests.test_team_core` + `tests.test_core_workflow` 共37项通过；`scripts/full_beginner_flow_acceptance.py` 全链路35/35通过；Python、JavaScript语法检查通过。
+
+# 2026-10-30 · 三条赛事阶段原则合并（本轮）
+
+- 后端团队快照增加持久化派生的 `stage`：组队、连接个人AI、选题、开发、已提交、赛后复盘；首页同时显示当前阶段和下一步。
+- `build_workflow` 在选题阶段优先给出“全员确认 / AI分析 / 投票定题”的下一步；有未完成选题阶段时，队长不能绕过它直接生成开发任务。
+- 页面增加“当前阶段”卡片，并保留阶段时间线；AI分析和任务规划仍是待确认草案，只有队长点击确认才写入正式记录。
+- 验证：核心37项通过；新手完整流程37/37通过；Python、JavaScript语法检查和 `git diff --check` 通过。

@@ -64,9 +64,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def call(path,body=None):
+def call(path,body=None,method=None):
     c=config();url=c['url']+'/api/core/teams/'+c['team_id']+path
-    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json'},method='POST' if body is not None else 'GET')
+    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json'},method=method or ('POST' if body is not None else 'GET'))
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     try:
         with opener.open(req,timeout=20) as response:
@@ -149,6 +149,34 @@ def pull_local_tasks():
     return data
 
 
+def get_phase():
+    return call('/phase')
+
+
+def answer_phase(phase_id, question_id, answer):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/answer', {'question_id':question_id,'answer':answer})
+
+
+def confirm_phase_pause(phase_id):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/pause', {'confirm':True})
+
+def submit_phase_idea(phase_id, idea):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/ideas', idea)
+
+def confirm_phase_idea_upload(phase_id):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/ideas/confirm-upload', {'confirm':True})
+
+def vote_phase_idea(phase_id, idea_id):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/ideas/'+urllib.parse.quote(idea_id,safe='')+'/vote', {})
+
+def confirm_phase_conversation(phase_id):
+    return call('/phase/'+urllib.parse.quote(phase_id,safe='')+'/conversation-confirm', {'confirm':True})
+
+
+def check_task_step(task_key, step_index, checked, plan_version, revision, note=''):
+    return call('/tasks/'+urllib.parse.quote(task_key,safe='')+'/steps/'+str(int(step_index)), {'expected_revision':revision,'plan_version':plan_version,'checked':bool(checked),'note':note})
+
+
 REPORT_SCHEMA={'type':'object','properties':{
  'event_id':{'type':'string','description':'本次进展唯一ID；重试时保持相同'},
  'tool':{'type':'string'},'session_label':{'type':'string'},'summary':{'type':'string'},
@@ -161,6 +189,14 @@ REPORT_SCHEMA={'type':'object','properties':{
 TOOLS=[
  {'name':'songban_get_team_context','description':'读取本队已确认方向、评分要求、成员、进展来源和不同观点。只将团队确认安排作为执行依据；报告不是已经独立核实的事实。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}},
  {'name':'songban_get_my_tasks','description':'读取本人当前已确认任务、检查方法和统一方向。在工作开始及方向可能变化时调用。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}},
+ {'name':'songban_get_phase','description':'读取本人当前阶段问题、暂停确认状态和阶段建议；阶段问题由团队模型按成员分工生成。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}},
+ {'name':'songban_submit_phase_answer','description':'提交本人对当前阶段问题的回答，只能提交自己的问题。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'},'question_id':{'type':'string'},'answer':{'type':'string'}},'required':['phase_id','question_id','answer'],'additionalProperties':False}},
+ {'name':'songban_confirm_phase_pause','description':'确认本人已暂停当前工作并参加阶段讨论。所有成员确认后，队长可生成阶段建议。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'}},'required':['phase_id'],'additionalProperties':False}},
+ {'name':'songban_submit_phase_idea','description':'通过个人AI整理并上传自己的候选黑客松方案；只上传用户明确授权的摘要。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'},'title':{'type':'string'},'summary':{'type':'string'},'target_user':{'type':'string'},'core_chain':{'type':'string'},'technical_difficulty':{'type':'string'},'expected_deliverable':{'type':'string'},'source_ids':{'type':'array','items':{'type':'string'}}},'required':['phase_id','title','summary'],'additionalProperties':False}},
+ {'name':'songban_confirm_phase_idea_upload','description':'确认本人已上传候选方案，供团队显示3/4、4/4确认状态。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'}},'required':['phase_id'],'additionalProperties':False}},
+ {'name':'songban_confirm_phase_conversation','description':'确认本人已通过松伴连接器上传了有效的个人AI对话；没有连接器记录时不会确认。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'}},'required':['phase_id'],'additionalProperties':False}},
+ {'name':'songban_vote_phase_idea','description':'在个人电脑投票支持一个候选方案；每轮每人只能保留一个投票。','inputSchema':{'type':'object','properties':{'phase_id':{'type':'string'},'idea_id':{'type':'string'}},'required':['phase_id','idea_id'],'additionalProperties':False}},
+ {'name':'songban_check_my_task_step','description':'勾选或取消本人正式任务中的一个规划步骤，并同步团队面板。','inputSchema':{'type':'object','properties':{'task_key':{'type':'string'},'step_index':{'type':'integer','minimum':0},'checked':{'type':'boolean'},'plan_version':{'type':'integer'},'revision':{'type':'integer'},'note':{'type':'string'}},'required':['task_key','step_index','checked','plan_version','revision'],'additionalProperties':False}},
  {'name':'songban_sync_progress','description':'将用户授权的当前项目重要进展、必要对话摘录和证据同步到团队。不能上传其他项目或把团队建议回传成个人新事实。','inputSchema':REPORT_SCHEMA}
 ]
 
@@ -184,6 +220,14 @@ def mcp():
                     if not isinstance(args,dict):raise BridgeError('工具参数必须是对象。')
                     if name=='songban_get_team_context' and not args:answer=call('/context')
                     elif name=='songban_get_my_tasks' and not args:answer=call('/my-tasks')
+                    elif name=='songban_get_phase' and not args:answer=get_phase()
+                    elif name=='songban_submit_phase_answer':answer=answer_phase(args.get('phase_id',''),args.get('question_id',''),args.get('answer',''))
+                    elif name=='songban_confirm_phase_pause':answer=confirm_phase_pause(args.get('phase_id',''))
+                    elif name=='songban_submit_phase_idea':answer=submit_phase_idea(args.get('phase_id',''),{k:args[k] for k in ('title','summary','target_user','core_chain','technical_difficulty','expected_deliverable','source_ids') if k in args})
+                    elif name=='songban_confirm_phase_idea_upload':answer=confirm_phase_idea_upload(args.get('phase_id',''))
+                    elif name=='songban_confirm_phase_conversation':answer=confirm_phase_conversation(args.get('phase_id',''))
+                    elif name=='songban_vote_phase_idea':answer=vote_phase_idea(args.get('phase_id',''),args.get('idea_id',''))
+                    elif name=='songban_check_my_task_step':answer=check_task_step(args.get('task_key',''),args.get('step_index',-1),args.get('checked'),args.get('plan_version'),args.get('revision'),args.get('note',''))
                     elif name=='songban_sync_progress':
                         data=prepare(args);enqueue(data);answer=flush()
                     else:raise BridgeError('未知工具或参数不正确。')

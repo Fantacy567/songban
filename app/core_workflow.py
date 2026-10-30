@@ -4,6 +4,7 @@ Inspired by hackathon-field-guide's home-next and space-workflow concepts.
 No model calls, fabricated progress, or second editable task list.
 """
 from datetime import datetime, timezone
+import re
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS core_task_checks (
@@ -45,6 +46,7 @@ def build_workflow(snap, current_time):
     started = [t for t in mine if t['status'] == 'in_progress']
     available = [t for t in mine if not t['waiting_on'] and t['status'] == 'todo']
     proposal = snap.get('proposal')
+    phase = snap.get('phase') or {}
 
     def action(kind, title, reason, page='overview', task_key=''):
         return {'kind': kind, 'title': title, 'reason': reason, 'page': page, 'task_key': task_key}
@@ -53,6 +55,14 @@ def build_workflow(snap, current_time):
         next_action = action('direction', '先写清这次必须做出什么', '共同目标还是空的，先让所有个人智能体获得相同的工作边界。', 'direction')
     elif not direction.get('rules', '').strip():
         next_action = action('rules', '补上这场比赛的要求', '还没有主办方原文，不能判断必交材料。先粘贴已确认的内容，未知项如实保留。', 'direction')
+    elif phase.get('stage') in ('active', 'discussion'):
+        confirmed = phase.get('ideas_confirmed', 0) >= phase.get('member_total', 0) > 0
+        if not confirmed:
+            next_action = action('topic_confirm', '先确认我已上传本轮选题资料', '选题阶段要等每位成员确认自己的连接器对话已经进入团队资料库。')
+        elif not phase.get('idea_analysis'):
+            next_action = action('topic_analyze', '等待队长启动 AI 选题分析' if not snap['me']['captain'] else '启动 AI 选题分析', '全员确认后，团队 AI 才会按赛事要求、队伍能力和时间分析候选方向。')
+        else:
+            next_action = action('topic_vote', '在分析结果里投票并等待队长定题', '投票只作参考，队长确认后才会进入开发任务。')
     elif waiting:
         task = waiting[0]
         next_action = action('check', '先检查队友交来的「' + task['title'] + '」', '按检查方法试用成果，留下通过或需补充的原因，帮助后续任务解除等待。', task_key=task['key'])
@@ -110,12 +120,24 @@ def build_workflow(snap, current_time):
     return {'next_action': next_action, 'my_tasks': mine, 'reviewable_tasks': [t['key'] for t in waiting], 'checks': checks, 'deadline': deadline, 'accepted_tasks': len(accepted), 'total_tasks': len(tasks), 'all_handoffs_checked': bool(tasks) and len(accepted) == len(tasks), 'source_label': '依据当前记录生成的操作指引 · 不调用模型', 'notice': '交接检查只对应当前任务、计划版本和成果报告；不等于正式提交、获奖或独立技术认证。'}
 
 
+def execution_markdown(execution):
+    if not execution:
+        return ['操作说明：旧任务尚无操作说明']
+    prompt = execution['ai_prompt']
+    longest = max([len(run) for run in re.findall(r'`+', prompt)] or [0])
+    fence = '`' * max(3, longest + 1)
+    lines = ['操作场景：' + execution['tool'], '步骤：'] + [f'{n}. {step}' for n, step in enumerate(execution['steps'], 1)]
+    lines += ['给个人AI的指令：', fence, prompt, fence] if prompt else ['给个人AI的指令：不需要AI指令']
+    return lines + ['要交的成果：' + execution['deliverable'], '卡住时：' + execution['help_hint']]
+
+
 def handoff_markdown(snap):
     names = {m['id']: m['name'] for m in snap['members']}
     lines = ['# ' + snap['team']['name'] + ' · 交接核对清单', '', '计划版本：v' + str(snap['plan_version']), '', '## 共同目标', snap['direction'].get('goal') or '尚未填写', '', '## 任务与当前成果']
     for task in snap['active_plan'].get('tasks', []):
         check = task.get('handoff')
         lines += ['', '### ' + task['key'] + ' ' + task['title'], '负责人：' + names.get(task['owner_id'], '未知成员'), '检查方法：' + task['acceptance'], '交接状态：' + {'accepted': '同伴检查通过', 'changes_requested': '需要补充', 'waiting_review': '等待同伴检查', 'not_reported': '尚未报告完成','dependency_changed':'前置成果变化，需重新核对'}[task['handoff_state']]]
+        lines += execution_markdown(task.get('execution'))
         if task.get('latest_progress'):
             lines += ['本人报告：' + task['latest_progress']['summary'], '成员提供的依据：'] + ['- ' + x for x in task['latest_progress']['evidence']]
         if check:

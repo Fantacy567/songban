@@ -123,7 +123,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, interview_runner=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -190,10 +190,15 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
     @api.middleware("http")
     async def headers_and_size(request: Request, call_next):
         path = request.url.path
+        # The core workspace is the default home.  Keep the old project editor
+        # locked, while leaving the studio's registration, contest and team flow
+        # available because beginners need it before entering the team workspace.
         if api.state.core_only:
             legacy = path in {"/classic", "/workflow", "/static/studio.html", "/static/index.html", "/static/workflow.html"} or path.startswith("/api/projects")
-            old_studio = path.startswith("/api/studio/") and path not in {"/api/studio/login", "/api/studio/register", "/api/studio/codes"}
-            if legacy or old_studio:
+            # The old private chat endpoint stays closed because the team space
+            # now has explicit connector uploads.  Contest, squad, task and
+            # submission endpoints remain available for the beginner flow.
+            if legacy or path == "/api/studio/messages":
                 return JSONResponse({"error": {"code": "feature_locked", "message": "本轮只开放个人智能体与团队统筹主线，其他功能暂时封锁。"}}, status_code=423)
         if request.method in {"POST", "PUT", "PATCH"}:
             limit = 2_000_000 if request.url.path == "/api/studio/contests/import-file" else 300_000
@@ -634,8 +639,12 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
     def workflow():
         return FileResponse(ROOT / "static" / "workflow.html")
 
+    @api.get("/contest-flow", include_in_schema=False)
+    def contest_flow():
+        return FileResponse(ROOT / "static" / "studio.html")
+
     register_studio(api, db, Problem, now, uid, digest)
-    register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    register_core(api, db, Problem, now, uid, digest, core_model_runner, interview_runner)
 
     @api.get("/classic", include_in_schema=False)
     def classic():

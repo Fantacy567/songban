@@ -17,8 +17,13 @@ def plan_for(context):
     members=context['members'];refs=context['source_ids']
     return {'summary':'协议测试：先确认接口，再完成页面联调；不同观点需要证据。',
       'findings':[{'topic':'接口是否完成','decision':'先实际发请求核对，保留待核实。','reason':'个人工具报告不等于验收。','source_ids':refs[-2:] if len(refs)>2 else ['direction'],'needs_check':True}],
-      'tasks':[{'key':'T1','title':'验证接口输入与输出','owner_id':members[0]['id'],'acceptance':'发正常与错误请求并记录返回','depends_on':[],'source_ids':['direction']},
-               {'key':'T2','title':'接入页面并联调','owner_id':members[-1]['id'],'acceptance':'页面显示真实后端结果','depends_on':['T1'],'source_ids':['direction']}],
+      'tasks':[{'key':'T1','title':'验证接口输入与输出','owner_id':members[0]['id'],'acceptance':'发正常与错误请求并记录返回','depends_on':[],'source_ids':['direction'],
+                'execution':{'tool':'终端','steps':['按团队已有启动说明启动后端','发送一次正常姓名请求','发送一次空姓名请求','保存两次请求的实际返回'],
+                             'ai_prompt':'目标：验证姓名接口。已知依据：共同方向。边界：接口地址未提供时先问队长，不要猜测路径。产物：两次请求的实际返回。验收：正常与空输入各一次。',
+                             'deliverable':'两次请求的实际返回内容','help_hint':'说明卡在哪一步、贴出报错原文，向队长求助'}},
+               {'key':'T2','title':'接入页面并联调','owner_id':members[-1]['id'],'acceptance':'页面显示真实后端结果','depends_on':['T1'],'source_ids':['direction'],
+                'execution':{'tool':'浏览器','steps':['等T1的实际返回通过检查','在页面提交一次正常输入','截图页面显示的结果'],'ai_prompt':'',
+                             'deliverable':'一张显示真实返回的页面截图','help_hint':'附上截图和T1的返回，在团队里说明差异'}}],
       'questions':['接口是否经过实际验证？']}
 
 

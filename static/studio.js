@@ -807,13 +807,10 @@ function viewTopics() {
   const ideas = state.squad.ideas;
   const topic = state.squad.squad.topic;
   return page(`<h2>选题空间</h2>
-    <p class="muted">只排本队候选。公开赛讯已经从选择比赛导入。要引用旧对话，把那段贴在这里，不会自动读取。</p>
+    <p class="muted">新的选题流程会读取每个人通过松伴连接器明确上传的对话。请回到团队现场完成“全员确认 → AI分析 → 投票 → 队长定题”，这里保留旧候选记录供查看。</p>
+    <p><button class="btn" type="button" data-act="openCoreWorkspace">进入团队智能选题</button></p>
     ${topic ? `<div class="card"><p class="kicker">已确认的题目</p><p>${esc(topic)}</p><p class="muted">主干：${esc(state.squad.squad.trunk)}</p><button class="btn" type="button" data-go="skill">去安装同一技能</button></div>` : ""}
-    ${topic ? "" : `<form data-act="sendIdea" class="card">
-      <label for="idea">送入一条想法评估</label>
-      <textarea id="idea" name="body" required placeholder="写下想法。若要引用某段旧对话，把那段贴在这里。"></textarea>
-      <button class="btn" type="submit">送入</button>
-    </form>`}
+    ${topic ? "" : `<div class="card"><strong>不要在这里手工抄方案</strong><p class="muted">请先让每个人在自己的 AI 工具中讨论，再用松伴连接器上传。全部成员确认后，团队智能体会自动整理候选方案。</p><button class="btn" type="button" data-act="openCoreWorkspace">去团队现场上传和分析</button></div>`}
     <p class="kicker">前三名 · 与后面的候选分开</p>
     <div class="top3">${ideas.top.map((idea, index) => ideaCard(idea, index + 1)).join("") || `<div class="card">还没有想法。</div>`}</div>
     <div class="card"><p class="kicker">其余本队候选</p>${ideas.rest.length ? ideas.rest.map((idea) => `<p>${esc(idea.core)}</p>`).join("") : "<p class=\"muted\">没有更多候选。</p>"}</div>`);
@@ -1501,6 +1498,12 @@ async function adopt(data, _phone) {
 }
 
 const actions = {
+  async openCoreWorkspace() {
+    // Keep the contest/team screens as the first half of onboarding, then hand
+    // the same logged-in browser to the core workspace for connector uploads,
+    // analysis, tasks and submission links.
+    window.location.assign('/');
+  },
   async requestCode(button) {
     const form = button.closest("form");
     const phone = form.phone.value.trim();

@@ -11,6 +11,12 @@ description: 用户明确调用项目连接技能时读取团队方向；仅按�
 
 开始工作前调用 songban_get_my_tasks；涉及团队分歧或需要别人帮助时再调用 songban_get_team_context。方向和任务可能改变，重要阶段重新读取。按本人的意愿和学习目标工作，不让AI建议自行覆盖团队确认版本。
 
+命题公开后首次选题讨论时，先在个人工具中通过松伴连接器上传用户明确授权的对话内容：用户原话、个人工具回复要点和模型名。不要在网页手工填写候选方案，不上传私人聊天、密钥或未授权内容。上传后调用 songban_confirm_phase_conversation 确认本人已上传；所有成员确认后，队长网页才能启动团队选题分析。
+
+选题和首版任务确认后，若团队创建了阶段访谈，调用 songban_get_phase 读取只属于本人的问题，逐题回答后调用 songban_submit_phase_answer。需要暂停进入团队讨论时，先停止当前工作，再调用 songban_confirm_phase_pause；只有全员确认后，队长网页才能生成阶段建议。阶段建议仍需队长确认，不会自动改正式任务。
+
+个人任务中的规划步骤可以用 songban_check_my_task_step 勾选。调用前先读取最新任务里的 revision、plan_version、task_key；勾选只同步个人进度，不等于同伴验收。
+
 在重要阶段结束时，整理 summary、status、evidence、blocker、views、必要的 excerpt。区分讨论、进行中、受阻、本人报告完成。证据未独立核实时不能写已验收；摘录仅引用真实发生且获准分享的内容，不编造其他成员观点。
 
 用户在本轮明确要求同步时：调用 songban_sync_progress 同步。每次新进展使用新event_id，重试同一次进展保持event_id和内容不变。未启用自动共享时先让用户确认。不要每输出一句话就同步。

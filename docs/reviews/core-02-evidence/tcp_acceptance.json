@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-30T19:57:22+0800",
+  "scope": "隔离TCP服务、无.env镜像、临时数据库、合成账号；模型为协议替身，不证明真实模型拆解质量",
+  "steps": [
+    {
+      "name": "合成输入经协议替身生成草案，每项任务带完整说明",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "草案对同队成员可读，原有字段与来源保留",
+      "ok": true
+    },
+    {
+      "name": "非队长不能发布",
+      "ok": true
+    },
+    {
+      "name": "其他团队不能读本队草案与任务",
+      "ok": true
+    },
+    {
+      "name": "队长确认后活动任务保留全部说明",
+      "ok": true
+    },
+    {
+      "name": "成员网页与个人插件读取到本人任务说明",
+      "ok": true
+    },
+    {
+      "name": "现有交接导出包含当前版本的说明字段",
+      "ok": true,
+      "missing": []
+    },
+    {
+      "name": "非法说明（missing_execution）整份草案不采用，原计划与草案不变，错误可见",
+      "ok": true,
+      "status": 502,
+      "code": "invalid_execution"
+    },
+    {
+      "name": "非法说明（steps_string）整份草案不采用，原计划与草案不变，错误可见",
+      "ok": true,
+      "status": 502,
+      "code": "invalid_execution"
+    },
+    {
+      "name": "非法说明（too_many_steps）整份草案不采用，原计划与草案不变，错误可见",
+      "ok": true,
+      "status": 502,
+      "code": "invalid_execution"
+    },
+    {
+      "name": "非法说明（empty_step）整份草案不采用，原计划与草案不变，错误可见",
+      "ok": true,
+      "status": 502,
+      "code": "invalid_execution"
+    },
+    {
+      "name": "非法说明（long_text）整份草案不采用，原计划与草案不变，错误可见",
+      "ok": true,
+      "status": 502,
+      "code": "invalid_execution"
+    },
+    {
+      "name": "连接器上传仍只记录不分析（开启自动统筹也不调用替身）",
+      "ok": true
+    },
+    {
+      "name": "隔离服务重启后草案、活动任务和导出说明不丢",
+      "ok": true
+    },
+    {
+      "name": "旧计划缺说明可读取并明确标记，不伪造说明",
+      "ok": true
+    },
+    {
+      "name": "服务日志无异常堆栈",
+      "ok": true
+    }
+  ],
+  "port_1": 57649,
+  "draft_task_T1": {
+    "key": "T1",
+    "title": "验证姓名接口",
+    "owner_id": "core01-a",
+    "acceptance": "正常姓名与空姓名各请求一次并保存实际返回",
+    "depends_on": [],
+    "source_ids": [
+      "direction"
+    ],
+    "execution": {
+      "tool": "终端",
+      "steps": [
+        "按团队已有启动说明启动后端",
+        "发一次正常姓名请求",
+        "发一次空姓名请求",
+        "保存两次实际返回"
+      ],
+      "ai_prompt": "目标：验证姓名接口对正常姓名和空姓名的实际返回。已知依据：团队共同方向与主办方原文。边界：只发请求、不改代码；接口地址没有提供时先问队长，不要猜测路径。产物：两次请求的实际返回原文。验收：正常与空输入各一次，返回原样保存。",
+      "deliverable": "两次请求的实际返回原文",
+      "help_hint": "写明卡在哪一步并贴出报错原文，向队长求助"
+    }
+  },
+  "port_2": 57739
+}

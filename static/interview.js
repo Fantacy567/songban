@@ -1,0 +1,47 @@
+/* 个人访谈页面。只调用 /api/core/interview；访谈原文与画像只留在内存，不写 localStorage。依赖 core.js 的 state/api/esc/$/toast/render/refresh/time。 */
+const IV_AGE=[['undisclosed','不透露'],['under_13','13岁以下'],['13_18','13–18岁'],['19_25','19–25岁'],['26_plus','26岁及以上']];
+const IV_STAGE=[['undisclosed','不透露'],['primary_school','小学'],['secondary_school','中学'],['university','大学'],['job_seeking','就业探索'],['working','在职'],['other','其他']];
+const IV_FIELDS=[['interests','兴趣'],['goals','想做成的事'],['experiences','已有经历'],['possible_strengths','可能的长处'],['roles_to_try','可以尝试的角色'],['help_needed','需要的帮助'],['time_available','可投入时间'],['next_practice','下一步可以练习']];
+const IV_BASIS={self_reported:'本人自述',inferred:'模型推测，待你核对'};
+const IV_REASON={user_finished:'你提前结束了访谈',limit_reached:'已经问满上限',model_decided:'模型认为已有信息足够'};
+const iv={owner:null,gen:0,data:null,text:'',key:'',rid:'',sending:false,ending:false,notice:'',error:'',age:'undisclosed',stage:'undisclosed'};
+function ivReset(){Object.assign(iv,{owner:null,data:null,text:'',key:'',rid:'',sending:false,ending:false,notice:'',error:'',age:'undisclosed',stage:'undisclosed'});iv.gen++;}
+function ivMine(gen,token){return iv.gen===gen&&iv.owner===token&&state.token===token;}
+function ivLive(gen,token){return ivMine(gen,token)&&state.page==='interview'&&Boolean($('#iv-view'));}
+function ivRidFor(key){if(iv.key!==key){const a=new Uint8Array(12);crypto.getRandomValues(a);iv.key=key;iv.rid='iv-'+[...a].map(b=>b.toString(16).padStart(2,'0')).join('');}return iv.rid;}
+function ivLength(text){return [...text].length;}
+async function interviewView(){if(iv.owner!==state.token){ivReset();iv.owner=state.token;}const gen=++iv.gen,token=state.token;iv.sending=false;iv.notice='';iv.error='';ivDraw();try{const d=await api('/api/core/interview');if(!ivLive(gen,token))return;iv.data=d;iv.error='';}catch(e){if(!ivLive(gen,token))return;iv.error=e.message;}ivDraw();}
+async function ivCall(path,body,done,answering=false){if(iv.sending||!iv.data)return;const gen=iv.gen,token=state.token;iv.sending=true;iv.error='';iv.notice='';ivDraw();
+try{const d=await api('/api/core/interview/'+path,body);if(!ivMine(gen,token))return;iv.sending=false;iv.data=d;const live=ivLive(gen,token);if(done)done(d,live);if(live)ivDraw();}
+catch(e){if(!ivMine(gen,token))return;iv.sending=false;if(!ivLive(gen,token))return;
+if(e.status===409&&e.code!=='interview_busy'&&e.code!=='request_id_reused'){iv.notice=e.message+(answering?' 已重新读取最新状态；你的回答没有提交给新问题，仍留在输入框，确认后再提交。':' 已重新读取最新状态。');ivDraw();
+try{const d=await api('/api/core/interview');if(!ivLive(gen,token))return;iv.data=d;}catch(err){if(!ivLive(gen,token))return;iv.error=err.message;}ivDraw();return;}
+if(e.code==='request_id_reused')iv.key='';iv.error=e.message+(e.details?.retryable?' 再点一次会重发同一次请求，不会重复计数。':'');ivDraw();}}
+function ivStart(){ivCall('start',{age_band:iv.age,stage:iv.stage});}
+function ivAnswer(){const d=iv.data,q=d.current_question,text=iv.text.trim();if(!text){iv.error='回答是空的。不确定可以写“不知道”或“跳过”。';ivDraw();return;}
+if(ivLength(text)>1000){iv.error=`回答最多1000字，现在${ivLength(text)}字。`;ivDraw();return;}
+ivCall('answer',{version:d.version,question_id:q.id,request_id:ivRidFor(JSON.stringify(['answer',d.version,q.id,text])),text},()=>{iv.text='';iv.key='';},true);}
+function ivFinish(){const d=iv.data;ivCall('finish',{version:d.version,request_id:ivRidFor(JSON.stringify(['finish',d.version]))},()=>{iv.key='';iv.ending=false;});}
+function ivConfirm(){const d=iv.data;ivCall('confirm',{version:d.version,request_id:ivRidFor(JSON.stringify(['confirm',d.version]))},(d,live)=>{iv.key='';if(live)toast('画像已确认。只有你自己能看到，不会发布到团队。');});}
+async function ivLeave(note){state.page='overview';if(note)toast(note);if(state.team){const c=$('#content');if(c)c.innerHTML='<p class="empty">正在读取最新团队资料…</p>';await refresh(true);}else render();}
+function ivOptions(list,picked){return list.map(([k,n])=>`<option value="${k}" ${k===picked?'selected':''}>${n}</option>`).join('');}
+function ivMessages(d){return d.messages.map(m=>`<p class="iv-msg ${m.role==='assistant'?'iv-q':'iv-a'}${d.current_question&&m.id===d.current_question.id?' iv-current':''}"><strong>${m.role==='assistant'?'松伴 · 第'+m.number+'问':'你'}：</strong>${esc(m.text)}</p>`).join('');}
+function ivIntro(msg){return `<form class="card" id="iv-start"><h2>开始前，这两项都可以不透露</h2><label for="iv-age">年龄段</label><select id="iv-age">${ivOptions(IV_AGE,iv.age)}</select><label for="iv-stage">目前阶段</label><select id="iv-stage">${ivOptions(IV_STAGE,iv.stage)}</select><p class="muted">它们只用来调整说法和例子，不用来判断能力。点“开始访谈”后才会调用服务端模型生成第一个问题。</p>${msg}<div class="row"><button type="submit" class="primary" ${iv.sending?'disabled':''}>${iv.sending?'正在生成第一个问题…':'开始访谈'}</button><button type="button" id="iv-leave">先跳过，去团队</button></div></form>`;}
+function ivAsking(d,msg){const q=d.current_question,n=ivLength(iv.text.trim());return `<section class="card"><div class="row spread"><h2>第 ${q.number} / ${d.max_questions} 问</h2><span class="tag">可以随时提前结束</span></div><div class="iv-chat">${ivMessages(d)}</div><form id="iv-answer"><label for="iv-text">你的回答</label><textarea id="iv-text" ${iv.sending?'disabled':''}>${esc(iv.text)}</textarea><p class="muted" id="iv-count">${n} / 1000 字 · 不确定可以写“不知道”或“跳过”。</p>${msg}<div class="row"><button type="submit" class="primary" ${iv.sending?'disabled':''}>${iv.sending?'正在提交…':'提交回答'}</button><button type="button" id="iv-end" ${iv.sending?'disabled':''}>提前结束，生成画像草稿</button><button type="button" id="iv-leave">回到团队</button></div>${iv.ending&&!iv.sending?`<div class="notice">确定现在结束吗？会根据已有回答生成一份等你确认的草稿，之后不能继续回答。${iv.text.trim()?'输入框里还没提交的内容不会发送。':''}<div class="row"><button type="button" class="primary" id="iv-end-yes">确定结束</button><button type="button" id="iv-end-no">继续回答</button></div></div>`:''}</form></section>`;}
+function ivEvidence(d,ids){const users=d.messages.filter(m=>m.role==='user'),order=new Map(users.map((m,i)=>[m.id,[i+1,m.text]]));return (ids||[]).map(id=>{const hit=order.get(id);if(!hit)return '';const t=hit[1].length>80?hit[1].slice(0,80)+'…':hit[1];return `<small class="reference">依据：你的第${hit[0]}个回答「${esc(t)}」</small>`;}).join('');}
+function ivItem(d,x){return `<li><span class="tag">${esc(IV_BASIS[x.basis]||x.basis)}</span> ${esc(x.text)}${ivEvidence(d,x.evidence)}</li>`;}
+function ivProfile(d,msg){const p=d.profile,draft=p.draft,done=d.status==='confirmed',label=Object.fromEntries(IV_FIELDS);
+const fields=IV_FIELDS.map(([k,n])=>{const v=draft[k],list=Array.isArray(v)?v:v?[v]:[];return list.length?`<div class="iv-field"><h3>${n}</h3><ul>${list.map(x=>ivItem(d,x)).join('')}</ul></div>`:'';}).join('');
+const conflicts=(draft.conflicts||[]).length?`<div class="iv-field"><h3>前后说法不一致的地方</h3><ul>${draft.conflicts.map(x=>`<li>${esc(x.text)}${ivEvidence(d,x.evidence)}</li>`).join('')}</ul></div>`:'';
+const unknowns=(draft.unknowns||[]).length?`<div class="iv-field"><h3>还不了解的方面</h3><ul>${draft.unknowns.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+const missing=(p.missing_fields||[]).length?`<p class="muted">这次没有聊到：${p.missing_fields.map(k=>esc(label[k]||k)).join('、')}</p>`:'';
+return `<section class="card"><div class="row spread"><h2>${done?'已确认的个人画像':'画像草稿 · 等你确认'}</h2><span class="tag ${done?'green':'warn'}">${done?'已确认 '+esc(time(p.confirmed_at)):'尚未确认'}</span></div><div class="notice">仅供本次协作参考，尚未证明实际能力。只有你自己能看到，不会发布到团队，也不会改写你的注册资料。</div><p class="muted">${esc(IV_REASON[p.reason]||'访谈已结束')} · 共 ${d.asked_count} 问。“本人自述”来自你说过的话；“模型推测”只是推测，请对照依据核对。</p>${fields||'<p class="empty">这份草稿还没有具体内容。</p>'}${conflicts}${unknowns}${missing}<details class="iv-field"><summary>查看完整对话</summary><div class="iv-chat">${ivMessages(d)}</div></details>${msg}<div class="row">${done?'<button type="button" id="iv-leave">回到团队</button>':`<button type="button" class="primary" id="iv-confirm" ${iv.sending?'disabled':''}>${iv.sending?'正在确认…':'确认这份画像'}</button><button type="button" id="iv-later" ${iv.sending?'disabled':''}>暂不确认，保留草稿</button>`}</div></section>`;}
+function ivDraw(){const c=$('#content');if(!c||state.page!=='interview')return;const d=iv.data,msg=(iv.notice?`<div class="notice" role="status">${esc(iv.notice)}</div>`:'')+(iv.error?`<div class="error" role="alert">${esc(iv.error)}</div>`:'');
+const body=!d?`<div class="card">${msg||'<p class="empty">正在读取你的访谈…</p>'}${msg?'<button type="button" id="iv-reload">重新读取</button>':''}</div>`:d.status==='not_started'?ivIntro(msg):d.status==='asking'?ivAsking(d,msg):ivProfile(d,msg);
+c.innerHTML=`<div id="iv-view"><div class="hero"><div><div class="eyebrow">PERSONAL INTERVIEW</div><h1>聊聊你想做的事。</h1><p>围绕你想做的事聊聊，最多30问，可提前结束；不是性格或天赋测验；完整对话默认仅本人可见。</p></div></div>${body}</div>`;ivBind();}
+function ivBind(){const on=(s,ev,fn)=>{const el=$(s);if(el)el.addEventListener(ev,fn);};
+on('#iv-start','submit',e=>{e.preventDefault();ivStart();});on('#iv-age','change',e=>{iv.age=e.target.value;});on('#iv-stage','change',e=>{iv.stage=e.target.value;});
+on('#iv-answer','submit',e=>{e.preventDefault();ivAnswer();});on('#iv-text','input',e=>{iv.text=e.target.value;const c=$('#iv-count');if(c)c.textContent=`${ivLength(iv.text.trim())} / 1000 字 · 不确定可以写“不知道”或“跳过”。`;});
+on('#iv-end','click',()=>{iv.ending=true;ivDraw();});on('#iv-end-no','click',()=>{iv.ending=false;ivDraw();});on('#iv-end-yes','click',ivFinish);
+on('#iv-confirm','click',ivConfirm);on('#iv-later','click',()=>ivLeave('草稿已保留。之后可以从左侧“个人访谈”回来确认。'));on('#iv-leave','click',()=>ivLeave());on('#iv-reload','click',interviewView);
+if(iv.error&&!iv.sending){const t=$('#iv-text');if(t)t.focus();}}

@@ -15,6 +15,8 @@
 
 运行 `python3 /绝对路径/bridge.py watch`。让个人智能体按技能说明更新项目里的 songban-update.json（参考update.example.json）。监听器默认每2秒检测变化并上传，同时每5秒取回共同方向和本人任务，写入 `.songban/team-state.json`，供个人智能体开始下一轮工作时读取。不需要反复粘贴；停止监听后不会自动同步。
 
+团队确认首版任务后，网页可以创建阶段访谈。个人工具用 `songban_get_phase` 读取自己的问题，用 `songban_submit_phase_answer` 回答；需要暂停讨论时用 `songban_confirm_phase_pause`。所有成员确认后，队长在网页生成阶段建议。任务步骤可用 `songban_check_my_task_step` 勾选并同步到团队面板，仍需同伴验收。
+
 命令行：`context`读取团队方向和进展，`tasks`读取本人任务，`sync --file songban-update.json`同步一次，`flush`补传断网队列。队列按连接区分，切换团队不会错传旧队列。
 
 ## Codex自动触发（可选）
