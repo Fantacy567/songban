@@ -732,6 +732,41 @@ def register_studio(api, db, problem, now, uid, digest):
             )
         return blocked
 
+    def login_response(con, user, keys, notice):
+        token_clear = secrets.token_urlsafe(24)
+        con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), user["id"]))
+        con.executemany("DELETE FROM login_attempts WHERE key=?", ((key,) for key, _limit in keys))
+        user = dict(user)
+        return {"user_id": user["id"], "token": token_clear, "returning": True, "name": user["name"],
+                "phone": public_phone(user), "username": user.get("username") or "",
+                "skills": user["skills"], "profile": user["profile"], "growth": user["growth"],
+                "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
+                "notice": notice}
+
+    @api.post("/api/studio/login-code")
+    def login_code(body: dict, request: Request):
+        phone = normalize_phone(body.get("phone", ""))
+        if not phone:
+            raise problem(422, "invalid_phone", "填写有效手机号。")
+        code = str(body.get("code") or "").strip()
+        with db(True) as con:
+            keys = login_keys(request, phone)
+            if login_blocked(con, keys):
+                raise problem(429, "login_wait", "登录失败次数过多，请五分钟后再试。")
+            status = code_matches(con, phone, code)
+            if status != "ok":
+                blocked = record_login_failure(con, keys)
+                con.commit()  # Persist the attempt even though the request fails.
+                if blocked:
+                    raise problem(429, "login_wait", "登录失败次数过多，请五分钟后再试。")
+                raise problem(401, "bad_code", "验证码不正确或已过期，请重新获取。")
+            user = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
+            if not user:
+                # Keep the verified code available for the explicit registration form.
+                raise problem(422, "registration_required", "这个手机号尚未注册，请补充姓名并设置密码。")
+            con.execute("DELETE FROM phone_codes WHERE phone=?", (phone,))
+            return login_response(con, user, keys, "已用短信验证码进入。")
+
     @api.post("/api/studio/login")
     def login(body: dict, request: Request):
         account = str(body.get("account") or body.get("username") or body.get("phone") or "").strip()
@@ -758,15 +793,7 @@ def register_studio(api, db, problem, now, uid, digest):
                 if missing_password:
                     raise problem(401, "password_missing", "这个手机号还没有密码。请用手机号注册，验证后设置密码。")
                 raise problem(401, "bad_login", "手机号或密码不对。")
-            token_clear = secrets.token_urlsafe(24)
-            con.execute("UPDATE people SET token_hash=? WHERE id=?", (digest(token_clear), user["id"]))
-            con.executemany("DELETE FROM login_attempts WHERE key=?", ((key,) for key, _limit in keys))
-            user = dict(user)
-            return {"user_id": user["id"], "token": token_clear, "returning": True, "name": user["name"],
-                    "phone": public_phone(user), "username": user.get("username") or "",
-                    "skills": user["skills"], "profile": user["profile"], "growth": user["growth"],
-                    "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
-                    "notice": "已用手机号和密码进入。"}
+            return login_response(con, user, keys, "已用手机号和密码进入。")
 
     @api.get("/api/studio/connect")
     def connect_status():
