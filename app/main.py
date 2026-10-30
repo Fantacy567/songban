@@ -155,6 +155,20 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         initial.executescript(SCHEMA)
         ensure_schema(initial)
         ensure_core_schema(initial)
+        initial.execute(
+            """
+            CREATE TABLE IF NOT EXISTS learning_sessions (
+                id TEXT PRIMARY KEY,
+                role TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'local_demo',
+                state TEXT NOT NULL,
+                revision INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        initial.execute("CREATE INDEX IF NOT EXISTS learning_sessions_updated ON learning_sessions(updated_at)")
         columns = {row[1] for row in initial.execute("PRAGMA table_info(proposals)")}
         for column in ("model_id", "model_display_name", "response_model_id", "fallback_reason"):
             if column not in columns:
@@ -178,13 +192,10 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
     custom_models, discoveries, model_versions = {}, {}, {}
 
     # The learning/experience flow is intentionally isolated from the team
-    # collaboration tables.  This first slice is a local demo adapter: the
-    # browser can complete the full flow without an account, while callers
-    # that want to exercise server persistence can use these versioned,
-    # in-memory session endpoints.  A production learning domain should move
-    # this state to its own authenticated tables before being enabled publicly.
+    # collaboration tables. It uses its own JSON state table so the local
+    # experience survives service restarts while the schema remains easy to
+    # evolve into normalized learning-domain tables later.
     learning_lock = threading.Lock()
-    learning_sessions = {}
     learning_events = [
         {
             "id": "education-agent-weekend",
@@ -249,6 +260,18 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             {"id": "project-note", "title": "写下项目说明", "status": "todo", "deliverable": "简短项目说明。", "steps": [], "evidence": {}},
             {"id": "submission-list", "title": "对照活动要求核对提交清单", "status": "todo", "deliverable": "提交前核对结果。", "steps": [], "evidence": {}},
         ]
+
+    def learning_persisted_snapshot(row):
+        state = json.loads(row["state"])
+        state.update({
+            "id": row["id"],
+            "mode": row["mode"],
+            "role": row["role"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "revision": row["revision"],
+        })
+        return learning_session_snapshot(state)
 
     def selected_model(pid):
         with settings_lock:
@@ -739,33 +762,39 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             "review": {"reflection": "", "share": []},
             "revision": 1,
         }
-        with learning_lock:
-            learning_sessions[session_id] = session
+        with learning_lock, db(True) as con:
+            con.execute(
+                "INSERT INTO learning_sessions(id,role,mode,state,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                (session_id, session["role"], session["mode"], encode({k: v for k, v in session.items() if k not in {"id", "mode", "role", "created_at", "updated_at", "revision"}}), session["revision"], session["created_at"], session["updated_at"]),
+            )
         return learning_session_snapshot(session)
 
     @api.get("/api/learning/v1/sessions/{session_id}")
     def learning_session_get(session_id: str):
-        with learning_lock:
-            session = learning_sessions.get(session_id)
-            if not session:
+        with learning_lock, db() as con:
+            row = con.execute("SELECT * FROM learning_sessions WHERE id=?", (session_id,)).fetchone()
+            if not row:
                 raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
-            return learning_session_snapshot(session)
+            return learning_persisted_snapshot(row)
 
     @api.patch("/api/learning/v1/sessions/{session_id}")
     def learning_session_update(session_id: str, body: dict):
         allowed = {"role", "onboarding", "selected_event", "team", "idea", "direction", "tasks", "delivery", "review"}
-        with learning_lock:
-            session = learning_sessions.get(session_id)
-            if not session:
+        with learning_lock, db(True) as con:
+            row = con.execute("SELECT * FROM learning_sessions WHERE id=?", (session_id,)).fetchone()
+            if not row:
                 raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
             expected = body.get("expected_revision")
-            if expected is not None and expected != session["revision"]:
-                raise Problem(409, "learning_revision_conflict", "体验资料已在另一窗口更新，请刷新后重试。", {"current_revision": session["revision"]})
+            if expected is not None and expected != row["revision"]:
+                raise Problem(409, "learning_revision_conflict", "体验资料已在另一窗口更新，请刷新后重试。", {"current_revision": row["revision"]})
+            session = learning_persisted_snapshot(row)
             for key in allowed:
                 if key in body:
                     session[key] = body[key]
             session["revision"] += 1
             session["updated_at"] = now()
+            state = {k: v for k, v in session.items() if k not in {"id", "mode", "role", "created_at", "updated_at", "revision"}}
+            con.execute("UPDATE learning_sessions SET state=?,revision=?,updated_at=? WHERE id=?", (encode(state), session["revision"], session["updated_at"], session_id))
             return learning_session_snapshot(session)
 
     @api.post("/api/learning/v1/sessions/{session_id}/evidence")
@@ -775,10 +804,11 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             raise Problem(422, "learning_task_required", "请先选择要提交的任务。")
         if not any(str(body.get(key) or "").strip() for key in ("summary", "url", "file_name")):
             raise Problem(422, "learning_evidence_required", "请添加成果说明、链接或文件。")
-        with learning_lock:
-            session = learning_sessions.get(session_id)
-            if not session:
+        with learning_lock, db(True) as con:
+            row = con.execute("SELECT * FROM learning_sessions WHERE id=?", (session_id,)).fetchone()
+            if not row:
                 raise Problem(404, "learning_session_not_found", "体验会话不存在或已过期。")
+            session = learning_persisted_snapshot(row)
             task = next((item for item in session["tasks"] if item["id"] == task_id), None)
             if not task:
                 raise Problem(404, "learning_task_not_found", "任务不存在或已更新。")
@@ -786,6 +816,8 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             task["status"] = "reported_done"
             session["revision"] += 1
             session["updated_at"] = now()
+            state = {k: v for k, v in session.items() if k not in {"id", "mode", "role", "created_at", "updated_at", "revision"}}
+            con.execute("UPDATE learning_sessions SET state=?,revision=?,updated_at=? WHERE id=?", (encode(state), session["revision"], session["updated_at"], session_id))
             return learning_session_snapshot(session)
 
     @api.get("/", include_in_schema=False)

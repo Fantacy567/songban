@@ -78,6 +78,26 @@ class LearningShellTests(unittest.TestCase):
         self.assertIn("core.js", home.text)
         self.assertNotIn("learning.js", home.text)
 
+    def test_learning_session_survives_app_restart(self):
+        created = self.client.post("/api/learning/v1/sessions", json={"role": "creator"})
+        self.assertEqual(created.status_code, 201, created.text)
+        session = created.json()
+        sid = session["id"]
+        updated = self.client.patch(
+            f"/api/learning/v1/sessions/{sid}",
+            json={"expected_revision": 1, "idea": {"text": "保存到服务端"}},
+        )
+        self.assertEqual(updated.status_code, 200, updated.text)
+
+        restarted = TestClient(create_app(self.db, core_only=True))
+        try:
+            restored = restarted.get(f"/api/learning/v1/sessions/{sid}")
+            self.assertEqual(restored.status_code, 200, restored.text)
+            self.assertEqual(restored.json()["idea"]["text"], "保存到服务端")
+            self.assertEqual(restored.json()["revision"], 2)
+        finally:
+            restarted.close()
+
 
 if __name__ == "__main__":
     unittest.main()
