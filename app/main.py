@@ -20,6 +20,7 @@ from starlette.middleware.cors import CORSMiddleware
 from .advice import advice_markdown, rubric_coverage, scope_advice
 from .studio import ensure_schema, register_studio
 from .team_core import ensure_core_schema, register_core
+from .materials import register_materials
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
@@ -123,7 +124,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -293,6 +294,8 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
                 return JSONResponse({"error": {"code": "feature_locked", "message": "本轮只开放个人智能体与团队统筹主线，其他功能暂时封锁。"}}, status_code=423)
         if request.method in {"POST", "PUT", "PATCH"}:
             limit = 2_000_000 if request.url.path == "/api/studio/contests/import-file" else 300_000
+            if path.startswith('/api/materials/') and path.endswith('/sources'):
+                limit = 10_800_000
             try:
                 if int(request.headers.get("content-length", "0")) > limit:
                     return JSONResponse({"error": {"code": "request_too_large", "message": "请求内容过长。"}}, status_code=413)
@@ -839,6 +842,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
 
     register_studio(api, db, Problem, now, uid, digest)
     register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    register_materials(api, db, Problem, now, uid, digest, materials_model_runner)
 
     @api.get("/classic", include_in_schema=False)
     def classic():

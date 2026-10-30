@@ -82,7 +82,9 @@ class LearningShellTests(unittest.TestCase):
         home = self.client.get("/")
         learning = self.client.get("/learning")
         self.assertIn("songban.css?v=20261030-design-v1.1", home.text)
-        self.assertIn("songban.js?v=20261030-design-v1.1", home.text)
+        self.assertIn("songban.js?v=20261031-materials-v1", home.text)
+        self.assertIn("songban-materials.js?v=20261031-materials-v1", home.text)
+        self.assertIn("songban-materials.css?v=20261031-materials-v1", home.text)
         self.assertIn("songban-views.js?v=20261030-design-v1.1", learning.text)
         self.assertIn('data-shell="songban-v1"', home.text)
         css = self.client.get('/static/songban.css').text
