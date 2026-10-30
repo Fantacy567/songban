@@ -33,7 +33,8 @@ def enterprise_sms_ready():
 
 
 def cloud_sms_ready():
-    return gift_sms_ready()
+    mode = _env("ALIYUN_SMS_MODE").lower()
+    return gift_sms_ready() and mode in {"", "pnvs", "enterprise", "dysms", "sms"}
 
 
 def mac_sms_enabled():
@@ -51,7 +52,7 @@ def test_codes_allowed():
 def sms_status():
     if cloud_sms_ready():
         provider = "aliyun-enterprise" if enterprise_sms_ready() else "aliyun-pnvs"
-        return {"ready": True, "provider": provider, "missing": [],
+        return {"ready": True, "configured": True, "delivery_verified": False, "provider": provider, "missing": [],
                 "notice": "验证码由阿里云发到手机。这一页不显示数字。"}
     missing = []
     if not access_key_ready():
@@ -60,7 +61,9 @@ def sms_status():
         missing.append("赠送签名名称")
     if not _env("ALIYUN_SMS_TEMPLATE_CODE"):
         missing.append("赠送模板 CODE")
-    return {"ready": False, "provider": "", "missing": missing,
+    if _env("ALIYUN_SMS_MODE").lower() not in {"", "pnvs", "enterprise", "dysms", "sms"}:
+        missing.append("有效的短信模式（pnvs 或 enterprise）")
+    return {"ready": False, "configured": False, "delivery_verified": False, "provider": "", "missing": missing,
             "notice": "个人账号不要再填短信服务的企业资质。打开 https://dypns.console.aliyun.com 开通号码认证里的「短信认证」，用系统赠送的签名和模板。再创建 AccessKey，把四项写进松伴文件夹的 .env。"}
 
 
@@ -87,9 +90,35 @@ def _signed_get(host, version, params):
     url = f"https://{host}/?" + urllib.parse.urlencode(params)
     try:
         with urllib.request.urlopen(url, timeout=12) as response:
-            return json.loads(response.read().decode())
+            body = json.loads(response.read().decode())
+            return body if isinstance(body, dict) else None
+    except urllib.error.HTTPError as error:
+        # Aliyun may return its structured error in an HTTP 4xx response.
+        try:
+            body = json.loads(error.read(16384).decode())
+            return body if isinstance(body, dict) else None
+        except (ValueError, UnicodeError, OSError):
+            return None
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
         return None
+
+
+def provider_failure(body):
+    """Only approved messages leave the server; never echo provider message/credentials."""
+    code = str(body.get("Code") or "") if isinstance(body, dict) else ""
+    if code in {"InvalidAccessKeyId.NotFound", "InvalidAccessKeyId", "SignatureDoesNotMatch", "SignatureNonceUsed"}:
+        return "短信服务凭据校验失败，请管理员检查 AccessKey。"
+    if code.startswith(("Forbidden.RAM", "NoPermission", "Forbidden.AccessKey")):
+        return "短信服务权限不足，请管理员检查阿里云 RAM 权限。"
+    if code in {"isv.AMOUNT_NOT_ENOUGH", "isv.OUT_OF_SERVICE", "AmountNotEnough", "InsufficientBalance"}:
+        return "短信服务余额不足或已停用，请管理员检查阿里云账户。"
+    if "SIGN" in code.upper() or "TEMPLATE" in code.upper():
+        return "短信签名或模板不可用，请管理员核对当前短信模式与审核状态。"
+    if code in {"isv.BUSINESS_LIMIT_CONTROL", "isv.DAY_LIMIT_CONTROL", "Throttling", "Throttling.User"}:
+        return "验证码发送过于频繁，请稍后重试。"
+    if "MOBILE" in code.upper() or "PHONE" in code.upper():
+        return "短信平台未接受这个手机号，请核对号码和支持地区。"
+    return "云端短信没有发出，请稍后重试或联系管理员检查短信服务。"
 
 
 def send_pnvs_code(phone, code):
@@ -109,8 +138,8 @@ def send_pnvs_code(phone, code):
     })
     if not body:
         return False, "阿里云短信认证没有连上"
-    if str(body.get("Code") or "") != "OK":
-        return False, "阿里云没有发出这条验证码"
+    if str(body.get("Code") or "") != "OK" or body.get("Success") is False:
+        return False, provider_failure(body)
     return True, "aliyun-pnvs"
 
 
@@ -127,7 +156,7 @@ def send_aliyun_code(phone, code):
     if not body:
         return False, "阿里云短信没有连上"
     if str(body.get("Code") or "") != "OK":
-        return False, "阿里云没有发出这条短信"
+        return False, provider_failure(body)
     return True, "aliyun"
 
 
@@ -169,7 +198,7 @@ def deliver_login_code(phone, code):
         sent, detail = sender(phone, code)
         if sent:
             return True, "验证码已由阿里云发到这个手机号。请打开短信填写。这一页不会显示数字。"
-        return False, "云端短信没有发出。没有把数字留在网页上。"
+        return False, detail
     if mac_sms_enabled():
         sent, detail = send_phone_code(phone, code)
         if sent:

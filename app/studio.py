@@ -795,6 +795,11 @@ def register_studio(api, db, problem, now, uid, digest):
                 raise problem(401, "bad_login", "手机号或密码不对。")
             return login_response(con, user, keys, "已用手机号和密码进入。")
 
+    @api.get("/api/studio/sms-status")
+    def sms_configuration_status():
+        # Configuration presence is not a delivery or account-balance check.
+        return sms_status()
+
     @api.get("/api/studio/connect")
     def connect_status():
         config = team_model_config()

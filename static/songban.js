@@ -3,7 +3,7 @@ const root = document.querySelector('#app');
 const $ = selector => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {discussion:'讨论',in_progress:'进行中',blocked:'受阻',reported_done:'本人报告完成',todo:'尚无进展'};
-const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'direction',direction:'direction',work:'overview',collaboration:'overview',tools:'plugin',library:'library',members:'members',delivery:'delivery',review:'recap'};
+const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'direction',direction:'direction',work:'overview',collaboration:'overview',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
 const pageRoutes = {overview:'work',plugin:'tools',recap:'review'};
 const state = {token:localStorage.getItem('studio-token') || '',team:localStorage.getItem('studio-squad') || '',page:'login',me:null,data:null,busy:false,epoch:0,events:[],eventId:sessionStorage.getItem('songban-event') || '',selectedRules:'',drafts:new Map(),syncing:false};
 const endpoint = suffix => '/api/core/teams/' + encodeURIComponent(state.team) + suffix;
@@ -25,6 +25,7 @@ async function api(path, body, method) {
   return data;
 }
 function clearIdentity(persist=true) {
+  if(typeof SongbanMaterials!=='undefined')SongbanMaterials.reset();
   state.epoch++; state.token=''; state.me=null; state.data=null; state.team=''; state.drafts.clear();
   if(persist){localStorage.removeItem('studio-token');localStorage.removeItem('studio-squad');}
 }
@@ -80,7 +81,7 @@ function go(page) {
 }
 function shell() {
   const activity=['events','event'].includes(state.page);
-  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['team','小队'],['direction','方向'],['work','任务'],['tools','个人工具'],['library','资料库'],['members','成员'],['delivery','交付'],['review','复盘']].map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队">${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div></main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
+  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['team','小队'],['direction','方向'],['work','任务'],['tools','个人工具'],['library','资料库'],['materials','资料入口'],['members','成员'],['delivery','交付'],['review','复盘']].map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队">${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div></main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
   root.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>openAuth());
   $('[data-help]').onclick=()=>showHelp();
   if($('#logout'))$('#logout').onclick=()=>{clearIdentity();go('login');toast('已退出当前浏览器。');};
@@ -99,7 +100,7 @@ function render() {
   if(state.page==='event'){eventPage();return;}
   if(!state.me){$('#content').innerHTML=`${head('一起动手','让想法，有一个开始。','登录后创建或加入真实团队，和同伴一起保存进展。')}<section class="card empty"><p>使用手机号登录，接着完成你的作品。</p><button class="primary" data-auth-required>登录并继续 ${icon('arrow')}</button></section>`;$('[data-auth-required]').onclick=()=>openAuth();return;}
   if(!state.data){renderOnboarding();return;}
-  const pages={team:teamPage,direction:direction,overview:overview,plugin:plugin,library:libraryView,members:members,delivery:deliveryPage,recap:recapPage};
+  const pages={team:teamPage,direction:direction,overview:overview,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
   (pages[state.page]||overview)();
   if(state.page==='direction'&&!state.data.direction.rules&&state.selectedRules){const f=$('#direction-form');f.elements.rules.value=state.selectedRules;f.dataset.dirty='true';}
   restoreDrafts();
@@ -128,10 +129,15 @@ function openAuth(initial='password',prefill={}){
   const draw=()=>{
     const old=dialog.querySelector('form');if(old)draft={...draft,...values(new FormData(old))};
     const register=mode==='register';
-    dialog.querySelector('#auth-body').innerHTML=`<p class="subtitle">登录，和同伴一起把想法做出来。</p><div class="auth-tabs" role="group" aria-label="登录方式"><button type="button" data-mode="password" aria-pressed="${mode==='password'}">密码登录</button><button type="button" data-mode="sms" aria-pressed="${mode==='sms'}">验证码登录</button></div><form id="auth-form"><label for="auth-phone">手机号</label><input id="auth-phone" name="phone" inputmode="tel" autocomplete="tel" maxlength="20" value="${esc(draft.phone||'')}" required>${mode!=='password'?`<label for="auth-code">短信验证码</label><div class="code-input"><input id="auth-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="${esc(draft.code||'')}" required><button type="button" id="send-code">获取验证码</button></div><p id="code-notice" class="muted" role="status"></p>`:''}${mode!=='sms'?`<label for="auth-password">${register?'设置密码':'密码'}</label><input id="auth-password" name="password" type="password" minlength="8" maxlength="64" autocomplete="${register?'new-password':'current-password'}" required>`:''}${register?'<label for="auth-name">你的名字</label><input id="auth-name" name="name" maxlength="40" autocomplete="nickname" required><label for="auth-skills">目前做得到的事</label><input id="auth-skills" name="skills" placeholder="例如：设计、整理资料，或正在学习" maxlength="500" required><label for="auth-profile">这次想尝试什么</label><input id="auth-profile" name="profile" placeholder="例如：和同伴完成第一个作品" maxlength="2000" required>':''}<p class="caption">${register?'注册后，密码和验证码两种方式都可以使用。':'两种登录方式使用同一个松伴账号。'}</p><button class="primary wide" type="submit">${register?'注册并开始':'登录并开始'} ${icon('arrow')}</button><button class="text-link wide" type="button" data-register>${register?'已有账号，返回登录':'第一次来，注册账号'}</button></form>`;
+    dialog.querySelector('#auth-body').innerHTML=`<p class="subtitle">登录，和同伴一起把想法做出来。</p><div class="auth-tabs" role="group" aria-label="登录方式"><button type="button" data-mode="password" aria-pressed="${mode==='password'}">密码登录</button><button type="button" data-mode="sms" aria-pressed="${mode==='sms'}">验证码登录</button></div><form id="auth-form"><label for="auth-phone">手机号</label><input id="auth-phone" name="phone" inputmode="tel" autocomplete="tel" maxlength="20" value="${esc(draft.phone||'')}" required>${mode!=='password'?`<label for="auth-code">短信验证码</label><div class="code-input"><input id="auth-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="${esc(draft.code||'')}" required><button type="button" id="send-code">获取验证码</button></div><p id="code-notice" class="muted" role="status"></p><p id="sms-status" class="caption" role="status">正在检查短信配置…</p>`:''}${mode!=='sms'?`<label for="auth-password">${register?'设置密码':'密码'}</label><input id="auth-password" name="password" type="password" minlength="8" maxlength="64" autocomplete="${register?'new-password':'current-password'}" required>`:''}${register?'<label for="auth-name">你的名字</label><input id="auth-name" name="name" maxlength="40" autocomplete="nickname" required><label for="auth-skills">目前做得到的事</label><input id="auth-skills" name="skills" placeholder="例如：设计、整理资料，或正在学习" maxlength="500" required><label for="auth-profile">这次想尝试什么</label><input id="auth-profile" name="profile" placeholder="例如：和同伴完成第一个作品" maxlength="2000" required>':''}<p class="caption">${register?'注册后，密码和验证码两种方式都可以使用。':'两种登录方式使用同一个松伴账号。'}</p><button class="primary wide" type="submit">${register?'注册并开始':'登录并开始'} ${icon('arrow')}</button><button class="text-link wide" type="button" data-register>${register?'已有账号，返回登录':'第一次来，注册账号'}</button></form>`;
     dialog.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw();});
     dialog.querySelector('[data-register]').onclick=()=>{mode=register?'password':'register';draw();};
     const send=dialog.querySelector('#send-code');
+    const smsStatus=dialog.querySelector('#sms-status');
+    if(smsStatus)api('/api/studio/sms-status').then(status=>{
+      if(!smsStatus.isConnected)return;
+      smsStatus.textContent=status.configured?'验证码将发送到手机，页面不会显示验证码。':'短信服务尚未配置，暂不能注册或使用验证码登录。已有账号可使用密码登录。';
+    }).catch(()=>{if(smsStatus.isConnected)smsStatus.textContent='短信状态暂时无法读取，发送时会显示实际结果。';});
     const tick=()=>{const b=dialog.querySelector('#send-code');if(!b)return;const left=Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));b.disabled=sending||left>0;b.textContent=sending?'正在发送…':left?left+' 秒后重试':'获取验证码';};
     clearInterval(timer);timer=setInterval(tick,1000);tick();
     if(send)send.onclick=async()=>{
@@ -170,8 +176,8 @@ async function eventPage(){
     if(!state.eventId){const list=await api('/api/learning/v1/events');state.eventId=list.items[0]?.id||'';}
     const data=await api('/api/learning/v1/events/'+encodeURIComponent(state.eventId));if(!c.isConnected)return;
     const e=data.item;sessionStorage.setItem('songban-event',e.id);
-    c.innerHTML=`<a class="text-link back-link" href="#/events">← 返回活动</a>${head('先了解，再开始 / 样例活动',e.title,e.date+' · '+e.location)}<section class="card event-detail"><p class="event-lead">${esc(e.summary||e.description)}</p><div class="event-facts"><div><h3>先做出什么</h3><p>一个能走完主流程的小作品，<br>一次完整演示。</p></div><div><h3>可以怎么参与</h3><p>和熟悉的同伴一起，<br>按实际能投入的时间安排。</p></div><div><h3>还需要核实</h3><p>年龄资格、AI 使用政策、<br>报名和正式提交时间。</p></div></div><label for="event-rules">本场规则，也可以粘贴你自己的比赛要求</label><textarea id="event-rules" rows="5">${esc(e.rules||'')}</textarea><p class="caption">这里先保留草稿；创建小队并确认方向后，会保存到真实团队。样例规则需自行核实。</p></section><div class="action-row"><p class="muted">把要求保存好，创作时就不会漏掉。</p><button class="primary" id="start-event">就从这场开始 ${icon('arrow')}</button></div>`;
-    $('#start-event').onclick=()=>{state.selectedRules='活动：'+e.title+'（样例，请核实）\n'+$('#event-rules').value;go('team');};
+    c.innerHTML=`<a class="text-link back-link" href="#/events">← 返回活动</a>${head('先了解，再开始 / 样例活动',e.title,e.date+' · '+e.location)}<p class="event-lead">${esc(e.summary||e.description)}</p><div id="materials-host"></div><div class="action-row"><a class="text-link" href="#/team">创建或加入小队 →</a></div>`;
+    await SongbanMaterials.mount($('#materials-host'),{event:e});
   }catch(error){if(c.isConnected)c.innerHTML=`<p class="error">${esc(error.message)}</p><a href="#/events">返回活动列表</a>`;}
 }
 function renderOnboarding(){
@@ -202,7 +208,7 @@ async function refresh(force=false){
     const changed=!state.data||data.revision!==state.data.revision||data.proposal?.id!==state.data.proposal?.id||data.review_running!==state.data.review_running||data.last_error!==state.data.last_error;
     const editing=!!root.querySelector('form[data-dirty="true"],dialog[open]')||state.busy;
     if(force){captureDrafts();state.data=data;render();}
-    else if(changed&&!editing){state.data=data;if(!['login','events','event'].includes(state.page))render();}
+    else if(changed&&!editing&&state.page!=='materials'){state.data=data;if(!['login','events','event'].includes(state.page))render();}
     const status=$('#sync-state');if(status)status.textContent=changed&&editing&&!force?'有新进展，保存前请核对':'已同步 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
   }catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}
   finally{state.syncing=false;}
