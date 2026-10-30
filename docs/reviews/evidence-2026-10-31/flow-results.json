@@ -1,0 +1,17 @@
+{
+  "return_and_revise": true,
+  "all_tasks_accepted": true,
+  "after_all_accepted_next_button_route": "overview",
+  "receipt_field_count": 0,
+  "upload_file_fields": 0,
+  "handoff_export": true,
+  "reflection_visible_to_teammate": true,
+  "practice_tabs": 8,
+  "can_navigate_review_while_work_continues": true,
+  "new_event_keeps_previous_team": true,
+  "new_event_start_route": "team",
+  "new_event_team_creation_form_count": 0,
+  "interview_endpoint": 404,
+  "contest_import_endpoint": 423,
+  "browser_errors": []
+}
