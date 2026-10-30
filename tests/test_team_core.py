@@ -270,7 +270,8 @@ class CoreTests(unittest.TestCase):
     def test_legacy_features_locked_and_plugin_package(self):
         for url in ['/classic','/workflow','/api/studio/messages','/api/projects/anything','/static/studio.html']:
             self.assertEqual(self.client.get(url).status_code,423,url)
-        self.assertIn('core.js',self.client.get('/').text)
+        self.assertIn('songban.js',self.client.get('/').text)
+        self.assertIn('core.js',self.client.get('/core').text)
         r=self.client.get('/api/core/plugin.zip',headers=self.h('a'));self.assertEqual(r.status_code,200)
         import zipfile,io
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:

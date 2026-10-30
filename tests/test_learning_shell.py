@@ -1,8 +1,6 @@
-"""Smoke checks for the standalone learning/experience UI shell.
+"""Unified entry/asset contracts and compatibility for legacy demo sessions.
 
-These tests intentionally validate only the serving boundary and the static
-asset contract. The learning flow is client-side demo state, while the core
-team workspace keeps its existing API and homepage contract.
+Browser interactions and real core integration are checked separately.
 """
 
 import tempfile
@@ -28,15 +26,15 @@ class LearningShellTests(unittest.TestCase):
         response = self.client.get("/learning")
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIn("松伴", response.text)
-        self.assertIn("learning.css", response.text)
-        self.assertIn("learning.js", response.text)
+        self.assertIn("songban.css", response.text)
+        self.assertIn("songban.js", response.text)
         self.assertIn('id="app"', response.text)
 
     def test_learning_assets_are_served(self):
         page = self.client.get("/learning").text
-        self.assertEqual(self.client.get("/static/learning.css").status_code, 200)
+        self.assertEqual(self.client.get("/static/songban.css").status_code, 200)
         # The script is created by the experience frontend workstream.
-        self.assertIn("learning.js", page)
+        self.assertIn("songban.js", page)
         self.assertIn("#/login", page)
 
     def test_learning_demo_api_supports_session_and_evidence_guard(self):
@@ -72,31 +70,24 @@ class LearningShellTests(unittest.TestCase):
         )
         self.assertEqual(stale.status_code, 409, stale.text)
 
-    def test_learning_shell_keeps_core_homepage_separate(self):
+    def test_learning_and_home_share_shell_with_legacy_core_available(self):
         home = self.client.get("/")
         self.assertEqual(home.status_code, 200, home.text)
-        self.assertIn("core.js", home.text)
+        self.assertIn("songban.js", home.text)
         self.assertNotIn("learning.js", home.text)
-        self.assertIn('/learning#/login', self.client.get("/static/core.js").text)
+        self.assertEqual(home.text, self.client.get('/learning').text)
+        self.assertIn('core.js', self.client.get('/core').text)
 
     def test_unified_visual_shell_contract(self):
         home = self.client.get("/")
         learning = self.client.get("/learning")
-        self.assertIn("core.css?v=20261030-design-v1", home.text)
-        self.assertIn("core.js?v=20261030-design-v1", home.text)
-        self.assertIn("learning.css?v=20261030-design-v1", learning.text)
-        self.assertIn("learning.js?v=20261030-design-v1", learning.text)
-        self.assertIn("data-shell=\"songban-v1\"", self.client.get("/static/core.js").text)
-        learning_js = self.client.get("/static/learning.js").text
-        self.assertIn('href="/"', learning_js)
-        self.assertIn("团队工作台", learning_js)
-        self.assertIn("data-shell=\"songban-v1\"", learning_js)
-        learning_css = self.client.get("/static/learning.css").text
-        for token in ("--bg:#faf9f6", "--purple:#8c71ed", ".app-shell", ".app-header", ".sidebar", ".surface"):
-            self.assertIn(token, learning_css)
-        core_css = self.client.get("/static/core.css").text
-        self.assertIn(".portal-links", core_css)
-        self.assertIn(".nav-link", core_css)
+        self.assertIn("songban.css?v=20261030-design-v1.1", home.text)
+        self.assertIn("songban.js?v=20261030-design-v1.1", home.text)
+        self.assertIn("songban-views.js?v=20261030-design-v1.1", learning.text)
+        self.assertIn('data-shell="songban-v1"', home.text)
+        css = self.client.get('/static/songban.css').text
+        for token in ('--sb-bg:#faf9f6', '--sb-purple:#8c71ed', '.app-shell', '.app-header', '.sidebar', '.surface'):
+            self.assertIn(token, css)
 
     def test_learning_session_survives_app_restart(self):
         created = self.client.post("/api/learning/v1/sessions", json={"role": "creator"})
