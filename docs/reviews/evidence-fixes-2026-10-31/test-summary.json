@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-31",
+  "branch": "feat/material-intake",
+  "base_commit": "f4bb0f1abe4dc5926f6bf5b356996a19124e90c4",
+  "fix_revision": "Git commit containing this artifact",
+  "python": "3.12.14",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "codex_cli": "0.165.0-alpha.1.2",
+  "before": {
+    "executions": 221,
+    "unique": 194,
+    "failures": 1,
+    "errors": 6
+  },
+  "after": {
+    "executions": 200,
+    "unique": 200,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "seconds": 40.589
+  },
+  "clean_environment": {
+    "system_site_packages": false,
+    "executions": 200,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "seconds": 40.61,
+    "real_parser_samples": 5
+  },
+  "browser_suites": [
+    "unified (30 responsive route checks)",
+    "materials (8 sources)",
+    "closure regressions",
+    "core workflow + MCP + file watcher",
+    "project installer (3 tools)",
+    "native plugin",
+    "selected-turn skill API + library"
+  ],
+  "paid_model_calls_in_fix_validation": 0,
+  "actual_sms_sent": 0,
+  "remote_ci_executed": false,
+  "linux_or_docker_executed": false,
+  "tested_base_content_commit": "3cd3a45b55bcc34900ad672f5048c5ec59f8610b",
+  "remote_refresh": "succeeded; origin/main merge has identical base tree"
+}

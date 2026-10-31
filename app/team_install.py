@@ -1,6 +1,7 @@
 """Explicit, project-scoped local installer. Never changes global/model settings."""
 import ipaddress
 import json
+from .private_files import restrict_file
 import os
 from pathlib import Path
 import re
@@ -88,10 +89,10 @@ def config_text(root,tool,before,entry):
 
 def probe_bridge(bridge,config,root):
     env={k:v for k,v in os.environ.items() if not k.startswith('SONGBAN_')}
-    env.update({'SONGBAN_CONFIG':str(config),'SONGBAN_PROJECT_ROOT':str(root)})
+    env.update({'SONGBAN_CONFIG':str(config),'SONGBAN_PROJECT_ROOT':str(root),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'})
     requests=[{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'songban-installer','version':'1'}}},{'jsonrpc':'2.0','method':'notifications/initialized'}, {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'songban_get_my_tasks','arguments':{}}}]
     try:
-        result=subprocess.run([sys.executable,str(bridge),'mcp'],input='\n'.join(json.dumps(r) for r in requests)+'\n',text=True,capture_output=True,env=env,cwd=root,timeout=26,check=False)
+        result=subprocess.run([sys.executable,str(bridge),'mcp'],input='\n'.join(json.dumps(r) for r in requests)+'\n',text=True,encoding='utf-8',capture_output=True,env=env,cwd=root,timeout=26,check=False)
         responses=[json.loads(l) for l in result.stdout.splitlines() if l.strip()]
         reply=next(r for r in responses if r.get('id')==2)['result']
         if result.returncode or reply.get('isError'):raise ValueError()
@@ -116,12 +117,12 @@ def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None):
     originals={};written={}
     try:
         meta=target_path(root,'.songban/install-state.json')
-        old=json.loads(meta.read_text()) if meta.exists() else {}
+        old=json.loads(meta.read_text(encoding='utf-8-sig')) if meta.exists() else {}
         if old.get('user_id') and old['user_id']!=actor_id:raise InstallError('installation_owner_conflict','这个项目已有另一位成员的个人连接，请各自在自己的项目副本安装。',409)
-        config=target_path(root,TOOLS[tool][0]);before=config.read_text() if config.exists() else ''
+        config=target_path(root,TOOLS[tool][0]);before=config.read_text(encoding='utf-8-sig') if config.exists() else ''
         bridge=target_path(root,'.songban/plugin/bridge.py')
         private_config=target_path(root,'.songban/connection.json')
-        entry={'command':sys.executable,'args':[str(bridge),'mcp'],'env':{'SONGBAN_CONFIG':str(private_config),'SONGBAN_PROJECT_ROOT':str(root)}}
+        entry={'command':sys.executable,'args':[str(bridge),'mcp'],'env':{'SONGBAN_CONFIG':str(private_config),'SONGBAN_PROJECT_ROOT':str(root),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}
         merged=config_text(root,tool,before,entry)
         files={config:merged.encode(),private_config:json.dumps({'url':url,'team_id':sid,'token':token,'project_root':str(root)},ensure_ascii=False).encode()}
         ignore=target_path(root,'.songban/.gitignore');files[ignore]=b'*\n'
@@ -129,31 +130,31 @@ def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None):
             files[target_path(root,'.songban/plugin/'+rel)]=(PLUGIN_ROOT/rel).read_bytes()
         if tool=='codex':
             skill=target_path(root,'.agents/skills/songban-team/SKILL.md')
-            if skill.exists() and '松伴团队联络员' not in skill.read_text():raise InstallError('skill_conflict','已有同名技能，未覆盖。',409)
+            if skill.exists() and '松伴团队联络员' not in skill.read_text(encoding='utf-8-sig'):raise InstallError('skill_conflict','已有同名技能，未覆盖。',409)
             files[skill]=(PLUGIN_ROOT/'skills/songban-team/SKILL.md').read_bytes()
             files[target_path(root,'.agents/skills/songban-team/agents/openai.yaml')]=(PLUGIN_ROOT/'skills/songban-team/agents/openai.yaml').read_bytes()
-        gitignore=target_path(root,'.gitignore');ignore_text=gitignore.read_text() if gitignore.exists() else ''
+        gitignore=target_path(root,'.gitignore');ignore_text=gitignore.read_text(encoding='utf-8-sig') if gitignore.exists() else ''
         if '.songban/' not in ignore_text.splitlines():files[gitignore]=(ignore_text.rstrip()+'\n\n# 松伴个人连接（含私有凭证，不提交）\n.songban/\n').encode()
         backup.mkdir(parents=True,mode=0o700)
-        backup_ignore=backup/'.gitignore';backup_ignore.write_text('*\n');backup_ignore.chmod(0o600)
+        backup_ignore=backup/'.gitignore';backup_ignore.write_text('*\n',encoding='utf-8');restrict_file(backup_ignore)
         for target,content in files.items():
             target_path(root,str(target.relative_to(root)))
             original=target.read_bytes() if target.exists() else None;originals[target]=original
             if original is not None:
-                dest=backup/str(target.relative_to(root));dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(original);dest.chmod(0o600)
+                dest=backup/str(target.relative_to(root));dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(original);restrict_file(dest)
             target.parent.mkdir(parents=True,exist_ok=True)
             # Atomic replace and fail if another process changed the file since snapshot.
             if (target.read_bytes() if target.exists() else None)!=original:raise InstallError('config_changed','安装期间配置被其他程序修改，已停止。',409)
             with tempfile.NamedTemporaryFile(dir=target.parent,delete=False) as f:
                 f.write(content);temp=Path(f.name)
-            os.chmod(temp,0o600);os.replace(temp,target);written[target]=content
+            restrict_file(temp);os.replace(temp,target);written[target]=content
         check=(probe or probe_bridge)(bridge,private_config,root)
         if not check.get('bridge_verified'):raise InstallError('connection_check_failed','连接检查未通过，已回退。',502)
         state={'user_id':actor_id,'team_id':sid,'connection_id':connection_id,'tool':tool,'installed_at':int(time.time()),'client_loaded':False}
         meta_before=meta.read_bytes() if meta.exists() else None
         with tempfile.NamedTemporaryFile(dir=meta.parent,delete=False) as f:
             f.write(json.dumps(state,ensure_ascii=False).encode());temp=Path(f.name)
-        os.chmod(temp,0o600)
+        restrict_file(temp)
         if (meta.read_bytes() if meta.exists() else None)!=meta_before:
             temp.unlink(missing_ok=True)
             raise InstallError('config_changed','安装期间连接记录已被修改，已停止。',409)

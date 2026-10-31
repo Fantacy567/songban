@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-31T01:42:43.970Z",
+  "results": [
+    {
+      "tool": "codex",
+      "installed": true,
+      "existing_settings_preserved": true,
+      "bridge_verified": true,
+      "client_loaded": false,
+      "real_task_readback": true
+    },
+    {
+      "tool": "workbuddy",
+      "installed": true,
+      "existing_settings_preserved": true,
+      "bridge_verified": true,
+      "client_loaded": false,
+      "real_task_readback": true
+    },
+    {
+      "tool": "cursor",
+      "installed": true,
+      "existing_settings_preserved": true,
+      "bridge_verified": true,
+      "client_loaded": false,
+      "real_task_readback": true
+    }
+  ],
+  "steps": [
+    "三类项目配置由真实页面按钮写入，并实际运行安装后的MCP脚本取回团队方向。",
+    "未改动用户全局Codex配置；未在实际客户端点击信任或重载。"
+  ],
+  "global_codex_config_unchanged": true,
+  "errors": []
+}

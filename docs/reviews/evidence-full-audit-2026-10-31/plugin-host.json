@@ -1,0 +1,14 @@
+{
+  "registration_confirmed": true,
+  "bridge_probe": "explicit fixture, not live connection",
+  "host": {
+    "host_loader_tested": true,
+    "servers": [],
+    "tool_names": [],
+    "loader_errors": [
+      "{\"timestamp\":\"2026-10-31T01:04:23.787426Z\",\"level\":\"WARN\",\"fields\":{\"message\":\"failed to parse plugin MCP server\",\"plugin\":\"C:\\\\Users\\\\27736\\\\AppData\\\\Local\\\\Temp\\\\songban-audit-plugin-b_kmgzwh\\\\.codex\\\\plugins\\\\cache\\\\songban-local\\\\songban-connector\\\\0.9.2\",\"server\":\"songban\",\"path\":\"C:\\\\Users\\\\27736\\\\AppData\\\\Local\\\\Temp\\\\songban-audit-plugin-b_kmgzwh\\\\.codex\\\\plugins\\\\cache\\\\songban-local\\\\songban-connector\\\\0.9.2\\\\mcp.json\",\"error\":\"Agent Plugins stdio command must be a bare executable name or a contained `./` path\"},\"target\":\"codex_core_plugins::loader\"}\n"
+    ],
+    "upload_tool_loaded": false
+  },
+  "mode_bits_octal": "0o666"
+}

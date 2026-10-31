@@ -1,50 +1,16 @@
-"""Exercise Codex's actual plugin/MCP loader without a model turn or chat upload."""
+"""CLI for the actual Codex loader check used by the native installer."""
 import argparse
 import json
-import os
+import sys
 from pathlib import Path
-import queue
-import subprocess
-import threading
-import time
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from app.plugin_host import check
 
-def check(home,cwd):
- env=dict(os.environ);env['CODEX_HOME']=str(Path(home)/'.codex')
- p=subprocess.Popen(['codex','app-server','--stdio'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env,bufsize=1)
- q=queue.Queue();errors=[]
- def lines():
-  for line in p.stdout:
-   try:q.put(json.loads(line))
-   except ValueError:pass
- def logs():
-  for line in p.stderr:
-   if 'songban' in line.lower() and ('failed' in line.lower() or 'missing field' in line.lower()):errors.append(line[:600])
- threading.Thread(target=lines,daemon=True).start();threading.Thread(target=logs,daemon=True).start()
- def rpc(ident,method,params):
-  p.stdin.write(json.dumps({'id':ident,'method':method,'params':params})+'\n');p.stdin.flush()
-  deadline=time.monotonic()+30
-  while time.monotonic()<deadline:
-   try:r=q.get(timeout=1)
-   except queue.Empty:continue
-   if r.get('id')==ident:
-    if 'error' in r:raise RuntimeError(str(r['error']))
-    return r.get('result')
-  raise RuntimeError('宿主加载检查超时')
- try:
-  rpc(1,'initialize',{'clientInfo':{'name':'songban-loader-check','version':'0.9.1'},'capabilities':{'experimentalApi':True}})
-  p.stdin.write(json.dumps({'method':'initialized'})+'\n');p.stdin.flush()
-  result=rpc(2,'mcpServerStatus/list',{'limit':100})
-  servers=result.get('data',[])
-  own=[s for s in servers if 'songban' in s.get('name','').lower()]
-  names=[]
-  for s in own:
-   ts=s.get('tools',{})
-   names.extend(ts.keys() if isinstance(ts,dict) else [x.get('name') for x in ts])
-  return {'host_loader_tested':True,'servers':[s.get('name') for s in own],'tool_names':names,'loader_errors':errors,'upload_tool_loaded':any('songban_sync_selected_turn' in (x or '') for x in names)}
- finally:
-  p.terminate()
-  try:p.wait(timeout=5)
-  except subprocess.TimeoutExpired:p.kill();p.wait()
-  for stream in (p.stdin,p.stdout,p.stderr):stream.close()
 if __name__=='__main__':
- ap=argparse.ArgumentParser();ap.add_argument('--home',required=True);ap.add_argument('--cwd',default='/private/tmp');a=ap.parse_args();r=check(a.home,a.cwd);print(json.dumps(r,ensure_ascii=False));raise SystemExit(0 if r['upload_tool_loaded'] else 1)
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--home',required=True)
+    ap.add_argument('--cwd',default=str(Path.cwd()))
+    args=ap.parse_args()
+    result=check(args.home,args.cwd)
+    print(json.dumps(result,ensure_ascii=False))
+    raise SystemExit(0 if result['upload_tool_loaded'] else 1)

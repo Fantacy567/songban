@@ -1,0 +1,25 @@
+E:\松伴\songban-materials\.browser-cache\materials\full-audit-20261031\clean-env\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_real_txt_docx_and_pdf_parsing (tests.test_materials.MaterialsTests.test_real_txt_docx_and_pdf_parsing) ... ERROR
+test_partial_pdf_failure_keeps_successful_pages (tests.test_materials.MaterialsTests.test_partial_pdf_failure_keeps_successful_pages) ... ERROR
+
+======================================================================
+ERROR: test_real_txt_docx_and_pdf_parsing (tests.test_materials.MaterialsTests.test_real_txt_docx_and_pdf_parsing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_materials.py", line 203, in test_real_txt_docx_and_pdf_parsing
+    from docx import Document
+ModuleNotFoundError: No module named 'docx'
+
+======================================================================
+ERROR: test_partial_pdf_failure_keeps_successful_pages (tests.test_materials.MaterialsTests.test_partial_pdf_failure_keeps_successful_pages)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_materials.py", line 219, in test_partial_pdf_failure_keeps_successful_pages
+    from reportlab.pdfgen import canvas
+ModuleNotFoundError: No module named 'reportlab'
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.082s
+
+FAILED (errors=2)
