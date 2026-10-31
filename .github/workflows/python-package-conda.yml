@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install Python dependencies
-        run: python -m pip install -r requirements.lock.txt
+        run: python -m pip install -r requirements-test.txt
       - name: Install Codex CLI for local plugin registration tests
         run: npm install -g @openai/codex@0.145.0
       - name: Run tests without paid model calls
