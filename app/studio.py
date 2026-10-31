@@ -14,6 +14,9 @@ from datetime import datetime, timedelta, timezone
 from fastapi import File, Header, Request, Response, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
+from .email_delivery import normalize_email
+from .email_login import ensure_email_schema, register_email_login
+
 from .planner import PlannerError, check_model_base, model_chat, team_model_config
 from .contest_intel import (
     IntelError,
@@ -24,7 +27,7 @@ from .contest_intel import (
     summarize_facts,
     supervise_against_contest,
 )
-from .sms import deliver_login_code, must_deliver, sms_status, test_codes_allowed
+from .sms import deliver_login_code, must_deliver, sms_status, test_codes_allowed, mac_sms_enabled
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
@@ -187,6 +190,7 @@ def ensure_schema(con):
     if "attempts" not in code_cols:
         con.execute("ALTER TABLE phone_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0")
     con.execute("CREATE INDEX IF NOT EXISTS messages_thread_created ON messages(thread, created_at)")
+    ensure_email_schema(con)
 
 
 def wechat_callback_domain_ok(public: str) -> bool:
@@ -738,7 +742,7 @@ def register_studio(api, db, problem, now, uid, digest):
         con.executemany("DELETE FROM login_attempts WHERE key=?", ((key,) for key, _limit in keys))
         user = dict(user)
         return {"user_id": user["id"], "token": token_clear, "returning": True, "name": user["name"],
-                "phone": public_phone(user), "username": user.get("username") or "",
+                "phone": public_phone(user), "email": user.get("email") or "", "username": user.get("username") or "",
                 "skills": user["skills"], "profile": user["profile"], "growth": user["growth"],
                 "github_linked": bool(user["github_linked"]), "feishu_linked": bool(user["feishu_linked"]),
                 "notice": notice}
@@ -772,7 +776,7 @@ def register_studio(api, db, problem, now, uid, digest):
         account = str(body.get("account") or body.get("username") or body.get("phone") or "").strip()
         password = str(body.get("password") or "")
         if not account or not password:
-            raise problem(422, "login_required", "填写手机号和密码。")
+            raise problem(422, "login_required", "填写手机号或邮箱，以及密码。")
         with db(True) as con:
             keys = login_keys(request, account)
             if login_blocked(con, keys):
@@ -781,6 +785,8 @@ def register_studio(api, db, problem, now, uid, digest):
             phone = normalize_phone(account)
             if phone:
                 user = con.execute("SELECT * FROM people WHERE phone=?", (phone,)).fetchone()
+            elif normalize_email(account):
+                user = con.execute("SELECT * FROM people WHERE email=?", (normalize_email(account),)).fetchone()
             if not user:
                 user = con.execute("SELECT * FROM people WHERE username=?", (account,)).fetchone()
             missing_password = bool(user and not (user["password_hash"] or ""))
@@ -791,14 +797,20 @@ def register_studio(api, db, problem, now, uid, digest):
                 if blocked:
                     raise problem(429, "login_wait", "登录失败次数过多，请五分钟后再试。")
                 if missing_password:
-                    raise problem(401, "password_missing", "这个手机号还没有密码。请用手机号注册，验证后设置密码。")
-                raise problem(401, "bad_login", "手机号或密码不对。")
-            return login_response(con, user, keys, "已用手机号和密码进入。")
+                    raise problem(401, "password_missing", "这个账号还没有密码，请使用验证码登录。")
+                raise problem(401, "bad_login", "账号或密码不对。")
+            return login_response(con, user, keys, "已用账号和密码进入。")
+
+    register_email_login(api, db, problem, now, uid, digest, login_keys=login_keys,
+                         login_blocked=login_blocked, record_login_failure=record_login_failure,
+                         login_response=login_response, normalize_password=normalize_password,
+                         hash_password=hash_password)
 
     @api.get("/api/studio/sms-status")
     def sms_configuration_status():
         # Configuration presence is not a delivery or account-balance check.
-        return sms_status()
+        status = sms_status()
+        return status | {'test_mode': test_codes_allowed(), 'registration_available': status['ready'] or test_codes_allowed() or mac_sms_enabled()}
 
     @api.get("/api/studio/connect")
     def connect_status():

@@ -17,7 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION='1.0'
+VERSION='1.3.0'
 MAX_BYTES=280000
 
 
@@ -163,7 +163,27 @@ REPORT_SCHEMA={'type':'object','properties':{
  'excerpt':{'type':'string','description':'仅包含用户已同意向本队分享的必要对话摘录'},
  'occurred_at':{'type':'string'},'task_key':{'type':'string'},'plan_version':{'type':'integer'},'origin':{'type':'string','enum':['personal_agent','human']}
 },'required':['event_id','tool','summary'],'additionalProperties':False}
+TOPIC_SCHEMA={'type':'object','properties':{**{k:{'type':'string'} for k in ('round_id','event_id','topic_title','user_message','assistant_message','model_name','session_label')},'selected':{'type':'boolean','const':True}},'required':['selected','round_id','event_id','topic_title','user_message','assistant_message'],'additionalProperties':False}
+
+
+def share_topic_turn(data):
+    if not isinstance(data,dict) or data.get('selected') is not True:raise BridgeError('未明确选择本轮选题共享，未上传。')
+    limits={'round_id':100,'event_id':120,'topic_title':160,'user_message':16000,'assistant_message':50000,'model_name':160,'session_label':120}
+    if set(data)-set(limits)-{'selected'}:raise BridgeError('选题回合含不支持字段。')
+    for key,limit in limits.items():
+        value=data.get(key,'')
+        if not isinstance(value,str) or len(value)>limit or (key not in ('model_name','session_label') and not value.strip()):raise BridgeError('选题回合缺少字段或内容超长，请分段共享。')
+    if len(data['event_id'])<8:raise BridgeError('请提供至少8个字符的稳定回合编号。')
+    cleaned={k:redact(v) if isinstance(v,str) else v for k,v in data.items()}
+    if len(encode(cleaned).encode())>290000:raise BridgeError('选题回合过长，未上传。')
+    # Deliberately not queued: a closed discussion must never receive delayed uploads.
+    answer=call('/topic-selection/turns',cleaned)
+    if not answer.get('note_id'):raise BridgeError('没有服务回执，不能确认已上传。')
+    return {'synced':True,'note_id':answer['note_id'],'duplicate':answer.get('duplicate',False),'analysis_triggered':False}
+
+
 TOOLS=[
+ {'name':'songban_share_topic_turn','description':'用户选择松伴连接器或明确授权本次选题对话后，共享当前用户原话和 AI 可见完整回复到方向页。先读取 topic_selection.id。排除隐藏思考、其他会话和密钥；重试保持 event_id 和内容一致。成功回执后，成员仍需亲自在网页确认。','inputSchema':TOPIC_SCHEMA,'annotations':{'readOnlyHint':False,'idempotentHint':True}},
  {'name':'songban_get_team_context','description':'读取本队已确认方向、评分要求、成员、进展来源和不同观点。只将团队确认安排作为执行依据；报告不是已经独立核实的事实。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}},
  {'name':'songban_get_my_tasks','description':'读取本人当前已确认任务、检查方法和统一方向。在工作开始及方向可能变化时调用。','inputSchema':{'type':'object','properties':{},'additionalProperties':False}},
  {'name':'songban_sync_progress','description':'将用户授权的当前项目重要进展、必要对话摘录和证据同步到团队。不能上传其他项目或把团队建议回传成个人新事实。','inputSchema':REPORT_SCHEMA}
@@ -224,6 +244,7 @@ def mcp():
                 try:
                     if not isinstance(args,dict):raise BridgeError('工具参数必须是对象。')
                     if name=='songban_get_team_context' and not args:answer=call('/context')
+                    elif name=='songban_share_topic_turn':answer=share_topic_turn(args)
                     elif name=='songban_get_my_tasks' and not args:answer=call('/my-tasks')
                     elif name in ('songban_get_topic_ideas','songban_sync_selected_turn','songban_search_team_library','songban_read_library_record'):answer=library_tool(name,args)
                     elif name=='songban_sync_progress':

@@ -65,6 +65,12 @@ def validate_ranking(raw,context):
     return clean_data({'rankings':result,'weights':{'capability':40,'time':30,'rubric':30},'notice':'本队适配参考分，不是作品优劣、官方评分或获奖预测。最终方向仍由队伍确认。'})
 
 def register_ideas(api,db,access,problem,now,uid,digest,runner=None):
+    team_access=access
+    def access(con,sid,*args,**kwargs):
+        actor=team_access(con,sid,*args,**kwargs)
+        if con.execute('SELECT 1 FROM core_topic_rounds WHERE squad_id=?',(sid,)).fetchone():
+            raise problem(409,'voting_workflow_active','本队已开启选题投票，请在方向页继续当前轮次。')
+        return actor
     with db(True) as con:con.executescript(SCHEMA)
     def board(con,sid):
         members=[dict(row) for row in con.execute('SELECT p.id,p.name,p.skills,c.strengths,c.willingness,c.hours FROM squad_members m JOIN people p ON p.id=m.user_id LEFT JOIN core_profiles c ON c.squad_id=m.squad_id AND c.user_id=m.user_id WHERE m.squad_id=? ORDER BY m.rowid',(sid,))]

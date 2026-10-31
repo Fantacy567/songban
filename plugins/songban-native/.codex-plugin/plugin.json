@@ -1,6 +1,6 @@
 {
   "name": "songban-connector",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "将获准分享的讨论同步至松伴团队资料库",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",

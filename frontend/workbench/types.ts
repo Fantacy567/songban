@@ -1,7 +1,7 @@
 export type RoleId = 'materials' | 'direction' | 'next_step';
 export interface MountOptions {
   token: string; identityKey: string; teamId: string | null;
-  onNavigate(page: string): void; onPrepareDirection(fields: Record<string, string>): void;
+  onNavigate(page: string, target?: { teamId: string | null; noteId?: string }): void; onPrepareDirection(fields: Record<string, string>): void;
   onShared(): void; onUnauthorized(): void;
 }
 export interface Session { id: string; title: string; team_id: string | null; created_at: string; updated_at: string }
@@ -19,6 +19,8 @@ export interface RequestRecord {
   error: { code: string; message: string } | null; created_at: string; updated_at: string; message_id: string | null;
 }
 export interface Context {
+  personal_session_count?: number;
+  workflow?: { accepted_tasks: number; total_tasks: number; next_action: { title: string; reason: string; page: string } };
   roles: { id: RoleId; name: string; description: string }[];
   team: { id: string; name: string; is_captain: boolean; revision: number; plan_version: number } | null;
   direction: { goal: string; rules: string; rubric: string; non_goals: string; deadline: string } | null;

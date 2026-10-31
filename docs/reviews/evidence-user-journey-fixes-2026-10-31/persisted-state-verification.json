@@ -1,0 +1,30 @@
+[
+  {
+    "journey": "desktop",
+    "teams_created": 2,
+    "formal_plan_version": 1,
+    "formal_tasks": 2,
+    "accepted_checks": 2,
+    "reviewers_different_from_authors": true,
+    "checked_reports_have_evidence": true,
+    "retrospective_saved": true,
+    "resumed_personal_question_count": 1,
+    "handoff_download_exists": true,
+    "sms": "fixture",
+    "model": "fixture"
+  },
+  {
+    "journey": "mobile",
+    "teams_created": 2,
+    "formal_plan_version": 1,
+    "formal_tasks": 2,
+    "accepted_checks": 2,
+    "reviewers_different_from_authors": true,
+    "checked_reports_have_evidence": true,
+    "retrospective_saved": true,
+    "resumed_personal_question_count": 1,
+    "handoff_download_exists": true,
+    "sms": "fixture",
+    "model": "fixture"
+  }
+]

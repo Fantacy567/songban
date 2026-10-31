@@ -3,6 +3,7 @@
 Browser interactions and real core integration are checked separately.
 """
 
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,14 +82,22 @@ class LearningShellTests(unittest.TestCase):
     def test_unified_visual_shell_contract(self):
         home = self.client.get("/")
         learning = self.client.get("/learning")
-        self.assertIn("songban.css?v=20261031-unified-v1", home.text)
-        self.assertIn("songban.js?v=20261031-cover-only-v2", home.text)
-        self.assertIn("songban-views.js?v=20261031-remote-install-v1", learning.text)
-        self.assertIn("songban-library.js?v=20261031-toolnames-v1", home.text)
-        self.assertIn("songban-tasks.js?v=20261031-unified-v1", home.text)
-        self.assertIn("songban-recap.js?v=20261031-recap-v1", home.text)
-        self.assertIn("songban-materials.js?v=20261031-demo-materials-v2", home.text)
-        self.assertIn("songban-materials.css?v=20261031-materials-v1", home.text)
+        for page, asset in (
+            (home, "songban.css"),
+            (home, "songban.js"),
+            (home, "songban-library.js"),
+            (home, "songban-tasks.js"),
+            (home, "songban-recap.js"),
+            (home, "songban-materials.js"),
+            (home, "songban-materials.css"),
+            (learning, "songban-views.js"),
+        ):
+            with self.subTest(asset=asset):
+                match = re.search(r'(/static/' + re.escape(asset) + r'\?v=[^"\s]+)', page.text)
+                self.assertIsNotNone(match, f"Missing versioned asset: {asset}")
+                response = self.client.get(match.group(1))
+                self.assertEqual(response.status_code, 200, asset)
+                self.assertTrue(response.content, asset)
         self.assertIn('data-shell="songban-v1"', home.text)
         css = self.client.get('/static/songban.css').text
         for token in ('--sb-bg:#faf9f6', '--sb-purple:#8c71ed', '.app-shell', '.app-header', '.sidebar', '.surface'):

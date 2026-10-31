@@ -11,7 +11,7 @@ function gateJourney(){
  if(stage==='review'&&['myTasks','teamTasks','direction','division','overview','workbench'].includes(state.page))state.page='recap';
 }
 function journeyChrome(){
- if(!state.flow||!state.me)return;
+ if(!state.flow?.strict||!state.me)return;
  const f=state.flow,main=$('#main-content'),tabs=$('.practice-tabs');
  if(tabs)tabs.innerHTML=`<a href="#/${f.route}" aria-current="step">现在：${esc(journeyNames[f.stage])}</a><details class="journey-history"><summary>查看已完成环节</summary>${Object.keys(journeyRoutes).slice(0,Object.keys(journeyRoutes).indexOf(f.stage)).map(k=>`<a href="#/${k}">${esc(journeyNames[k])}</a>`).join('')}</details>`;
  if(window.SONGBAN_DEMO&&main){const banner=document.createElement('div');banner.className='notice demo-notice';banner.innerHTML='演示模式 · 虚构比赛与人物 · AI结果使用预置样例 <button id="demo-peer">模拟队友完成当前环节</button> <button id="demo-reset">重新演示</button><p id="demo-note"></p>';main.prepend(banner);if(state.demoWorking)$('#demo-peer').disabled=true;$('#demo-reset').onclick=()=>{sessionStorage.removeItem('songban-demo-session');identityStorage.removeItem('studio-token');identityStorage.removeItem('studio-squad');location.href=(window.SONGBAN_DEMO_BASE||'')+'/';};$('#demo-peer').onclick=async()=>{const button=$('#demo-peer');state.demoWorking=true;state.busy=true;button.disabled=true;try{await api('/api/demo/peer',{team_id:state.team});await load();render();toast('模拟队友已配合，请继续当前步骤。');}catch(e){$('#demo-note').textContent=e.message;}finally{state.demoWorking=false;state.busy=false;const current=$('#demo-peer');if(current)current.disabled=false;}};}

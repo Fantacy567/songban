@@ -32,7 +32,7 @@ export class WorkbenchApi {
   constructor(private options: MountOptions) {}
   dispose() { this.controller.abort(); }
   get active() { return !this.controller.signal.aborted && !this.denied; }
-  async request<T>(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
+  async request<T>(path: string, options: { method?: 'GET' | 'POST' | 'PATCH'; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
     if (!this.active) throw new DOMException('请求已结束', 'AbortError');
     const signals = [this.controller.signal, AbortSignal.timeout(options.method === 'POST' ? 180000 : 20000)];
     if (options.signal) signals.push(options.signal);

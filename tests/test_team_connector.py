@@ -11,6 +11,20 @@ bridge=importlib.util.module_from_spec(spec);spec.loader.exec_module(bridge)
 
 
 class ConnectorTests(unittest.TestCase):
+    def test_topic_explicit_selection_no_queue_and_receipt_required(self):
+        args={'selected':True,'round_id':'round','event_id':'topic-turn','topic_title':'选题','user_message':'原话','assistant_message':'完整可见回复'}
+        with patch.object(bridge,'call') as call:
+            with self.assertRaises(bridge.BridgeError):bridge.share_topic_turn({**args,'selected':False})
+            call.assert_not_called()
+        with patch.object(bridge,'call',return_value={'note_id':'turn'}) as call:
+            self.assertTrue(bridge.share_topic_turn(args)['synced'])
+            self.assertEqual(call.call_args.args,('/topic-selection/turns',args))
+        with patch.object(bridge,'enqueue') as enqueue,patch.object(bridge,'call',side_effect=bridge.BridgeError('超时')):
+            with self.assertRaises(bridge.BridgeError):bridge.share_topic_turn(args)
+            enqueue.assert_not_called()
+        with patch.object(bridge,'call',return_value={}):
+            with self.assertRaises(bridge.BridgeError):bridge.share_topic_turn(args)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.cwd=patch.object(bridge.Path,'cwd',return_value=self.root);self.cwd.start()

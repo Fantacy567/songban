@@ -1,0 +1,42 @@
+{
+  "purpose": "资料页未保存合成草稿单次刷新前后直接对照",
+  "environment": "isolated service 8905",
+  "account": "原有小林合成体验账号；本次仅重新登录，没有注册新账号",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "operations": [
+    "通过UI登录原账号",
+    "活动→第一场活动→个人资料输入",
+    "填入合成草稿，未点击保存",
+    "读取inputValue并截图",
+    "仅刷新一次",
+    "再次读取inputValue并截图"
+  ],
+  "before": {
+    "timeUtc": "2026-10-31T04:22:19.622Z",
+    "timeShanghai": "2026-10-31 12:22:19 +08:00",
+    "url": "http://127.0.0.1:8905/#/event",
+    "inputValue": "【合成草稿｜仅补验，不保存】我临时离开资料填写页，希望刷新后还能继续这段尚未保存的文字。",
+    "savedMaterialCount": 2,
+    "loggedIn": true,
+    "screenshot": "E:\\松伴\\songban-materials\\.browser-cache\\ux-review\\20261031\\session-5\\60-draft-refresh-before.png"
+  },
+  "after": {
+    "timeUtc": "2026-10-31T04:22:20.153Z",
+    "timeShanghai": "2026-10-31 12:22:20 +08:00",
+    "url": "http://127.0.0.1:8905/#/event",
+    "inputValue": "",
+    "savedMaterialCount": 2,
+    "loggedIn": true,
+    "screenshot": "E:\\松伴\\songban-materials\\.browser-cache\\ux-review\\20261031\\session-5\\61-draft-refresh-after.png"
+  },
+  "unchangedSavedMaterialCount": true,
+  "observedNonReadRequestsDuringDraftAndReload": [],
+  "notes": [
+    "不含密码、令牌、cookie或请求正文。",
+    "未保存材料，未调用整理或模型，未修改服务和业务代码。",
+    "上次浏览器已关闭，使用原有账号重新登录后执行本次补验。"
+  ]
+}

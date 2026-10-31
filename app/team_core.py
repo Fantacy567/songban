@@ -28,6 +28,8 @@ from .task_progress import member_task_progress
 from .idea_selection import register_ideas
 from .division import SCHEMA as DIVISION_SCHEMA, start_round, latest as latest_division, register_division
 from .core_workflow import SCHEMA as WORKFLOW_SCHEMA, enrich_handoffs, build_workflow, handoff_markdown
+from .topic_selection import latest as topic_round, planning_guard, claimed_owner
+from .onboarding import starting_state
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS core_settings (
@@ -188,6 +190,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
         library=[{'id':r['id'],'body':r['body'],'source':r['suggestion']} for r in con.execute('SELECT l.* FROM library_notes l JOIN core_reports r ON r.id=l.id WHERE l.squad_id=? ORDER BY r.seq DESC LIMIT 40',(squad['id'],))]
         active=json.loads(s['active_plan'])
         for task in active.get('tasks',[]):
+            task['owner_id']=claimed_owner(con,squad['id'],s['plan_version'],task)
             # Task state must not disappear when its report leaves the recent-feed window.
             row=con.execute("SELECT id,body,created_at,seq FROM core_reports WHERE squad_id=? AND user_id=? AND json_extract(body,'$.task_key')=? AND json_extract(body,'$.plan_version')=? AND COALESCE(json_extract(body,'$.capture_only'),0)=0 ORDER BY seq DESC LIMIT 1",(squad['id'],task['owner_id'],task['key'],s['plan_version'])).fetchone()
             latest=({'id':row['id'],**json.loads(row['body'])} if row else None)
@@ -218,13 +221,22 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
         result['workflow']=build_workflow(result,now())
         selected=con.execute('SELECT * FROM topic_selections WHERE squad_id=?',(squad['id'],)).fetchone()
         result['topic_confirmed']=bool(selected or s['plan_version']>0)
-        result['topic_selection']=dict(selected) if selected else None
-        if not result['topic_confirmed']:result['workflow']['next_action']={'kind':'choose_topic','title':'先公示idea并确认最终选题','reason':'选题确认前不开放方向和任务。','page':'discussion','task_key':''}
+        result['legacy_topic_selection']=dict(selected) if selected else None
+        result['guided_workflow']=bool(api.state.enforce_journey or selected or con.execute('SELECT 1 FROM team_ideas WHERE squad_id=?',(squad['id'],)).fetchone())
+        if not result['topic_confirmed'] and not topic_round(con,squad['id']):result['workflow']['next_action']={'kind':'choose_topic','title':'先公示idea并确认最终选题','reason':'选题确认前不开放方向和任务。','page':'discussion','task_key':''}
         division=latest_division(con,squad['id'])
         result['division_status']=division['status'] if division else None
         result['division_round_id']=division['id'] if division else None
         if result['topic_confirmed'] and division and division['status']!='published':result['workflow']['next_action']={'kind':'division','title':'确认每个人的职责与时间','reason':'全员确认后由内部AI发布任务。','page':'division','task_key':''}
         result['task_progress']=member_task_progress(members,active.get('tasks',[]))
+        topic_port=getattr(api.state,'topic_selection',None)
+        result['topic_selection']=topic_port['snapshot'](con,squad['id'],actor['id'],False) if topic_port else None
+        topic=result['topic_selection']
+        result['topic_confirmed']=bool(result['topic_confirmed'] or (topic and topic['phase']=='selected'))
+        if topic and topic['phase']!='selected':
+            result['workflow']['next_action']={'kind':'topic_selection','page':'direction','title':'完成选题讨论与投票','reason':f"已确认 {topic['confirmed_count']}/{topic['member_count']} 人；请在方向页继续。"}
+        elif any(t.get('claim_required') and not t['owner_id'] for t in active.get('tasks',[])) and not result['workflow']['my_tasks']:
+            result['workflow']['next_action']={'kind':'claim_task','page':'overview','title':'领取一项团队任务','reason':'查看检查方法和依赖后，选择适合自己的任务。'}
         return result
 
     def latest_division_context(sid):
@@ -233,7 +245,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             return [{'user_id':r['user_id'],'answers':json.loads(r['answers']),'confirmed':bool(r['confirmed'])} for r in con.execute('SELECT * FROM division_answers WHERE round_id=?',(row['id'],))] if row else []
 
     def model_context(snap):
-        if not snap.get('topic_confirmed'):raise problem(409,'topic_required','请先确认选题，再生成任务安排。')
+        if snap.get('guided_workflow') and not snap.get('topic_confirmed'):raise problem(409,'topic_required','请先确认选题，再生成任务安排。')
         refs=['direction']+['member:'+m['id'] for m in snap['members']]+[r['id'] for r in snap['reports']]+[n['id'] for n in snap['team_library']]+[t['latest_report_id'] for t in snap['active_plan'].get('tasks',[]) if t.get('latest_report_id')]
         refs += [t['handoff']['id'] for t in snap['active_plan'].get('tasks',[]) if t.get('handoff')]
         context={k:snap[k] for k in ('direction','revision','plan_version','active_plan','members','reports','team_library','differences')}
@@ -242,6 +254,13 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             context['member_division_agreements']=division
             refs += ['division:'+item['user_id'] for item in division]
         context['source_ids']=refs
+        topic_port=getattr(api.state,'topic_selection',None)
+        if topic_port:
+            with db() as con:
+                selected=topic_port['planning_context'](con,snap['team']['id'])
+            if selected:
+                context['selected_topic']=selected
+                refs.extend(t['id'] for t in selected['shared_turns'])
         if len(dump(context))>65000:
             raise problem(422,'context_too_large','当前资料过长，请收短方向说明或进展摘录后再统筹；没有静默截断。')
         return context,refs
@@ -285,11 +304,12 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             raise problem(429,'model_busy','团队模型正忙，请稍后再试。')
         try:
             with db() as con:
+                planning_guard(con,sid,problem)
                 squad=dict(con.execute('SELECT * FROM squads WHERE id=?',(sid,)).fetchone())
                 if not con.execute('SELECT 1 FROM squad_members WHERE squad_id=? AND user_id=?',(sid,actor_id)).fetchone():
                     raise problem(403,'not_in_team','成员身份已失效。')
                 snap=snapshot(con,squad,{'id':actor_id})
-            if not snap['topic_confirmed']:raise problem(409,'topic_required','请先确认最终选题，再安排开发任务。')
+            if snap.get('guided_workflow') and not snap['topic_confirmed']:raise problem(409,'topic_required','请先确认最终选题，再安排开发任务。')
             old=snap['proposal']
             if old and not old['stale'] and not old['confirmed_at']:
                 return {'proposal_id':old['id'],'base_revision':old['base_revision'],'body':old['body'],'provenance':old['provenance'],'reused':True}
@@ -347,7 +367,8 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
         with db() as con:
             p=person(con,authorization)
             teams=[dict(r) for r in con.execute('SELECT s.id,s.name,s.code FROM squads s JOIN squad_members m ON s.id=m.squad_id WHERE m.user_id=? ORDER BY s.created_at DESC',(p['id'],))]
-        return {'person':p,'teams':teams,'core_only':api.state.core_only,'connector_version':'1.0','compatibility':'支持MCP的工具共用连接；其他工具可用命令行/文件监听。自动读取全部会话并非通用能力。'}
+            start = starting_state(con, p['id'])
+        return {'person':p,'teams':teams,**start,'core_only':api.state.core_only,'connector_version':'1.0','compatibility':'支持MCP的工具共用连接；其他工具可用命令行/文件监听。自动读取全部会话并非通用能力。'}
 
     @api.post('/api/core/teams')
     def create(body:dict,authorization:str=Header(default='')):
@@ -386,6 +407,12 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             return snapshot(con,squad,actor)
 
     def require_topic(con,sid):
+        if topic_round(con,sid):
+            planning_guard(con,sid,problem)
+            return
+        # Existing non-guided clients keep their direction/plan contract; teams
+        # already discussing ideas must still explicitly confirm their choice.
+        if not api.state.enforce_journey and not con.execute('SELECT 1 FROM team_ideas WHERE squad_id=?',(sid,)).fetchone() and not con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():return
         row=con.execute('SELECT plan_version FROM core_settings WHERE squad_id=?',(sid,)).fetchone()
         if not (row and row['plan_version']>0) and not con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():raise problem(409,'topic_required','请先在选题讨论中确认最终选题，再进入方向和任务。')
 
@@ -399,9 +426,13 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             except ValueError:raise problem(422,'invalid_deadline','截止时间请带时区，例如2026-11-01T18:00:00+08:00。')
         with db(True) as con:
             actor,squad=access(con,sid,authorization,True,False);s=init(con,squad);require_topic(con,sid)
+            planning_guard(con,sid,problem)
+            selected=topic_round(con,sid)
+            if selected and d['goal']!=json.loads(selected['body']).get('selected_title'):
+                raise problem(409,'voted_direction_locked','主方向已由全员投票确认，不能在表单中替换。')
             if body.get('expected_revision')!=s['revision']:raise problem(409,'stale_context','资料已变化，请刷新后再保存方向。')
             con.execute('UPDATE core_settings SET direction=? WHERE squad_id=?',(dump(d),sid));bump(con,sid)
-            start_round(con,sid,now,uid)
+            if api.state.enforce_journey or con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():start_round(con,sid,now,uid)
         return {'saved':True,'next':'division'}
 
     @api.put('/api/core/teams/{sid}/profile')
@@ -529,7 +560,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
                     if archive and payload['plan_version']!=s['plan_version']:
                         history=con.execute('SELECT body FROM core_plan_history WHERE squad_id=? AND version=?',(sid,payload['plan_version'])).fetchone()
                         task=next((t for t in json.loads(history['body']).get('tasks',[]) if t['key']==payload['task_key']),None) if history else None
-                    if (not archive and payload['plan_version']!=s['plan_version']) or not task or task['owner_id']!=actor['id']:
+                    if (not archive and payload['plan_version']!=s['plan_version']) or not task or claimed_owner(con,sid,payload['plan_version'],task)!=actor['id']:
                         raise problem(409,'task_outdated','任务不属于你或安排版本已更新，请先读取最新任务。')
                 recent=con.execute("SELECT COUNT(*) FROM core_reports WHERE connection_id=? AND created_at>=?",(actor['connection_id'],(datetime.fromisoformat(now())-timedelta(minutes=1)).isoformat(timespec='seconds'))).fetchone()[0]
                 if recent>=30:raise problem(429,'sync_rate_limited','同步过快，请合并重要进展，稍后重试。')
@@ -566,7 +597,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
     def get_context(sid:str,authorization:str=Header(default='')):
         with db() as con:
             actor,squad=access(con,sid,authorization);snap=snapshot(con,squad,actor)
-        return {k:snap[k] for k in ('team','direction','revision','plan_version','active_plan','members','differences','reports','team_library','limits','topic_confirmed','topic_selection')}
+        return {k:snap[k] for k in ('team','direction','revision','plan_version','active_plan','members','differences','reports','team_library','limits','topic_confirmed','topic_selection','legacy_topic_selection')}
 
     @api.get('/api/core/teams/{sid}/my-tasks')
     def my_tasks(sid:str,authorization:str=Header(default='')):
@@ -643,10 +674,15 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             latest=con.execute('SELECT id FROM core_proposals WHERE squad_id=? ORDER BY rowid DESC LIMIT 1',(sid,)).fetchone()
             if latest['id']!=pid or body.get('expected_revision')!=s['revision'] or proposal['base_revision']!=s['revision']:
                 raise problem(409,'stale_proposal','已有更新的资料或建议，请重新统筹后确认。')
+            planning_guard(con,sid,problem)
             plan=json.loads(proposal['body']);version=s['plan_version']+1
-            con.execute('INSERT INTO core_plan_history(squad_id,version,body,confirmed_by,created_at) VALUES(?,?,?,?,?)',(sid,version,proposal['body'],actor['id'],now()))
+            if topic_round(con,sid):
+                for task in plan['tasks']:
+                    task.update(suggested_owner_id=task['owner_id'],owner_id='',claim_required=True)
+            published=dump(plan)
+            con.execute('INSERT INTO core_plan_history(squad_id,version,body,confirmed_by,created_at) VALUES(?,?,?,?,?)',(sid,version,published,actor['id'],now()))
             con.execute('UPDATE core_proposals SET confirmed_at=? WHERE id=?',(now(),pid))
-            con.execute('UPDATE core_settings SET active_plan=?,plan_version=? WHERE squad_id=?',(proposal['body'],version,sid));bump(con,sid)
+            con.execute('UPDATE core_settings SET active_plan=?,plan_version=? WHERE squad_id=?',(published,version,sid));bump(con,sid)
         return {'confirmed':True,'plan_version':version,'notice':'已发布。个人工具读取最新任务即可获取；不会远程操纵成员电脑。'}
 
     @api.get('/api/core/teams/{sid}/history')
@@ -733,4 +769,4 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
     register_division(api,db,access,problem,now,uid,review)
 
     # Internal port: the workbench reuses the core's identity and archive rules.
-    return {'person': person, 'access': access, 'snapshot': snapshot, 'save_report': save_report}
+    return {'person': person, 'access': access, 'snapshot': snapshot, 'save_report': save_report, 'init': init, 'bump': bump}

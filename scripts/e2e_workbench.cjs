@@ -282,7 +282,7 @@ async function logoutDifferentAccount() {
     assert.equal(await b.locator('[name=goal]').inputValue(), '夹具建议：校园失物招领助手');
     assert.deepEqual((await core()).direction, before.direction);
     await b.locator('#direction-form button[type=submit]').click();
-    await b.getByText('共同方向已更新。', { exact: false }).waitFor();
+    await b.getByText('共同方向已保存。', { exact: false }).waitFor();
     assert.equal((await core()).direction.goal, '夹具建议：校园失物招领助手');
     await shot(b, 'direction-confirmed');
     await b.getByRole('link', { name: '任务', exact: true }).click(); await b.locator('#review').click();

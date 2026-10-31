@@ -76,7 +76,8 @@ def build_workflow(snap, current_time):
         next_action = action('continue', '继续「' + task['title'] + '」', '完成后同步任务编号、当前计划版本和可核对的成果依据。', task_key=task['key'])
     elif available:
         task = available[0]
-        next_action = action('start', '可以先做「' + task['title'] + '」', '它的前置成果已有检查记录，开始前仍需核对当前版本与检查方法。', task_key=task['key'])
+        reason = '它的前置成果已有检查记录，开始前仍需核对当前版本与检查方法。' if task.get('depends_on') else '这项任务没有前置依赖，可以开始；请先核对检查方法。'
+        next_action = action('start', '可以先做「' + task['title'] + '」', reason, task_key=task['key'])
     elif mine and any(t['waiting_on'] for t in mine):
         task = next(t for t in mine if t['waiting_on'])
         next_action = action('dependency', '先核对「' + task['title'] + '」的前置成果', '仍在等待：' + '、'.join(task['waiting_on']) + '。可并行准备的工作请按实际依赖判断。', task_key=task['key'])
@@ -91,7 +92,7 @@ def build_workflow(snap, current_time):
 
     checks = [
         {'key': 'goal', 'title': '共同目标', 'state': 'recorded' if direction.get('goal') else 'missing', 'detail': '已保存团队目标。' if direction.get('goal') else '尚未填写共同目标。', 'page': 'direction'},
-        {'key': 'rules', 'title': '赛事要求与评分', 'state': 'recorded' if direction.get('rules') and direction.get('rubric') else 'missing', 'detail': '已保存原文和评分依据，内容仍需对照主办方核实。' if direction.get('rules') and direction.get('rubric') else '缺少赛事原文或评分依据；不能由AI补造。', 'page': 'direction'},
+        {'key': 'rules', 'title': '赛事要求与评分', 'state': 'recorded' if direction.get('rules') and direction.get('rubric') else 'missing', 'detail': '已填写赛事要求与评分说明；是否取得正式原文及核实结果，请查看所填内容。' if direction.get('rules') and direction.get('rubric') else '缺少赛事原文或评分依据；不能由AI补造。', 'page': 'direction'},
         {'key': 'plan', 'title': '已确认安排', 'state': 'recorded' if snap['plan_version'] and tasks else 'missing', 'detail': f"当前安排 v{snap['plan_version']}，共 {len(tasks)} 项任务；空安排不代表完成。", 'page': 'overview'},
         {'key': 'handoffs', 'title': '成果交接检查', 'state': 'recorded' if tasks and len(accepted) == len(tasks) else 'attention', 'detail': f'{len(tasks)} 项任务中，{len(accepted)} 项的当前成果有同伴检查通过记录。', 'page': 'overview'},
         {'key': 'runtime', 'title': '演示与文件能否使用', 'state': 'manual', 'detail': '用准备提交的实际版本走一遍演示，检查PPT、视频与访问权限；任务检查不能证明现场环境已就绪。', 'page': 'overview'},

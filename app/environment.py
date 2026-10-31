@@ -2,6 +2,8 @@
 import os
 from pathlib import Path
 
+from .email_delivery import EMAIL_KEYS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SMS_KEYS = frozenset({
@@ -9,7 +11,7 @@ SMS_KEYS = frozenset({
     'ALIYUN_SMS_TEMPLATE_CODE', 'ALIYUN_SMS_MODE', 'SONGBAI_REQUIRE_SMS',
     'SONGBAI_ALLOW_TEST_CODES', 'SONGBAI_IMESSAGE', 'SONGBAI_SMS',
 })
-ENV_KEYS = SMS_KEYS | {
+ENV_KEYS = SMS_KEYS | EMAIL_KEYS | {
     'DEEPSEEK_API_KEY', 'MODEL_API_KEY', 'MODEL_BASE_URL', 'MODEL_NAME',
     'TEAM_MODEL_API_KEY', 'TEAM_MODEL_BASE_URL', 'TEAM_MODEL_NAME',
     'DASHSCOPE_API_KEY', 'MODEL_ALLOWED_HOSTS', 'ALLOWED_ORIGINS',

@@ -46,6 +46,7 @@ class WorkflowTests(unittest.TestCase):
         self.plan()
         a=self.snap();b=self.client.get(self.base,headers=self.h('b')).json()
         self.assertEqual(a['workflow']['next_action']['kind'],'start')
+        self.assertIn('没有前置依赖',a['workflow']['next_action']['reason'])
         self.assertEqual(b['workflow']['next_action']['kind'],'dependency')
         self.done()
         self.assertEqual(self.client.get(self.base,headers=self.h('b')).json()['workflow']['next_action']['kind'],'check')
@@ -53,9 +54,18 @@ class WorkflowTests(unittest.TestCase):
         b=self.client.get(self.base+'/my-tasks',headers=self.h('b')).json()
         self.assertEqual(b['tasks'][0]['waiting_on'],[])
         self.assertEqual(b['next_action']['kind'],'start')
+        self.assertIn('前置成果已有检查记录',b['next_action']['reason'])
         t=self.snap()['active_plan']['tasks'][0]
         self.assertEqual(t['status'],'reported_done')
         self.assertEqual(t['handoff_state'],'accepted')
+
+    def test_unknown_rules_are_not_described_as_official_sources(self):
+        s=self.snap()
+        self.client.put(self.base+'/direction',headers=self.h('a'),json={'goal':'准备演示','rules':'未知，未取得主办方原文','rubric':'未知，待确认','expected_revision':s['revision']})
+        item=next(c for c in self.snap()['workflow']['checks'] if c['key']=='rules')
+        self.assertEqual(item['state'],'recorded')
+        self.assertIn('已填写',item['detail'])
+        self.assertNotIn('已保存原文',item['detail'])
 
     def test_check_rejects_owner_plugin_and_outsider(self):
         self.plan();self.done()
