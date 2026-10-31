@@ -167,10 +167,33 @@ function workbenchPage(){
     onUnauthorized:()=>{if(epoch===state.epoch){clearIdentity();renderAuth();}}
   });
 }
+const conceptProjects=[
+  {slug:'question-workshop',name:'问号工坊',track:'Agent',description:'通过追问与练习，把学习卡点拆成下一步。'},
+  {slug:'dinner-agent',name:'晚饭有谱',track:'Agent',description:'根据已有食材安排晚餐，并整理缺少的食材清单。'},
+  {slug:'tiny-room',name:'方寸小屋',track:'3D',description:'摆放家具、切换材质，搭建可旋转浏览的三维空间。'},
+  {slug:'creator-shop',name:'小摊计划',track:'商业化产品 · 硬件',description:'让校园创作者的贴纸与手作，通过智能售卖柜被发现。'},
+  {slug:'leaf-archive',name:'叶脉档案',track:'模型训练 · 硬件',description:'用摄像头采集叶片，让自己训练的分类模型认识植物。'},
+  {slug:'cloud-post',name:'云上邮局',track:'游戏',description:'连接漂浮云岛，解开谜题，送出一封跨越云海的信。'}
+];
+function previewConcept(project,trigger){
+  const dialog=modal(project.name,`<p class="concept-meta">概念项目 · ${esc(project.track)}</p><img class="concept-cover" src="/static/landing/projects/${project.slug}-cover.webp" alt="${esc(project.name)}概念设计预览" width="1600" height="1000"><p class="concept-description">${esc(project.description)}</p><div class="concept-actions"><p class="caption">创作方向示意，不代表已完成的参赛作品。</p><a class="text-link" href="#/events">寻找适合的活动 ${icon('arrow')}</a></div>`);
+  dialog.classList.add('concept-dialog');
+  dialog.querySelector('h2').id='concept-title';dialog.setAttribute('aria-labelledby','concept-title');
+  trigger.setAttribute('aria-expanded','true');
+  dialog.addEventListener('close',()=>trigger.setAttribute('aria-expanded','false'));
+  dialog.addEventListener('click',e=>{const r=dialog.getBoundingClientRect();if(e.target===dialog&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom))dialog.close();});
+  dialog.querySelector('a').onclick=()=>dialog.close();
+}
 function landing(){
   unmountWorkbench();
-  root.innerHTML=`<div class="landing" data-shell="songban-v1" data-route="login"><header class="landing-header">${brand()}<div class="header-actions"><a href="#/events" class="muted">探索活动</a><button class="ink-button" data-auth>${state.me?'回到实践':'登录'} ↗</button></div></header><main id="main-content" tabindex="-1"><section class="landing-hero"><div class="hero-copy"><p class="eyebrow">一个想法，一群同伴，一次开始</p><h1>第一次参加黑客松<br>松伴陪你一步步来</h1><p class="subtitle">找到合适的活动和队友，<br class="mobile-only">把想法变成可以展示的作品</p><a class="primary landing-cta" href="#/events">找到适合我的黑客松 ${icon('arrow')}</a><a class="scroll-cue" href="#possibilities">看看作品的可能 ↓</a></div>${pine()}<div class="project-deck" id="possibilities" aria-label="创作方向示意，非已完成作品">${[['01','校园的小问题','校园观察'],['02','让知识变好玩','互动学习'],['03','和同伴搭一个工具','日常工具'],['04','用作品讲个故事','创意表达'],['05','从一个想法开始','你的下一作']].map(([n,title,type],i)=>`<div class="project-card card-${i}"><span>${n}</span><strong>${title}</strong><small>${type} / 创作方向示意</small></div>`).join('')}</div></section></main><footer class="page-footer">从小而完整的作品开始，留下真实的进展。</footer></div>`;
+  root.innerHTML=`<div class="landing landing-showcase" data-shell="songban-v1" data-route="login"><header class="landing-header"><a class="landing-wordmark" href="#/login" aria-label="松伴首页"><img src="/static/landing/songban-cn.png" alt="松伴" width="78" height="34"><img src="/static/landing/songban-en.png" alt="SONGBAN" width="103" height="20"></a><button class="ink-button landing-login" data-auth>${state.me?'回到实践':'登录'} <span aria-hidden="true">↗</span></button></header><main id="main-content" tabindex="-1"><section class="landing-stage" aria-label="松伴黑客松创作陪练"><div class="showcase-copy"><h1><span>有松伴在场</span><span>每一步都有方向</span></h1><p>一场黑客松，一群同路人，让创作一步步发生。</p><a class="primary showcase-cta" href="#/events"><span>找到适合我的黑客松</span>${icon('arrow')}</a></div><div class="showcase-companion" role="img" aria-label="松伴小松树"><span class="showcase-silhouette"></span><span class="showcase-eye eye-left"><i></i></span><span class="showcase-eye eye-right"><i></i></span></div><div class="showcase-deck" aria-label="六个概念项目，点击查看创作方向">${conceptProjects.map(project=>`<button class="showcase-card concept-${project.slug}" data-concept="${project.slug}" aria-label="查看${project.name}" aria-haspopup="dialog" aria-expanded="false"><span class="showcase-card-inner"><img src="/static/landing/projects/${project.slug}-thumb.webp" alt="" width="640" height="400" decoding="async"><span class="showcase-card-label"><strong>${project.name}</strong><small>${project.track}</small></span></span></button>`).join('')}</div></section></main></div>`;
   $('[data-auth]').onclick=()=>state.me?go('work'):openAuth();
+  root.querySelectorAll('[data-concept]').forEach(button=>button.onclick=()=>previewConcept(conceptProjects.find(project=>project.slug===button.dataset.concept),button));
+  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    const stage=$('.landing-stage'),companion=$('.showcase-companion');
+    stage.onpointermove=e=>{const r=companion.getBoundingClientRect();companion.style.setProperty('--gaze-x',Math.max(-3,Math.min(3,(e.clientX-r.left-r.width/2)/90))+'px');companion.style.setProperty('--gaze-y',Math.max(-3,Math.min(3,(e.clientY-r.top-r.height/2)/90))+'px');};
+    stage.onpointerleave=()=>{companion.style.setProperty('--gaze-x','0px');companion.style.setProperty('--gaze-y','0px');};
+  }
 }
 function modal(title,body){
   const previous=document.activeElement;const dialog=document.createElement('dialog');dialog.className='check-dialog';
