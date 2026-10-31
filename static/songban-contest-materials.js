@@ -14,6 +14,7 @@ async function contestMaterialsPage(){
  }
  try{
   brief=await api('/api/journey/contest-materials');if(!alive())return;
+  if(window.SONGBAN_DEMO){q('#contest-material-intake').innerHTML='<p class="notice">正在放入虚构演示公告、示例链接和文件…</p>';await ensureDemoContestMaterials(brief.space_id);if(!alive())return;}
   q('#brief-refresh').onclick=async()=>{try{await update(await api('/api/materials/spaces/'+encodeURIComponent(brief.space_id)));}catch(e){if(alive())q('#brief-message').textContent=e.message;}};
   await SongbanMaterials.mount(q('#contest-material-intake'),{spaceId:brief.space_id,intakeOnly:true,onChange:update});
   if(!alive())return;

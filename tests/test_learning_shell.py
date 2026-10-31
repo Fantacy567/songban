@@ -87,7 +87,7 @@ class LearningShellTests(unittest.TestCase):
         self.assertIn("songban-library.js?v=20261031-toolnames-v1", home.text)
         self.assertIn("songban-tasks.js?v=20261031-unified-v1", home.text)
         self.assertIn("songban-recap.js?v=20261031-recap-v1", home.text)
-        self.assertIn("songban-materials.js?v=20261031-links-v3", home.text)
+        self.assertIn("songban-materials.js?v=20261031-demo-materials-v2", home.text)
         self.assertIn("songban-materials.css?v=20261031-materials-v1", home.text)
         self.assertIn('data-shell="songban-v1"', home.text)
         css = self.client.get('/static/songban.css').text
