@@ -1,5 +1,5 @@
-"""Same product, isolated database and labelled offline model fixtures, loopback only."""
-import tempfile,uuid,secrets,sqlite3,json,threading
+"""Same product, isolated database and labelled offline model fixtures, loopback by default; explicit public origin opt-in."""
+import tempfile,uuid,secrets,sqlite3,json,threading,os
 from pathlib import Path
 from contextlib import closing
 from urllib.parse import urlsplit
@@ -28,14 +28,18 @@ class Demo:
  async def __call__(self,scope,receive,send):
   if scope['type']!='http':return await self.shell(scope,receive,send)
   headers=dict(scope['headers']);host=urlsplit('//'+headers.get(b'host',b'').decode()).hostname;peer=(scope.get('client') or ('',0))[0]
-  if host not in ['127.0.0.1','localhost','testserver'] or peer not in ['127.0.0.1','::1','testclient']:return await JSONResponse({'error':{'message':'演示仅限本机访问。'}},403)(scope,receive,send)
+  public_origin=os.environ.get('SONGBAN_DEMO_PUBLIC_ORIGIN','').rstrip('/')
+  public=urlsplit(public_origin)
+  public_allowed=public.scheme=='https' and bool(public.hostname) and headers.get(b'host',b'').decode()==public.netloc
+  local_allowed=host in ['127.0.0.1','localhost','testserver'] and peer in ['127.0.0.1','::1','testclient']
+  if not (local_allowed or public_allowed):return await JSONResponse({'error':{'message':'演示仅限本机访问。'}},403)(scope,receive,send)
   path=scope['path']
   if path=='/':return await HTMLResponse((ROOT/'static/songban.html').read_text().replace('<head>','<head>'+BOOT.replace('__DEMO_BASE__',json.dumps(self.base_path))),headers={'Cache-Control':'no-store'})(scope,receive,send)
   key=headers.get(b'x-songban-demo',b'').decode()
   if path.startswith('/api/'):
    try:uuid.UUID(key);app,users=self.session(key)
    except ValueError:return await JSONResponse({'error':{'message':'请重新打开演示页面。'}},409)(scope,receive,send)
-   app.state.demo_base_url='http://'+headers.get(b'host',b'127.0.0.1:8886').decode()+self.base_path
+   app.state.demo_base_url=(public_origin if public_allowed else 'http://'+headers.get(b'host',b'127.0.0.1:8886').decode())+self.base_path
    if path=='/api/demo/bootstrap':return await JSONResponse({'token':users[0][1],'demo':True})(scope,receive,send)
    if path=='/api/demo/peer':
     # Only this session's synthetic teammate. Advance via ordinary checked APIs.

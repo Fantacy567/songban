@@ -1,3 +1,9 @@
+# 2026-10-31 · 设计与公网演示验收收尾
+
+- 设计回归290项通过；原本仅本机的demo增加SONGBAN_DEMO_PUBLIC_ORIGIN显式HTTPS域名开关，其他Host仍拒绝。生产账号与演示身份继续隔离，新增回归覆盖。
+- GitHub首轮已推送d0004a3，后续公网开关与验收结果待补推；当前域名https://nec-meditation-lion-tip.trycloudflare.com。
+- 用户随后要求完成上述工作后修复连接器，截图错误为app/connector_plugin.py安装后server.py --check读取团队失败且回滚。下一步复现真实绑定检查，不改模型/provider、不重启Codex。
+
 # 2026-10-31 · 用户追加：接入指定设计、公网演示、上传GitHub
 
 - 视觉参考：https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/login 。已接入暖白首页、大标题、六张扇形作品卡片、原设计松树、登录弹窗和紫色流程视觉。仅展示层调整，不改变现有阶段判断与数据接口。

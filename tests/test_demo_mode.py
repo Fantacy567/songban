@@ -27,3 +27,15 @@ class DemoModeTests(unittest.TestCase):
  def test_demo_rejects_remote_hosts_and_missing_session(self):
   self.assertEqual(self.client.get('/demo/',headers={'Host':'example.com'}).status_code,403)
   self.assertEqual(self.client.post('/demo/api/demo/bootstrap').status_code,409)
+
+ def test_explicit_public_origin_keeps_session_and_real_account_isolation(self):
+  with patch.dict('os.environ',{'SONGBAN_DEMO_PUBLIC_ORIGIN':'https://preview.example.com'}):
+   self.assertEqual(self.client.get('/demo/',headers={'Host':'other.example.com'}).status_code,403)
+   self.assertEqual(self.client.get('/demo/',headers={'Host':'preview.example.com'}).status_code,200)
+   h={'Host':'preview.example.com','X-Songban-Demo':str(uuid.uuid4())}
+   token=self.client.post('/demo/api/demo/bootstrap',headers=h).json()['token']
+   h['Authorization']='Bearer '+token
+   self.assertEqual(self.client.get('/demo/api/journey',headers=h).json()['stage'],'interview')
+   self.assertEqual(self.client.get('/api/core/me',headers=h).status_code,401)
+   app,_=self.preview.demo.sessions[h['X-Songban-Demo']]
+   self.assertEqual(app.state.demo_base_url,'https://preview.example.com/demo')

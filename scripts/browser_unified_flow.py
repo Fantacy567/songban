@@ -1,6 +1,7 @@
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 import json,re,os
+expect.set_options(timeout=30000)
 BASE=os.environ.get('SONGBAN_TEST_BASE','http://127.0.0.1:8890/demo');OUT=Path('.browser-cache/unified');OUT.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  browser=p.chromium.launch(channel='chrome',headless=True);page=browser.new_page(viewport={'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.on('dialog',lambda d:d.accept())

@@ -3,7 +3,7 @@
 完整服务保留 Python API、SQLite 持久化、真实手机号账号及独立 /demo/ 入口。
 
 ```sh
-DATABASE_PATH=/absolute/path/songban.sqlite3 PUBLIC_BASE_URL=https://YOUR-TUNNEL.trycloudflare.com python -m uvicorn app.preview_server:app --host 0.0.0.0 --port 8890 --workers 1
+DATABASE_PATH=/absolute/path/songban.sqlite3 PUBLIC_BASE_URL=https://YOUR-TUNNEL.trycloudflare.com SONGBAN_DEMO_PUBLIC_ORIGIN=https://YOUR-TUNNEL.trycloudflare.com python -m uvicorn app.preview_server:app --host 0.0.0.0 --port 8890 --workers 1
 cloudflared tunnel --url http://127.0.0.1:8890 --protocol http2 --edge-ip-version 4 --no-autoupdate
 ```
 
@@ -21,3 +21,5 @@ cloudflared tunnel --url http://127.0.0.1:8890 --protocol http2 --edge-ip-versio
 SONGBAN_ENFORCE_JOURNEY=0 SONGBAN_CORE_ONLY=0 python -m unittest discover -s tests -q
 python scripts/browser_unified_flow.py
 ```
+
+演示默认仅本机开放；显式设置 SONGBAN_DEMO_PUBLIC_ORIGIN 后仅开放匹配该 HTTPS 域名的演示入口，其他域名仍拒绝。
