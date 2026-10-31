@@ -50,7 +50,11 @@ class NativePluginTests(unittest.TestCase):
    from scripts.check_native_plugin_host import check
    host=check(home,home);self.assertTrue(host['upload_tool_loaded']);self.assertEqual(host['loader_errors'],[])
    mcp=json.loads((Path(r['project_dir'])/'mcp.json').read_text(encoding='utf-8'));self.assertEqual(mcp['mcpServers']['songban']['type'],'stdio')
-   self.assertEqual(Path(mcp['mcpServers']['songban']['command']).name,mcp['mcpServers']['songban']['command'])
+   if mcp['mcpServers']['songban']['args'][0].startswith('${PLUGIN_ROOT}'):
+    self.assertEqual(Path(mcp['mcpServers']['songban']['command']).name,mcp['mcpServers']['songban']['command'])
+   else:
+    self.assertTrue(Path(mcp['mcpServers']['songban']['command']).is_absolute())
+    self.assertTrue(Path(mcp['mcpServers']['songban']['args'][0]).is_file())
    import tomllib
    c=tomllib.loads(conf.read_text(encoding='utf-8'));self.assertEqual(c['model'],'test-model');self.assertEqual(c['model_provider'],'openai');self.assertFalse(c['plugins']['other@demo']['enabled'])
    for p in (home/'.codex/plugins/cache/songban-local').rglob('*'):

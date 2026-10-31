@@ -33,14 +33,22 @@ def check(home,cwd,cli='codex'):
  try:
   rpc(1,'initialize',{'clientInfo':{'name':'songban-loader-check','version':'0.9.1'},'capabilities':{'experimentalApi':True}})
   p.stdin.write(json.dumps({'method':'initialized'})+'\n');p.stdin.flush()
-  result=rpc(2,'mcpServerStatus/list',{'limit':100})
-  servers=result.get('data',[])
-  own=[s for s in servers if 'songban' in s.get('name','').lower()]
-  names=[]
-  for s in own:
-   ts=s.get('tools',{})
-   names.extend(ts.keys() if isinstance(ts,dict) else [x.get('name') for x in ts])
-  return {'host_loader_tested':True,'servers':[s.get('name') for s in own],'tool_names':names,'loader_errors':errors,'upload_tool_loaded':any('songban_sync_selected_turn' in (x or '') for x in names)}
+  # Tool discovery may finish after initialize, especially just after plugin registration.
+  # Poll read-only status briefly; an empty first response is not a loading failure.
+  due=time.monotonic()+8
+  ident=2;own=[];names=[]
+  while True:
+   result=rpc(ident,'mcpServerStatus/list',{'limit':100});ident+=1
+   servers=result.get('data',[])
+   own=[s for s in servers if 'songban' in s.get('name','').lower()]
+   names=[]
+   for s in own:
+    ts=s.get('tools',{})
+    names.extend(ts.keys() if isinstance(ts,dict) else [x.get('name') for x in ts])
+   loaded=any('songban_sync_selected_turn' in (x or '') for x in names)
+   if loaded or errors or time.monotonic()>=due:break
+   time.sleep(.25)
+  return {'host_loader_tested':True,'servers':[s.get('name') for s in own],'tool_names':names,'loader_errors':errors,'upload_tool_loaded':loaded}
  finally:
   p.terminate()
   try:p.wait(timeout=5)

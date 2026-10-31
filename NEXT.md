@@ -1,3 +1,11 @@
+# 最新 · 2026-10-31 · 对话资料库收尾
+
+- 功能PR：https://github.com/Fantacy567/songban/pull/7，分支feat/connector-conversation-library；已合入main42665dc（含资料入口、审计与跨平台修复），本机最新全量208项通过。此前229是合入更早main时的测试组织，保留为历史，不能混报。
+- 原生/通用MCP→HTTP→SQLite及Chrome资料库验收通过，个人原话/完整可见回复/模型名/成员颜色、筛选、全文命中片段、游标翻页、原文展开、任务状态隔离、来源与权限保留。未执行家长报告发布。
+- 当前Codex0.145不支持新版PLUGIN_ROOT配置；已按CLI能力选择路径，并保留Windows新版配置、权限与真实宿主检查。本机真实独立宿主加载测试已通过，不改用户全局模型或重启Codex。
+- PR #4 文档冲突已在原分支合入最新main推送252befe，GitHub MERGEABLE；当前检查结果还需最终核对，不要把冲突消除等同所有CI绿。
+- 本机8890此前已更新并复用备份后的runtime数据库；最终推送后需重启该预览以加载此次最新宿主兼容代码。源码运行目录为connector-planning，不要切换此目录分支破坏正在访问的静态文件。
+
 # 2026-10-31 · 连接器与对话资料库开发验收完成
 
 - feat/connector-conversation-library，已合入此前短信与宪法提交；当前变更在connector-planning，原8890尚未切换。

@@ -1,5 +1,6 @@
 """Install the real native plugin through the supported Codex CLI registry."""
 import json
+import re
 from .private_files import restrict_file
 import os
 from pathlib import Path
@@ -41,8 +42,16 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
     if not d[key]:d.pop(key)
   return d
  files={str(p.relative_to(SOURCE)):p.read_bytes() for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts}
- mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name,'args':['${PLUGIN_ROOT}/server.py','--binding',str(binding)],'cwd':'${PLUGIN_ROOT}','env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
- files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'0.9.3\n'
+ # Older local Codex hosts do not expand PLUGIN_ROOT in MCP arguments/cwd.
+ # Preserve the portable layout for modern/Windows hosts and the working legacy path otherwise.
+ try:
+  version=subprocess.run([cli,'--version'],capture_output=True,text=True,encoding='utf-8',timeout=5,env=env)
+  match=re.search(r'(\d+)\.(\d+)\.',version.stdout)
+  modern=bool(match and tuple(map(int,match.groups()))>=(0,165))
+ except (OSError,subprocess.SubprocessError):modern=False
+ portable=os.name=='nt' or modern
+ mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name if portable else sys.executable,'args':['${PLUGIN_ROOT}/server.py' if portable else str(target/'server.py'),'--binding',str(binding)],'cwd':'${PLUGIN_ROOT}' if portable else str(target),'env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
+ files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'1.0.0\n'
  cat={'name':'songban-local','interface':{'displayName':'松伴本机插件'},'plugins':[{'name':'songban-connector','source':{'source':'local','path':'./plugins/songban-connector'},'policy':{'installation':'AVAILABLE','authentication':'ON_INSTALL'},'category':'Productivity'}]}
  writes={target/k:v for k,v in files.items()}
  writes[catalog]=json.dumps(cat,ensure_ascii=False,indent=2).encode()
