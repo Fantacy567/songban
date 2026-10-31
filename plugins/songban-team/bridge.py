@@ -12,12 +12,13 @@ import re
 import secrets
 import sys
 import time
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION='1.1'
-MAX_BYTES=60000
+VERSION='1.3.0'
+MAX_BYTES=280000
 
 
 def encode(x):return json.dumps(x,ensure_ascii=False,sort_keys=True,allow_nan=False)
@@ -45,13 +46,17 @@ def private_dir():
 def config():
     p=Path(os.environ.get('SONGBAN_CONFIG',str(Path.cwd()/'.songban'/'connection.json')))
     data=json.loads(p.read_text(encoding='utf-8-sig')) if p.exists() else {}
-    for key,env in [('url','SONGBAN_URL'),('team_id','SONGBAN_TEAM_ID'),('token','SONGBAN_TOKEN')]:
+    for key,env in [('url','SONGBAN_URL'),('team_id','SONGBAN_TEAM_ID'),('token','SONGBAN_TOKEN'),('base_path','SONGBAN_BASE_PATH'),('demo_session','SONGBAN_DEMO_SESSION')]:
         if os.environ.get(env):data[key]=os.environ[env]
     if not all(isinstance(data.get(k),str) and data[k] for k in ('url','team_id','token')):
         raise BridgeError('尚未连接。请先在当前项目运行 python3 bridge.py connect，或配置三个环境变量。')
     u=urllib.parse.urlsplit(data['url'])
     if not ((u.scheme=='https' or (u.scheme=='http' and u.hostname in ('127.0.0.1','localhost','::1'))) and u.hostname and not (u.username or u.password or u.query or u.fragment) and u.path in ('','/')):
         raise BridgeError('团队服务需使用HTTPS，或本机HTTP地址；不要填写带密钥或额外路径的地址。')
+    if data.get('base_path','') not in ('','/demo'):raise BridgeError('演示连接路径无效。')
+    if 'demo_session' in data:
+        try:uuid.UUID(data['demo_session'])
+        except (ValueError,TypeError,AttributeError):raise BridgeError('演示会话无效，请重新连接。') from None
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',data['team_id']):raise BridgeError('队伍ID格式不正确。')
     if not data['token'].startswith('sbconn_'):raise BridgeError('请使用网页生成的插件连接凭证，不要使用账号密码或模型密钥。')
     if data.get('project_root') and Path(data['project_root']).resolve()!=Path.cwd().resolve():
@@ -65,8 +70,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def call(path,body=None):
-    c=config();url=c['url']+'/api/core/teams/'+c['team_id']+path
-    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json'},method='POST' if body is not None else 'GET')
+    c=config();url=c['url']+c.get('base_path','')+'/api/core/teams/'+c['team_id']+path
+    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json',**({'X-Songban-Demo':c['demo_session']} if c.get('demo_session') else {})},method='POST' if body is not None else 'GET')
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     try:
         with opener.open(req,timeout=20) as response:
@@ -82,7 +87,7 @@ def call(path,body=None):
 
 def prepare(body):
     if not isinstance(body,dict):raise BridgeError('进展文件必须是JSON对象。')
-    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin'}
+    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id','source_tool'}
     if set(body)-allowed:raise BridgeError('进展含不支持的字段，请按示例填写。')
     # Round trip redacts only string values; never interpolates JSON as code.
     def walk(v):
@@ -185,6 +190,42 @@ TOOLS=[
 ]
 
 
+CONVERSATION_SCHEMA={'type':'object','properties':{
+ 'source_tool':{'type':'string'},'idea_id':{'type':'string'},'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
+ 'user_message':{'type':'string'},'assistant_message':{'type':'string'},'assistant_summary':{'type':'string'},'model_name':{'type':'string'},
+ 'conversation_stage':{'type':'string','enum':['discussion','development','recap']},'task_key':{'type':'string'},'plan_version':{'type':'integer'}
+},'required':['selected','event_id','user_message','assistant_summary'],'additionalProperties':False}
+TOOLS.extend([{'name':'songban_get_topic_ideas','description':'读取本队公开idea及idea_id；选题可行性对话上传时填写idea_id和conversation_stage=discussion。','inputSchema':{'type':'object','properties':{},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
+ {'name':'songban_sync_selected_turn','description':'将明确授权的本轮用户原话和AI可见回复归档到团队资料库。完整回复须full_reply_authorized=true；不修改任务状态。','inputSchema':CONVERSATION_SCHEMA},
+ {'name':'songban_search_team_library','description':'从本队真实资料库检索线索，返回记录号和分页游标。只检索，不运行模型。','inputSchema':{'type':'object','properties':{'scope':{'type':'string','enum':['discussion','project','all']},'idea_id':{'type':'string'},'query':{'type':'string'},'author_id':{'type':'string'},'stage':{'type':'string'},'task_key':{'type':'string'},'cursor':{'type':'integer'},'limit':{'type':'integer','minimum':1,'maximum':50}},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
+ {'name':'songban_read_library_record','description':'按资料记录号读取本队完整对话原文。','inputSchema':{'type':'object','properties':{'record_id':{'type':'string'}},'required':['record_id'],'additionalProperties':False},'annotations':{'readOnlyHint':True}}
+])
+
+
+def library_tool(name,args):
+    if name=='songban_get_topic_ideas':
+        if args:raise BridgeError('读取idea不需要额外参数。')
+        return call('/ideas')
+    if name=='songban_sync_selected_turn':
+        if args.get('selected') is not True:raise BridgeError('本轮没有明确授权共享。')
+        body=dict(args);body.pop('selected')
+        # A caller must supply a stable ID before a possibly interrupted write.
+        if not isinstance(body.get('event_id'),str) or not body['event_id'].strip():raise BridgeError('缺少本轮稳定记录号。')
+        data=prepare(body);data['selected']=True
+        r=call('/conversation-notes',data)
+        if not r.get('note_id'):raise BridgeError('未返回记录号，不能确认上传成功。')
+        return r
+    if name=='songban_search_team_library':
+        if set(args)-{'query','author_id','stage','task_key','cursor','limit','scope','idea_id'}:raise BridgeError('检索参数不正确。')
+        data=dict(args)
+        if 'query' in data:data['q']=data.pop('query')
+        data.setdefault('limit',5);data['brief']='true'
+        return call('/library?'+urllib.parse.urlencode(data))
+    ident=args.get('record_id')
+    if set(args)!={'record_id'} or not isinstance(ident,str) or not re.fullmatch('[A-Za-z0-9_-]{1,120}',ident):raise BridgeError('请提供本队真实资料记录号。')
+    return call('/library/'+ident)
+
+
 def mcp():
     for line in sys.stdin:
         if len(line)>1000000:
@@ -205,6 +246,7 @@ def mcp():
                     if name=='songban_get_team_context' and not args:answer=call('/context')
                     elif name=='songban_share_topic_turn':answer=share_topic_turn(args)
                     elif name=='songban_get_my_tasks' and not args:answer=call('/my-tasks')
+                    elif name in ('songban_get_topic_ideas','songban_sync_selected_turn','songban_search_team_library','songban_read_library_record'):answer=library_tool(name,args)
                     elif name=='songban_sync_progress':
                         data=prepare(args);enqueue(data);answer=flush()
                     else:raise BridgeError('未知工具或参数不正确。')
@@ -233,7 +275,7 @@ def main():
     if args.mode=='connect':
         data={'url':input('团队网站地址（如 http://127.0.0.1:8886）：').strip(),'team_id':input('队伍ID：').strip(),'token':getpass.getpass('插件连接凭证（输入不显示）：').strip(),'project_root':str(Path.cwd().resolve())}
         file=private_dir()/'connection.json';file.write_text(encode(data),encoding='utf-8');file.chmod(0o600)
-        try:result=call('/my-tasks')
+        try:result=call('/context')
         except Exception:file.unlink(missing_ok=True);raise
         print('连接成功；凭证保存在当前项目已忽略的 .songban 目录。可以运行 watch 自动同步共享文件。');return
     if args.mode=='watch':

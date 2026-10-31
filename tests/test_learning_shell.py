@@ -85,6 +85,9 @@ class LearningShellTests(unittest.TestCase):
         for page, asset in (
             (home, "songban.css"),
             (home, "songban.js"),
+            (home, "songban-library.js"),
+            (home, "songban-tasks.js"),
+            (home, "songban-recap.js"),
             (home, "songban-materials.js"),
             (home, "songban-materials.css"),
             (learning, "songban-views.js"),

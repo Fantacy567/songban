@@ -75,6 +75,7 @@ class DemoTests(unittest.TestCase):
         self.assertIsNone(get())
         snapshot=self.client.get(base,headers=self.headers).json()
         self.assertEqual(len(snapshot['members']),5)
+        self.assertFalse(snapshot['guided_workflow'])
         result=self.client.post(base+'/topic-selection/rounds',json={'request_id':'demo-round-start','expected_revision':snapshot['revision'],'track':'校园 AI 创作'},headers=self.headers)
         self.assertEqual(result.status_code,200,result.text)
         with patch('app.topic_selection_model.httpx.Client') as network:

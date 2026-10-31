@@ -22,6 +22,7 @@ from .environment import load_env
 from .studio import ensure_schema, register_studio
 from .team_core import ensure_core_schema, register_core
 from .materials import register_materials
+from .recap_reports import register_recap
 from .workbench import register_workbench
 from .onboarding import ensure_onboarding_schema, register_onboarding
 from .topic_selection import SCHEMA as TOPIC_SCHEMA, register_topic_selection
@@ -111,7 +112,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, topic_model_runner=None, parent_report_options=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None, interview_runner=None, enforce_journey=None, topic_model_runner=None, parent_report_options=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -833,11 +834,15 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
     def workflow():
         return FileResponse(ROOT / "static" / "workflow.html")
 
+    api.state.enforce_journey = (os.environ.get("SONGBAN_ENFORCE_JOURNEY", "1") == "1") if enforce_journey is None else enforce_journey
     register_studio(api, db, Problem, now, uid, digest)
-    core = register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    core = register_core(api, db, Problem, now, uid, digest, core_model_runner, idea_model_runner)
+    from .journey import install as install_journey
+    install_journey(api,db,Problem,now,uid,core,interview_runner)
     api.state.topic_selection = register_topic_selection(api, db, Problem, now, uid, digest, core, topic_model_runner)
     register_onboarding(api, db, Problem, now, uid, digest, core)
     register_materials(api, db, Problem, now, uid, digest, materials_model_runner)
+    register_recap(api, db, Problem, now, uid, digest, recap_model_runner)
     register_workbench(api, db, Problem, now, uid, digest, core, workbench_model_runner)
     if parent_report_options is not None:
         from .parent_report import register_parent_report

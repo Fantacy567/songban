@@ -4,3 +4,5 @@ httpx==0.28.1
 pydantic==2.14.1
 python-multipart==0.0.32
 -r requirements-materials.txt
+
+qrcode==8.2

@@ -311,6 +311,8 @@ def register_topic_selection(api, db, problem, now, uid, digest, core, runner=No
                 settings = core['init'](con, squad)
                 if latest(con, sid) or settings['plan_version']:
                     raise problem(409, 'topic_round_exists', '本队已有选题轮或已发布任务，请继续当前流程。')
+                if con.execute('SELECT 1 FROM team_ideas WHERE squad_id=?',(sid,)).fetchone() or con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():
+                    raise problem(409, 'idea_workflow_active', '本队已在选题公示流程中，请继续当前讨论与分工。')
                 if body.expected_revision != settings['revision']:
                     raise problem(409, 'stale_context', '团队资料已变化，请刷新后开启。')
                 if not body.track.strip():

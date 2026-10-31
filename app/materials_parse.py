@@ -4,7 +4,10 @@ import threading
 import zipfile
 from pathlib import Path
 
-from .contest_intel import IntelError, html_to_text, public_request, validate_public_url
+from .contest_intel import (
+    IntelError, _extract_js_content, html_to_text, is_weixin_article,
+    public_request, validate_public_url, weixin_error_page,
+)
 import httpx
 
 MAX_BYTES = 8_000_000
@@ -59,7 +62,7 @@ def parse_source(kind, name, raw):
         url = validate_public_url(raw.decode('utf-8'))
         try:
             with httpx.Client(timeout=20, follow_redirects=False, trust_env=False) as client:
-                response, final = public_request(client, 'GET', url, pin_dns=True)
+                response, final = public_request(client, 'GET', url, pin_dns=True, max_bytes=MAX_BYTES)
         except httpx.TimeoutException:
             raise IntelError('fetch_timeout', '公开网页连接或读取超时，链接已保留；可重试或粘贴正文。') from None
         except httpx.HTTPError:
@@ -71,7 +74,15 @@ def parse_source(kind, name, raw):
             raise IntelError('web_too_large', '网页过大，未读取正文，请粘贴需要的段落。')
         content_type = response.headers.get('content-type', '').lower()
         if 'text/html' in content_type:
-            text = html_to_text(response.text)
+            html = response.text
+            if is_weixin_article(url) or is_weixin_article(final):
+                body = _extract_js_content(html)
+                if weixin_error_page(html) or not body.strip():
+                    raise IntelError('weixin_body_unavailable', '微信未返回可读取的文章正文，可能需要验证或文章已失效。链接已保留；可在微信打开文章后粘贴正文，或稍后重试。')
+                text = html_to_text(body)
+                warnings.append('已读取公众号文字正文；文中图片未识别，如关键要求在图片中，请单独上传图片。')
+            else:
+                text = html_to_text(html)
         elif 'text/plain' in content_type:
             text = response.text
         else:

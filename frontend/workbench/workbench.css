@@ -1,3 +1,9 @@
+/*!
+ * AI 工作台 — Copyright © 2026 2292576833.
+ * AI 工作台负责人：https://github.com/2292576833
+ * 松伴项目由 2292576833、Fantacy567、andorwu5-dev 共同拥有，详见 COPYRIGHT.md。
+ * 第三方代码及素材保留其原有版权和许可。
+ */
 /* Layout, thread, message row and bubble rules adapted from ai-workbench.module.css.
    Scoped to the embedded Songban workbench; uses the existing design-v1 tokens. */
 .sbw{color:var(--sb-ink,#151812);font-family:inherit;min-width:0;max-width:100%;line-height:1.65;--wb-muted:#636664;--wb-line:var(--sb-line,#e9e7e4);--wb-surface:var(--sb-surface,#fff);--wb-purple:var(--sb-purple-deep,#6847cd);--wb-soft:var(--sb-lavender,#efebff)}

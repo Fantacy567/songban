@@ -1,0 +1,10 @@
+{
+  "http_status": 200,
+  "division_status": "failed",
+  "error": "无法连接团队模型，同步记录已保留。",
+  "plan_version": 0,
+  "task_count": 0,
+  "both_members_assigned": false,
+  "fixture": false,
+  "scope": "isolated synthetic data only"
+}

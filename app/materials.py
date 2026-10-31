@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .materials_parse import MAX_BYTES, parse_source
 from .planner import PlannerError, check_model_base, team_model_config
+from .model_transport import post_chat_completion
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS materials_spaces (
@@ -130,20 +131,17 @@ def request_materials_model(context):
         raise PlannerError('model_not_configured', '资料模型未配置。原件已保留；配置服务端模型后可重试。', 503)
     base = check_model_base(cfg['base_url'])
     body = {'model': cfg['model_id'], 'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': dump(context)}], 'stream': False, 'max_tokens': 6500, 'temperature': 0}
-    if 'api.deepseek.com' in base:
+    if 'api.deepseek.com' in base or cfg['model_id'].lower().startswith('doubao'):
         body.update(thinking={'type': 'disabled'}, response_format={'type': 'json_object'})
     try:
-        with httpx.Client(timeout=60, trust_env=False, follow_redirects=False) as client:
-            with client.stream('POST', base + '/chat/completions', headers={'Authorization': 'Bearer ' + cfg['api_key']}, json=body) as r:
-                failures = {402: ('model_insufficient_balance', '模型余额不足'), 401: ('model_auth_failed', '模型凭据无效'), 403: ('model_auth_failed', '模型无访问权限'), 429: ('model_rate_limited', '模型服务限流')}
-                if r.status_code != 200:
-                    code, message = failures.get(r.status_code, ('model_unavailable', '模型服务不可用'))
-                    raise PlannerError(code, message + '；材料及上一版结果保留。', 503)
-                raw = bytearray()
-                for chunk in r.iter_bytes():
-                    raw.extend(chunk)
-                    if len(raw) > 300_000:
-                        raise ValueError('oversized')
+        r = post_chat_completion(base, cfg['api_key'], body, timeout=60, trust_env=False)
+        failures = {402: ('model_insufficient_balance', '模型余额不足'), 401: ('model_auth_failed', '模型凭据无效'), 403: ('model_auth_failed', '模型无访问权限'), 429: ('model_rate_limited', '模型服务限流')}
+        if r.status_code != 200:
+            code, message = failures.get(r.status_code, ('model_unavailable', '模型服务不可用'))
+            raise PlannerError(code, message + '；材料及上一版结果保留。', 503)
+        raw = r.content
+        if len(raw) > 300_000:
+            raise ValueError('oversized')
         data = json.loads(raw); choice = data['choices'][0]
         if choice.get('finish_reason') != 'stop' or choice['message'].get('refusal'):
             raise ValueError('incomplete')

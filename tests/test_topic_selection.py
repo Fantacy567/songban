@@ -74,6 +74,23 @@ class TopicTests(unittest.TestCase):
     def start(self):
         return self.send('rounds', track='AI 应用', rules='可演示原型', rubric='实用性与创新性')[0]['round']
 
+    def test_voting_team_cannot_bypass_votes_through_idea_confirmation(self):
+        self.start()
+        for suffix, body in [('/ideas', {'title':'另一选题','problem':'测试问题','proposal':'测试方案'}),
+                             ('/topic/confirm', {'idea_id':'unrelated','confirmed':True})]:
+            response=self.client.post(self.base+suffix,headers=self.h('a'),json=body)
+            self.assertEqual(response.status_code,409,response.text)
+            self.assertEqual(response.json()['error']['code'],'voting_workflow_active')
+        self.assertEqual(self.current()['phase'],'discussion')
+        self.assertFalse(self.snap()['topic_confirmed'])
+
+    def test_idea_team_cannot_start_a_second_decision_workflow(self):
+        response=self.client.post(self.base+'/ideas',headers=self.h('a'),json={'title':'已公示选题','problem':'测试问题','proposal':'测试方案'})
+        self.assertEqual(response.status_code,200,response.text)
+        result,_=self.send('rounds',track='AI 应用',status=409)
+        self.assertEqual(result['error']['code'],'idea_workflow_active')
+        self.assertIsNone(self.current())
+
     def upload(self, who='a', **extra):
         data = {'round_id':self.current()['id'], 'event_id':'turn-'+str(uuid.uuid4()), 'selected':True,
                 'topic_title':'选题'+who, 'user_message':'我想解决排队问题', 'assistant_message':'先验证用户需求和原型', **extra}

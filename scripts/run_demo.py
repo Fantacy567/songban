@@ -101,7 +101,7 @@ def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report
     from fastapi.testclient import TestClient
     from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-    app = create_app(db_path, core_only=True, core_model_runner=demo_plan,
+    app = create_app(db_path, core_only=True, enforce_journey=False, core_model_runner=demo_plan,
                      materials_model_runner=demo_materials, workbench_model_runner=demo_workbench, topic_model_runner=demo_ranking,
                      parent_report_options={'config': parent_report_config or {}, 'runner': parent_report_runner, 'event': CONTENT.get('event', {}), 'demo': True})
     users = []
@@ -211,7 +211,9 @@ if(!location.hash)location.hash='/onboarding';
                         call('POST', material_base + '/generate', {'request_id': 'seed-organize', 'expected_revision': rev}, index)
                     session = call('POST', '/api/workbench/sessions', {'request_id': f'seed-session-{index}-{scope}', 'title': '校园活动搭子 · 示例讨论', 'team_id': scope}, index)['session']['id']
                     call('POST', '/api/workbench/sessions/' + session + '/turns', {'request_id': 'seed-turn', 'text': CONTENT['prompt'], 'role_id': 'direction', 'source_ids': []}, index)
-                    if scope:
+                    # Keep the voting team undecided until its round starts. Sharing a
+                    # discussion here would already create an idea-board workflow.
+                    if scope == team['id']:
                         history = call('GET', '/api/workbench/sessions/' + session, actor=index)
                         message = next(m for m in history['messages'] if m['role'] == 'assistant')
                         call('POST', '/api/workbench/sessions/' + session + '/share', {'request_id': 'seed-share', 'message_id': message['id'],

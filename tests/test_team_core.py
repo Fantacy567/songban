@@ -37,6 +37,8 @@ class CoreTests(unittest.TestCase):
         self.h=lambda x:{'Authorization':'Bearer test-token-'+x}
         r=self.client.post('/api/core/teams',json={'name':'核心链路验收'},headers=self.h('a'));self.assertEqual(r.status_code,200,r.text)
         self.sid=r.json()['id'];self.code=r.json()['code'];self.base='/api/core/teams/'+self.sid
+        with closing(sqlite3.connect(self.path)) as con:
+            con.execute('INSERT INTO topic_selections VALUES(?,?,?,?)',(self.sid,'fixture-decided-topic','a',now()));con.commit()
         self.client.post('/api/core/join',json={'code':self.code},headers=self.h('b'))
 
     def tearDown(self):

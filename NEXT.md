@@ -1,3 +1,167 @@
+# 2026-10-31 · 演示赛事资料不再留空
+
+- 用户要求截图中的公告/链接/文件都模拟。新增demoContestFixtures：虚构公告、2个示例链接（预置正文，不访问外网）、TXT文件，包含时间/地点/赛道/奖金/理念/评分/提交要求。
+- 仅演示的contest-materials页自动保存原件并读取，表单预填和文件预选，用户可直接提取。再次进入幂等，不复活主动撤回的示例；部分收到但未读的资料可继续解析。真实入口不填假数据。
+- 仅前端与演示资源变化，无需重启服务，不清空当前演示会话或影响已有连接器绑定。素材和网页cache版本demo-materials-v2。
+- 本地专用浏览器预填/文件/提取/刷新/继续组队/390-768-1440通过；原完整完赛流程通过；16项真实提取/壳/演示定向通过。公网专用浏览器收尾在audit父目录demo-prefill-public.log。
+- 最后提交推送当前分支；不提交work、模拟会话数据库和连接凭证。
+
+# 2026-10-31 · 公网连接器安装入口修复
+
+- 用户截图灰色按钮根因：远程地址只能触发本机安装能力检查，原UI直接禁用，没有可用的公网绑定安装流程。
+- 新增POST /api/core/teams/{sid}/installer.zip：认证本人队伍、明确consent、生成受限连接令牌、内存打包，no-store；不执行服务器文件安装。保留原本远程/install的403。
+- 公网主按钮自动改为下载已绑定队伍的安装包；不再填写服务器路径。支持原生插件与Codex/Cursor/WorkBuddy项目方式。解压后在访问者电脑双击.command/.cmd或python3 install.py，项目目录由客户端询问。下载明确不是已安装。
+- app/connector_bundle.py + plugins/songban-installer/install.py，标准库、Python3.11+，复用原有配置保护、回退、CLI注册、实际宿主加载检查。演示带base_path/demo_session，不混入真实账号。
+- 302项全量通过；真实公网浏览器下载原生与Codex项目包，真实客户端进程连接/安装至隔离目录，model/provider保留，均通过。日志audit父目录remote-installer-browser.log及remote-installer-full-tests.log。用户真实私有绑定未改。
+- 8890已备份并重启加载新接口，当前公网https://nec-meditation-lion-tip.trycloudflare.com；新UI资源songban-views.js?v=20261031-remote-install-v1。继续沿原分支提交推送；不提交work、私有安装包、connection.json或SQLite。
+
+# 2026-10-31 · 新任务：确认比赛后导入赛事碎片资料
+
+- 新阶段contest_materials：确认比赛→本场资料导入→Agent逐项提取并核对→组队。旧队伍不回退。每场独立materials_space，沿用安全URL/文件读取与原件保存，不混入个人草稿。
+- app/contest_brief.py与static/songban-contest-materials.js新增时间/地点/赛道/奖金/办赛理念/评分/提交要求。输出展示由服务端验证过的逐字引文构成，未找到明确提示；读取失败另列。资料变化标过期，失败保留旧结果，幂等与10分钟中断恢复。
+- 多行URL、文字、PNG/JPEG/PDF/DOCX/TXT沿用原资料模块，新增intakeOnly与指定spaceId选项，不改变旧入口默认行为。
+- 298项全量通过；专用浏览器TXT/缺失奖金/补充通知/出处/过期/刷新/继续组队/390-768-1440通过；原完整完赛浏览器通过。真实模型合成提取通过，未提供的奖金/赛道/理念未编造。
+- 8890已备份SQLite并重启加载新流程；公网仍为https://nec-meditation-lion-tip.trycloudflare.com。专用公网浏览器已通过，日志contest-brief-public-browser.log。最终15项门槛/提取/演示定向也通过。提交推送沿用feat/connector-conversation-library，不提交work或运行数据库。
+- 文档docs/core-collaboration/赛事碎片资料与关键信息提取.md；真实模型证据audit父目录contest-brief-live.json。
+
+# 2026-10-31 · 最终验收补记
+
+- 公网已验证慢网导航回归、提交回执、复盘生成、分享二维码；public-final-verification.log成功。修复根因：hashchange在等待load期间，旧页重绘会改写hash；现在先捕获requestedHash，读取状态串行完成，导航目标不会丢失。
+- 已安装的1.2.3插件真实进程（非传输替身）使用独立虚构队伍，成功执行--check与selected-turn上传；收到了同步回执，未改用户私有绑定。
+- 最新本地完整浏览器回归加入延迟与强制旧页重绘场景，证据slow-navigation-regression.log。292项全量、40项连接器测试通过。未使用参考站的业务逻辑替换原功能。
+
+# 2026-10-31 · 最终状态：原功能 + 封面美术与动态
+
+- 用户最终要求以最初8890功能为准，只保留参考封面美术及动态。内页使用原songban.css与CSS松树，参考样式仅.reference-design。原始页面函数全部保留，选题/分工/资料库/复盘/工作台核心模块核对未替换。
+- 最新292项全量通过，40项连接器相关通过。原生、技能、项目MCP的连接探测不再错误要求已发布任务；demo绑定携带路径与会话，虚构上传/回执与跨会话、跨真实库拒绝均有测试。
+- 本机原生插件已更新注册1.2.3，实际桌面宿主upload_tool_loaded=true、loader_errors=[]。保留私有绑定与model/provider。旧159绑定因账号重置已撤销且当前无队伍；需在真实或演示当前队伍重新连接，不自动恢复旧权限。
+- 服务已重启加载修复，临时公网https://nec-meditation-lion-tip.trycloudflare.com，首页/演示入口分别/和/demo/。本机与cloudflared须在线；不是永久部署。
+- 收尾浏览器：local-release-browser.log与public-flow-release.log在audit父目录。运行时SQLite与私有连接不提交，用户模型配置未改。
+
+# 2026-10-31 · 最终用户纠正：只要封面，内页恢复初版
+
+- 用户明确撤回参考站的内部设计，仅保留封面。已把参考CSS限制到.reference-design，内页小松树恢复原版CSS，原内页内容/布局/按钮/阶段流程保留。
+- 连接器修复覆盖原生、技能和项目MCP：探测使用/context；演示自动写入base_path与demo_session，传输只进入本会话/demo数据库。真实账号不写演示参数。新增测试验证虚构上传有回执、跨演示和真实库访问被拒。
+- 当前插件版本1.2.3；159账号没有队伍且旧凭证已撤销，不恢复已撤销权限，不伪造绑定成功。支持在真实/演示各自当前队伍重新安装。
+- 公网慢网暴露refresh(true)与轮询竞态，已让强制刷新真正等待队列；演示队友按钮请求期间禁用，避免重复与未完成时跳转。公网E2E正在收尾，日志public-flow-final.log；最新全量cover-connector-tests-final.log。
+- 最后须更新运行服务、完成最终浏览器/测试，提交并推送GitHub，核对远端SHA。服务继续依赖本机和cloudflared在线。
+
+# 2026-10-31 · 设计与公网演示验收收尾
+
+- 设计回归290项通过；原本仅本机的demo增加SONGBAN_DEMO_PUBLIC_ORIGIN显式HTTPS域名开关，其他Host仍拒绝。生产账号与演示身份继续隔离，新增回归覆盖。
+- GitHub首轮已推送d0004a3，后续公网开关与验收结果待补推；当前域名https://nec-meditation-lion-tip.trycloudflare.com。
+- 用户随后要求完成上述工作后修复连接器，截图错误为app/connector_plugin.py安装后server.py --check读取团队失败且回滚。下一步复现真实绑定检查，不改模型/provider、不重启Codex。
+
+# 2026-10-31 · 用户追加：接入指定设计、公网演示、上传GitHub
+
+- 视觉参考：https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/login 。已接入暖白首页、大标题、六张扇形作品卡片、原设计松树、登录弹窗和紫色流程视觉。仅展示层调整，不改变现有阶段判断与数据接口。
+- static/songban-reference.css独立覆盖样式，static/design为用户参考素材；手机/桌面图片加载、登录弹窗、无溢出、无pageerror通过。完整demo浏览器闭环通过。
+- 用户明确选择“先开临时公网演示链接（依赖本机在线）”。cloudflared当前域名https://nec-meditation-lion-tip.trycloudflare.com，health已200。运行服务仍为8890，SQLite先备份，PUBLIC_BASE_URL配置为公网域名。
+- GitHub目标origin Fantacy567/songban，当前分支feat/connector-conversation-library；用户已明确授权上传，本轮结束前需提交推送并验证远端SHA。
+- 上一阶段真实模型合成数据：访谈/公告/排名/分工/家长报告/资料整理通过；工作台有格式失败，单独复验曾成功，但再次请求仍可失败，不能声称所有调用稳定。保留错误，不塞入样例。前一完整回归289项通过。
+- 最终设计回归日志在父目录design-tests.log、design-browser.log。部署说明docs/deployment/preview.md。不要提交work目录、.env、SQLite、个人数据或真实会话。
+
+# 2026-10-31 · 跨会话接续：真实模型验收收尾（进行中）
+
+- 已分页读取来源会话01a18cec-e0eb-7b91-8649-84bc86c3e4ed的40轮记录；最后任务为整合演示与真实流程并核验全部内部Agent。
+- 浏览器scripts/browser_unified_flow.py再次通过访谈→公告→选题→分工→任务检查→回执→复盘二维码，390/768/1440无溢出且无pageerror；接口scripts/check_unified_flow.py全部阶段门槛通过。仅使用独立演示账号。
+- 资料检查误报根因：scripts/check_live_agents.py把成功状态completed当成ready，已修正并增加非空和引用断言；失败时退出码改为1。
+- app/model_transport.py不再向默认Client显式传transport=None，保持自定义/测试传输注入兼容；workbench明确attempts=1，遵守结果未知不自动重放的原有承诺。
+- 真实模型合成数据检查运行中，证据父目录continuation-live-agents.json；已通过访谈、公告、排名、分工。其余以最终JSON为准。
+- 全量测试须按现有CI环境运行：SONGBAN_ENFORCE_JOURNEY=0 SONGBAN_CORE_ONLY=0 python -m unittest discover -s tests -q。严格流程测试自己显式开启门槛，生产默认仍开启。初次未设置此兼容环境的失败不是产品门槛应关闭的理由。
+- 下一步：等待continuation-tests-final.log与模型检查完成；如通过，备份SQLite并重启8890加载工作台传输修复，落盘最终结果。不要再次初始化真实账号或清空数据。
+
+# 2026-10-31 · 分工问答与内部AI发布
+
+- 已实现：保存方向→每位队员差异化问答→各自确认→内部AI发布→领取任务。新增app/division.py，SQLite保存轮次/逐题回答/本人确认；发布复用同一active_plan与历史。新轮次禁止旧队长发布接口，关闭旧自动草案。
+- 主导航减到选题/方向/分工/任务/提交/复盘，辅助工具折叠。移除旧overview统筹发布面板与自动草案开关；个人/团队任务、同伴检查、交付与复盘保留。
+- 最终283项全量通过，53项核心定向通过；Chrome双成员真实UI走查通过（模型/SMS为明确替身），390/768/1440无溢出。脚本scripts/e2e_division.py；合成截图和模型失败记录见docs/core-collaboration/evidence/division。
+- 两次真实平台模型合成数据检查连接失败（SSL EOF）；未发布任务，问答与确认完整保留。不能宣称当前真实模型可用，也没有替换用户模型。Github connector transport和gh查询发生网络错误，远程状态待收尾。
+- 8890已在线备份SQLite后重启；根页、新JS及health均200；people/squads/plan_history/reports数量与备份前一致。备份在本机runtime/github-preview-before-division-20261031-142605.sqlite3，未改真实用户阶段或自动回答。
+- 差异化问题当前由服务端能力资料与回答驱动模板，最终任务协调调用真实模型；没有声称每题均为大模型生成。完整接入说明见docs/core-collaboration/分工问答与内部AI任务发布.md。
+
+# 2026-10-31 · 工具名显示回退
+
+- 用户要求模型名称未知时显示工具名。新增source_tool，与model_name独立；资料API提供speaker_name，优先真实模型名，否则工具名，最后AI工具未注明。列表与展开一致。
+- 原生Codex插件1.2.2自动附source_tool=Codex；通用MCP和手动共享支持填写工具名。仅将本机已核实的两轮Codex连接来源标签补充为Codex，不修改未知模型字段或原对话。
+- 20项资料库/插件/静态契约测试通过，包含空模型回退和已知模型优先；预览在线验证与本机插件更新正在收尾。
+
+# 当前修复 · 2026-10-31 · 选题门槛与真实桌面连接器
+
+- 新团队选题未确认前隐藏并阻止方向/个人任务/团队任务/开发库/交付/复盘；服务端方向写入、统筹、任务发布均校验。赛事原文/公开评分改在选题页独立表单填写。队长明确确认公示idea才进入后续；已有正式任务的旧队伍保留。
+- 选题阶段第一次获准对话无idea时自动创建本人idea并关联；只有一个idea时自动关联；多个时要求选择，不能乱归属。公示卡片内直接显示关联对话原文，不要求另开资料库。
+- 真实桌面Codex0.166拒绝旧CLI生成的绝对MCP command，已改默认选择桌面可执行文件、bare command/portable路径并在对应宿主检查。原生包1.2.1，root OpenAI声明skills和mcp；不改model/provider，不重启Codex。
+- 本机实际插件已更新，桌面同版本独立宿主真实发现上传工具；当前旧会话工具缓存未声称已刷新，需重新选插件。
+- 用户明确授权截图对应的教育平台回合已通过真实MCP补传（按线程turn稳定event_id），并自动关联本人idea；实际note_id只记本机STATUS，不提交真实对话或凭证。没有扫描其他聊天、没有读取隐藏思考。
+- 40项核心/新门槛/桌面插件定向检查通过；双身份浏览器顺序/确认/分库通过，274项全量首轮仅旧DNS依赖3项失败，固定公开DNS夹具后274项全部通过。
+
+# 最新交付 · 2026-10-31 · 选题公示与适配排名
+
+- ideas页已改为队员idea公示、选题可行性对话、全员确认、AI适配排名。idea-library只选题；library只开发/复盘。历史原记录保留，未关联本人记录可关联。
+- 原生/通用MCP新增读取idea目录、idea_id关联上传与scope检索，原生包1.1.0；实际上传用discussion阶段。旧版已安装客户端需在个人工具页更新包，不能把仓库更新当作用户客户端自动生效。
+- 排名依据全队能力/时间/公开评分维度/选题对话；40/30/30为平台参考权重，不是官方评分。缺资料、未全员确认阻止分析；输入变化旧排名过期；从不自动选题/发任务。
+- 272项全量通过；新Chrome双身份+真实原生MCP、两库隔离、排序/门槛/草稿及390/768/1440通过；旧资料库原生/通用MCP浏览器回归通过。
+- 实际平台模型用合成数据检查2个候选与引用成功，三小时/仅网页能力下小工具优先于大型平台。首次超时没有假排序；不把fixture当实际模型质量验收。
+- 8890已备份并保留SQLite重启；最终源文件已收尾，最后重启会加载简短分析提示与分库检索调整。源目录connector-planning不要切分支。
+
+# 复盘报告收尾 · 2026-10-31
+
+- 实际模型合成数据检查已通过：4条观察、source_ids有效。遵循本机HTTP代理并对Doubao/DeepSeek请求禁用深度思考；没有替换用户选择的模型或生成假报告。
+- 8890已备份SQLite后重启，loopback与en0局域网健康200，新复盘脚本已服务。二维码为同Wi-Fi入口；外网固定部署未完成，未宣称实体手机扫码已测试。
+- 感悟、结果、报告、分享与撤销全部持久化；浏览器端显示比赛结果本人填写、尚未核实。266项全量通过，新增模型失败幂等测试后最终267项全部通过。
+
+# 当前工作 · 2026-10-31 · 复盘与家长二维码
+
+- 按用户要求，review改为本人感悟/想法/比赛结果→AI草稿→预览确认→家长二维码。仅本人可保存读取，二维码只展示整理报告，持码可读、30天、可撤销。
+- 独立recap_reports模块复用现有SQLite/账号/模型配置；只提取本人记录与相关检查，出处ID校验，名次保留本人自述性质，分工与AI内容不等于个人能力。
+- 模型请求持久化幂等、失败不自动重放；二维码用qrcode8.2本地生成。地址来自PUBLIC_BASE_URL，loopback拒绝作为手机二维码。
+- 已有266项全量通过、真实Chrome感悟保存/刷新/预览/分享确认/QR/家长免登录只读/撤销/390/768/1440通过。新增模型失败幂等测试和最终真实模型检查在收尾。
+- 首次真实模型直连ConnectTimeout，代理连同服务商/models200；报告适配器已改为遵循本机可信HTTP代理，再用合成数据检查，不能将fixture成功冒充真实模型验收。
+- 运行包装已准备根据en0地址提供同Wi-Fi访问，尚需最终备份SQLite并重启8890；不要清理现有账号数据。跨网络公网部署仍未完成。
+
+# 最终验收 · 2026-10-31 · 个人／团队任务页
+
+- 已合入main fc60502新项目工作台，保留其个人空间、会话与共享功能；按本次用户要求，work=个人任务、team-work=团队任务、workbench=AI工作台、collaboration/tasks=统筹与发布。
+- 最新全量260项通过；真实Chrome任务页双身份、跨标签、0→50→100、退回进度回调、完成保存失败与重试、刷新持久化、前置验收解锁、390/768/1440通过。原统一流程36项响应式检查和连接器资料库浏览器回归也通过，未发送真实短信或调用付费模型。
+- 8890已在线备份SQLite后重启，健康200和新任务脚本版本确认；现有数据库数据保留，未新增测试成员到预览库。
+- 验收证据：.browser-cache/task-board/results.json与截图；本机audit父目录task-board-tests.log、task-board-browser.log、task-board-unified-browser.log、task-board-library-browser.log。
+- 功能继续推送PR7，未自动合并。未来修改保持本人完成与同伴验收的区别，不把聊天记为任务完成。
+
+# 最新 · 2026-10-31 · 个人与团队任务页
+
+- 用户要求拆分任务页。work为个人任务，team-work为团队任务；collaboration保留任务草案/统筹发布，不另建写入系统。
+- 后端task_progress只读计算当前正式计划的本人完成数量、验收数量、百分比和当前任务。reported_done待检查计入本人完成；退回/依赖变更回调进度。无任务为0，不把无任务标100%。
+- 个人页大进度条、仅本人任务、开始/完成/补充成果/继续修改；团队页用户名/进度条/当前任务，点击名片查看或检查成果。仍通过reports/check原接口写入，依赖需通过检查后方可开始，聊天不会更新任务。
+- 保存成功才更新；同浏览器通过storage提示刷新，成员页面约2秒轮询。失败保留输入与原进度。新增双身份Chrome验收已通过0→50→100、退回、权限、同伴验收、跨页/标签同步、刷新持久化与390/768/1440。
+- 原统一浏览器流程回归通过；全量首次215项仅失败旧静态资源版本断言，已更新契约版本，待合入新main工作台后最终验证。
+- main新增fc60502项目工作台，需保留其能力并解决PR7冲突；用户明确要求work改为个人任务，新工作台应移到独立workbench入口。
+
+# 最新 · 2026-10-31 · 公众号链接读取修复
+
+- 用户8890活动页链接读取失败，真实复现为page_too_large：目标公众号HTML约3.5MB，资料读取错误沿用了旧抓取器2.8MB默认上限。
+- 材料网页读取显式采用现有8MB上限，保留流式大小检查、公网DNS固定和逐跳内网拦截；公众号仅抽取js_content，验证/无正文页不计为文章。
+- 失败材料默认展开具体原因；保存后提示失败份数；材料脚本缓存版本links-v3。
+- 新增3项回归：3.5MB真实读取路径、验证页拒绝、8MB上限；与原材料测试共29项通过。真实Chrome合成账号实测失败展开及实际公众号链接上传/读取通过，无短信/模型调用。
+- 目标文章正文含9张图片，文字只有约79字；当前标为部分读取并明确图片未识别，不能声称已读全公告。可单独上传图片或粘贴正文。
+- 证据：本机.browser-cache/link-fix/browser.png；未修改用户资料库记录或正式结果。
+
+# 最新 · 2026-10-31 · 对话资料库收尾
+
+- 功能PR：https://github.com/Fantacy567/songban/pull/7，分支feat/connector-conversation-library；已合入main42665dc（含资料入口、审计与跨平台修复），本机最新全量208项通过。此前229是合入更早main时的测试组织，保留为历史，不能混报。
+- 原生/通用MCP→HTTP→SQLite及Chrome资料库验收通过，个人原话/完整可见回复/模型名/成员颜色、筛选、全文命中片段、游标翻页、原文展开、任务状态隔离、来源与权限保留。未执行家长报告发布。
+- 当前Codex0.145不支持新版PLUGIN_ROOT配置；已按CLI能力选择路径，并保留Windows新版配置、权限与真实宿主检查。本机真实独立宿主加载测试已通过，不改用户全局模型或重启Codex。
+- PR #4 文档冲突已在原分支合入最新main推送252befe，GitHub MERGEABLE；当前检查结果还需最终核对，不要把冲突消除等同所有CI绿。
+- 本机8890此前已更新并复用备份后的runtime数据库；最终推送后需重启该预览以加载此次最新宿主兼容代码。源码运行目录为connector-planning，不要切换此目录分支破坏正在访问的静态文件。
+
+# 2026-10-31 · 连接器与对话资料库开发验收完成
+
+- feat/connector-conversation-library，已合入此前短信与宪法提交；当前变更在connector-planning，原8890尚未切换。
+- 已实现选题讨论页、方向/任务连接器入口、两段原文、本人稳定配色、按关键词/成员/环节/任务检索、分页、长文展开与来源。原生和通用MCP均可共享原文、检索与按记录号读取。
+- 后端同SQLite JSON留档，全文明确授权，旧摘要不冒充全文，task_key关联聊天不会更新任务进展；跨阶段重试稳定，不再限制只能查看120条。源码与说明见docs/core-collaboration/对话资料库与连接器接入.md。
+- 229项合并后全量通过；真实Chrome原统一流程与新资料库MCP/HTTP/SQLite完整验收通过；无真实短信或付费模型调用，未安装到用户真实宿主。
+- 用户要求完成后解决PR #4冲突：已合入main并在docs分支推送5de6b9c，GitHub确认MERGEABLE；功能分支也保留main f4bb0f1资料入口，解决HTML/路由/脚本/测试冲突。
+- CI发现新资料入口测试缺docx/reportlab，requirements-test.txt已补齐；本机229项通过。下一步推送CI修复至PR4、更新8890预览（备份并保留runtime数据库）、推送完整功能PR。Python3.14不支持原OCR锁定依赖，未宣称本机OCR已重验。
+
 # 2026-10-31 · 连接器与成长报告功能意图
 
 - 用户要求核对当前网页连接器、为团队协作与家长成长报告建立宪法，并讨论多 Agent。当前入口和源码仍在，无需恢复旧版本。浏览器确认个人工具、四种安装选项、插件下载、个人凭证、资料库；没有安装到用户工具。
@@ -266,3 +430,12 @@
 - Node=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node；NODE_PATH=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules；PLAYWRIGHT_BROWSERS_PATH=.browser-cache；系统Chrome。
 - 首版正式方案仅确认一次，未实现公网账号、录音、代码托管、GitHub自动验收或科学最优分工保证。
 - 下一步：可用模型额度后完成真实生成验收；用户与胡进行真人接口联调，按需求选择下一版范围。
+
+
+## 2026-10-31 15:34 当前整合进展（未完成，继续验证）
+- 已统一阶段服务/访谈/独立演示样例。真实 Chrome 全流程已在8895通过一次；正在验证正式8890/demo入口。
+- 用户登录失败根因：静态文件已更新，而8890旧进程没有/api/journey，登录200后流程404。已重启为app.preview_server:app，浏览器确认回到访谈。
+- 用户明确要求初始化159开头账号：159****6913已备份，移除当前队伍关联、撤销该用户7个旧连接器，保留手机/密码/姓名/登录凭证；旧团队原始记录保留在库和runtime备份。没有改其他账号。
+- 真实入口 http://127.0.0.1:8890/；免登录独立演示 http://127.0.0.1:8890/demo/；演示使用sessionStorage隔离，虚构数据/预置Agent结果明确标识。
+- 8886尚待改为新演示兼容入口。真实模型探针进行中，不能宣称通过。
+- 未提交改动位于本checkout。完成后更新本段及验收报告。
