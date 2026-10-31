@@ -8,17 +8,19 @@
 .material-source-row {border-top:1px solid var(--sb-line);padding:var(--sb-space-3) 0}
 .material-source-row summary .status-pill {margin-left:var(--sb-space-2);white-space:normal}
 .material-source {white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit;max-height:320px;overflow:auto;background:var(--sb-bg);border-radius:var(--sb-radius-control);padding:var(--sb-space-3)}
-.material-result-heading {padding:var(--sb-space-4) 0}
-.material-groups {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sb-space-4);align-items:start}
-.material-groups>.card {margin:0 0 var(--sb-space-4);min-width:0}
-.material-item {padding:var(--sb-space-3) 0;border-top:1px solid var(--sb-line)}
-.material-important {border-left:3px solid var(--sb-purple);padding-left:var(--sb-space-3)}
-.material-select {display:flex;align-items:flex-start;gap:var(--sb-space-2);font-weight:600;line-height:1.7;margin:var(--sb-space-3) 0}
-.material-select input {width:20px;height:20px;flex-shrink:0;margin-top:4px;accent-color:var(--sb-purple-deep)}
-.material-citation,.material-edit,.material-history {margin-top:var(--sb-space-3)}
-.material-citation blockquote {margin:var(--sb-space-2) 0;padding:var(--sb-space-2);border-left:3px solid var(--sb-border);background:var(--sb-bg)}
+.competition-info .row h2 {margin:0}
+.competition-info .row .caption {margin:0 0 6px;color:var(--sb-purple-deep)}
+.competition-info-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px;margin:24px 0 16px}
+.competition-info-field {min-width:0;padding:18px 0;border-top:1px solid var(--sb-line)}
+.competition-info-field dt {font-size:13px;color:var(--sb-muted);margin-bottom:8px}
+.competition-info-field dd {margin:0;line-height:1.8;font-size:16px}
+.competition-info-field dd p {margin:0}
+.competition-info-field dd p+p {margin-top:6px}
+.competition-info-wide {grid-column:1/-1}
+.competition-info-conflict {color:var(--sb-purple-deep)}
+.material-history {margin-top:var(--sb-space-3)}
 .materials button {white-space:normal;max-width:100%}
 .materials .action-row {flex-wrap:wrap;gap:var(--sb-space-2)}
 .materials :focus-visible {outline:3px solid var(--sb-purple-deep);outline-offset:3px}
 .materials [aria-busy=true] {opacity:.8}
-@media(max-width:800px){.material-groups{grid-template-columns:1fr;gap:0}.material-meta{grid-template-columns:1fr}.material-source-row summary .status-pill{display:table;margin:var(--sb-space-1) 0}.materials .row{flex-wrap:wrap}}
+@media(max-width:800px){.competition-info-grid{grid-template-columns:1fr}.material-meta{grid-template-columns:1fr}.material-source-row summary .status-pill{display:table;margin:var(--sb-space-1) 0}.materials .row{flex-wrap:wrap}}

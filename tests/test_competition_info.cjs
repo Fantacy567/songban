@@ -1,0 +1,36 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const sandbox = {};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../static/songban-competition-info.js'),'utf8')+'\nthis.collect=SongbanCompetitionInfo.collect;', sandbox);
+const collect = (data,event) => JSON.parse(JSON.stringify(sandbox.collect(data,event)));
+const source = (id,text,extra={}) => ({id,status:'ready',metadata:{nature:'organizer_notice'},segments:[{id:'p1',text}],...extra});
+const values = (info,key) => info.rows.find(r=>r.key===key).values;
+
+const text='活动时间：11 月 7 日 09:00 至 11 月 8 日 17:00，地点：上海杨浦。\n提交截止：周日 15:00；提交项目说明、可操作原型和 60 秒视频。现场展示 3 分钟，评委问答 2 分钟。\n参赛要求：3—5 人组队。评分维度：需求 30%、实现 70%。';
+let info=collect({sources:[source('s1',text)]});
+assert.deepEqual(values(info,'time'),['11 月 7 日 09:00 至 11 月 8 日 17:00']);
+assert.deepEqual(values(info,'location'),['上海杨浦']);
+assert.deepEqual(values(info,'deadline'),['周日 15:00']);
+assert.deepEqual(values(info,'deliverables'),['项目说明、可操作原型和 60 秒视频']);
+assert.deepEqual(values(info,'team'),['3—5 人组队']);
+assert.deepEqual(values(info,'presentation'),['3 分钟，评委问答 2 分钟']);
+assert.deepEqual(values(info,'rubric'),['需求 30%、实现 70%']);
+
+info=collect({sources:[source('s1','活动日期：11 月 7 日。提交截止：待主办方确认。')]});
+assert.deepEqual(values(info,'deadline'),[],'event date must not become deadline');
+info=collect({sources:[source('s1','地点：上海。'),source('s2','地点：上海。'),source('s3','地点：杭州。')]});
+assert.deepEqual(values(info,'location'),['上海','杭州'],'deduplicate without concealing conflicts');
+info=collect({sources:[source('s1',text,{status:'withdrawn'}),source('s2',text,{status:'failed'})]});
+assert.equal(info.hasInfo,false,'withdrawn and failed sources are excluded');
+const item={id:'i1',kind:'statement',text:'地点：旧地点。',verification:'unverified',citations:[{source_id:'s1'}]};
+info=collect({stale:true,sources:[source('s1','地点：新地点。')],result:{items:[item]}});
+assert.deepEqual(values(info,'location'),['新地点']);assert.deepEqual(info.itemIds,[],'stale result cannot be shared');
+info=collect({sources:[source('s1','地点：原地点。')],result:{items:[{...item,text:'地点：人工确认的地点。',verification:'human_confirmed'}]}});
+assert.deepEqual(values(info,'location'),['人工确认的地点']);assert.deepEqual(info.itemIds,['i1']);
+info=collect({sources:[]},{title:'教育 Agent 创作周末',date:'11月7日—8日',location:'上海杨浦',rules:'活动日期：2026年11月7日至8日。教育主题，支持1—3人组队。提交一个作品链接。具体提交时间请向主办方核实。'});
+assert.deepEqual(values(info,'time'),['2026年11月7日至8日']);assert.deepEqual(values(info,'deadline'),[]);assert.equal(info.sample,true);
+info=collect({sources:[source('s1','【虚构演示材料】其他活动\n地点：其他城市。',{metadata:{nature:'sample'}})]},{title:'教育 Agent 创作周末',date:'11月7日—8日',location:'上海杨浦'});
+assert.deepEqual(values(info,'location'),['上海杨浦'],'unrelated sample must not overwrite current event');
+console.log('Competition information: extraction, missing deadline, conflicts, withdrawn sources, stale results, human corrections and event fallback passed.');

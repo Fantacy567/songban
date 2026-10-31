@@ -42,7 +42,7 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
   return d
  files={str(p.relative_to(SOURCE)):p.read_bytes() for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts}
  mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name,'args':['${PLUGIN_ROOT}/server.py','--binding',str(binding)],'cwd':'${PLUGIN_ROOT}','env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
- files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'0.9.3\n'
+ files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'0.10.0\n'
  cat={'name':'songban-local','interface':{'displayName':'松伴本机插件'},'plugins':[{'name':'songban-connector','source':{'source':'local','path':'./plugins/songban-connector'},'policy':{'installation':'AVAILABLE','authentication':'ON_INSTALL'},'category':'Productivity'}]}
  writes={target/k:v for k,v in files.items()}
  writes[catalog]=json.dumps(cat,ensure_ascii=False,indent=2).encode()
