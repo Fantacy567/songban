@@ -30,7 +30,7 @@ function clearIdentity(persist=true) {
   unmountWorkbench();state.personal=false;sessionStorage.removeItem('songban-personal');
   for(const key of Object.keys(sessionStorage))if(key.startsWith('songban:workbench:'))sessionStorage.removeItem(key);
   if(typeof SongbanMaterials!=='undefined')SongbanMaterials.reset();
-  state.epoch++; state.token=''; state.me=null; state.data=null; state.team=''; state.drafts.clear();
+  state.epoch++; state.token=''; state.me=null; state.data=null; state.team=''; state.libraryNote=''; state.drafts.clear();
   if(persist){localStorage.removeItem('studio-token');localStorage.removeItem('studio-squad');}
 }
 function formError(form,error) {
@@ -82,7 +82,27 @@ function brand(){return '<a class="wordmark" href="#/login" aria-label="松伴�
 function head(kicker,title,description){return `<div class="page-heading"><div><p class="eyebrow">${esc(kicker)}</p><h1>${esc(title)}</h1><p class="subtitle">${esc(description)}</p></div>${pine(true)}</div>`;}
 function go(page) {
   captureDrafts();state.page=routePages[page]||page;render();window.scrollTo({top:0,behavior:'instant'});
+  refreshOnEntry();
 }
+function refreshOnEntry(){if(state.me&&state.team&&!['login','events','event'].includes(state.page)){const s=$('#sync-state');if(s)s.textContent='正在同步最新进展…';void refresh();}}
+async function navigateWorkspace(page,target){
+  if(!['work','direction','materials','library','team','members','tools','delivery','review','tasks'].includes(page))return;
+  if(target){
+    const team=target.teamId;
+    if(team!==null&&!state.me?.teams.some(t=>t.id===team)){toast('请先加入目标团队，再查看记录。');return;}
+    captureDrafts();unmountWorkbench();state.epoch++;state.personal=team===null;state.team=team||'';state.data=null;
+    sessionStorage.setItem('songban-personal',state.personal?'1':'0');localStorage.setItem('studio-squad',state.team);
+    const epoch=state.epoch;
+    try{if(team)state.data=await api(endpoint(''));if(epoch!==state.epoch)return;}
+    catch(error){if(epoch===state.epoch){go('work');toast(error.message);}return;}
+  }
+  state.libraryNote=target?.noteId||'';go(page);
+}
+function chooseLibraryTeam(){
+  $('#content').innerHTML=head('选择查看范围','查看已共享的团队记录','个人讨论仍属于你。请选择已经接收内容的小队。')+`<section class="card"><div class="action-row">${state.me.teams.map(t=>`<button data-library-team="${esc(t.id)}">查看「${esc(t.name)}」的记录</button>`).join('')}</div></section>`;
+  root.querySelectorAll('[data-library-team]').forEach(b=>b.onclick=()=>navigateWorkspace('library',{teamId:b.dataset.libraryTeam}));
+}
+function deadlineToInput(value){if(!value||Number.isNaN(Date.parse(value)))return '';return new Date(Date.parse(value)+8*3600000).toISOString().slice(0,16);}
 function shell() {
   unmountWorkbench();
   const activity=['events','event'].includes(state.page);
@@ -107,6 +127,7 @@ function render() {
   if(!state.me){$('#content').innerHTML=`${head('一起动手','让想法，有一个开始。','登录后创建或加入真实团队，和同伴一起保存进展。')}<section class="card empty"><p>使用手机号登录，接着完成你的作品。</p><button class="primary" data-auth-required>登录并继续 ${icon('arrow')}</button></section>`;$('[data-auth-required]').onclick=()=>openAuth();return;}
   if(state.page==='workbench'){workbenchPage();return;}
   if(state.page==='materials'){materialsPage();return;}
+  if(state.page==='library'&&!state.data&&state.me.teams.length){chooseLibraryTeam();return;}
   if(!state.data){renderOnboarding();return;}
   const pages={team:teamPage,direction:direction,overview:overview,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
   (pages[state.page]||overview)();
@@ -128,7 +149,7 @@ function workbenchPage(){
   const epoch=state.epoch;
   workbenchMount=window.SongbanWorkbench.mount(host,{
     token:state.token,identityKey:String(state.me.person.id),teamId:state.team||null,
-    onNavigate:page=>{if(epoch===state.epoch&&['direction','materials','library','team','members','tools','delivery','review','tasks'].includes(page))go(page);},
+    onNavigate:(page,target)=>{if(epoch===state.epoch)void navigateWorkspace(page,target);},
     onPrepareDirection:fields=>{
       if(epoch!==state.epoch)return;
       if(!state.data?.me.captain){toast('请选择你担任队长的团队，再核对并保存共同方向。');return;}
@@ -138,7 +159,7 @@ function workbenchPage(){
       // A second draft must not silently overwrite a previously edited direction.
       if(state.drafts.has(state.team+':direction-form')){go('direction');toast('已保留原方向草稿，请先处理后再采用新的建议。');return;}
       go('direction');const form=$('#direction-form');if(!form)return;
-      entries.forEach(([key,value])=>{const field=form.elements.namedItem(key);if(field&&!field.disabled)field.value=value;});
+      entries.forEach(([key,value])=>{const field=form.elements.namedItem(key);if(field&&!field.disabled)field.value=key==='deadline'?deadlineToInput(value):value;});
       form.dataset.dirty='true';captureDrafts();
       const note=document.createElement('p');note.className='notice';note.textContent='已填入工作台建议，尚未保存。请核对每项内容，再确认共同方向。';form.prepend(note);
     },
@@ -157,7 +178,7 @@ function modal(title,body){
   root.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{dialog.remove();if(previous?.isConnected)previous.focus();});dialog.showModal();return dialog;
 }
-function showHelp(){modal('我们一步步来。','<p>先了解活动，创建或加入小队，再一起确认方向。</p><p>在「任务」里同步进展，由队长统筹安排。报告完成后，请另一位队友检查成果。</p><p>「个人工具」可以连接你已有的智能体；未连接时，也可以直接在网页补充进展。</p><p class="muted">活动样例不代表真实报名。任务检查通过也不等于主办方已经收到作品。</p>');}
+function showHelp(){modal('我们一步步来。','<p>先了解活动、收集个人材料，在「实践 → 工作台」整理思路。还没有小队也可以开始个人讨论。</p><p>准备与同伴合作时创建或加入小队，用队伍码邀请队友。个人讨论仍在「我的个人空间」；选择内容、编辑摘要并预览后，才会共享给指定团队。</p><p>队长确认共同方向，在「任务」里生成并核对分工。成员同步成果与依据，再由另一位队友检查。</p><p>工作台会显示当前项目的下一步。可以随时回个人空间继续旧讨论；「交付」导出交接清单，「复盘」记录收获。</p><p>无需安装外部工具，也能在网页完成讨论、进展同步和检查。「个人工具」用于连接已有工具。</p><p class="muted">活动样例不代表真实报名。任务检查通过也不等于主办方已经收到作品。</p>');}
 function renderAuth(){state.page='login';landing();openAuth();}
 function openAuth(initial='password',prefill={}){
   const dialog=modal('欢迎来到松伴','<div id="auth-body"></div>');dialog.classList.add('auth-dialog');
@@ -169,12 +190,13 @@ function openAuth(initial='password',prefill={}){
     dialog.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;draw();});
     dialog.querySelector('[data-register]').onclick=()=>{mode=register?'password':'register';draw();};
     const send=dialog.querySelector('#send-code');
-    const smsStatus=dialog.querySelector('#sms-status');
+    const smsStatus=dialog.querySelector('#sms-status');let smsAvailable=null;
     if(smsStatus)api('/api/studio/sms-status').then(status=>{
       if(!smsStatus.isConnected)return;
-      smsStatus.textContent=status.configured?'验证码将发送到手机，页面不会显示验证码。':'短信服务尚未配置，暂不能注册或使用验证码登录。已有账号可使用密码登录。';
+      smsAvailable=status.registration_available??status.configured;
+      smsStatus.textContent=status.test_mode?'当前为开发测试环境，验证码不会发送到手机。':smsAvailable?'验证码将发送到手机，页面不会显示验证码。':'短信注册暂不可用。可以继续浏览活动；已有账号可使用密码登录。';tick();
     }).catch(()=>{if(smsStatus.isConnected)smsStatus.textContent='短信状态暂时无法读取，发送时会显示实际结果。';});
-    const tick=()=>{const b=dialog.querySelector('#send-code');if(!b)return;const left=Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));b.disabled=sending||left>0;b.textContent=sending?'正在发送…':left?left+' 秒后重试':'获取验证码';};
+    const tick=()=>{const b=dialog.querySelector('#send-code');if(!b)return;const left=Math.max(0,Math.ceil((cooldownUntil-Date.now())/1000));b.disabled=sending||left>0||smsAvailable===false;b.textContent=sending?'正在发送…':left?left+' 秒后重试':smsAvailable===false?'短信暂不可用':'获取验证码';const submit=dialog.querySelector('button[type=submit]');if(submit)submit.disabled=smsAvailable===false;};
     clearInterval(timer);timer=setInterval(tick,1000);tick();
     if(send)send.onclick=async()=>{
       if(sending)return;sending=true;tick();
@@ -221,7 +243,7 @@ function renderOnboarding(){
   const c=$('#content');if(!c)return;
   c.innerHTML=head('朋友一起，或者先自己开始','这次，和谁一起做？','创建一个真实的小队，用队伍码邀请熟悉的同伴。')+`<div class="two"><form class="card" id="create-team"><span class="chip">我来发起</span><h2>给小队起个名字。</h2><label for="team-name">小队名称</label><input id="team-name" name="name" maxlength="80" placeholder="例如：周末造梦小队" required><p class="muted">创建后你是队长，负责确认方向和发布任务。</p><button type="submit" class="primary">创建小队 ${icon('arrow')}</button></form><form class="card" id="join-team"><span class="chip">同伴在等我</span><h2>加入熟悉的队伍。</h2><label for="team-code">队伍码</label><input id="team-code" name="code" maxlength="80" placeholder="粘贴队友分享的队伍码" required><p class="muted">加入后，会读取这支队伍的真实方向和进展。</p><button type="submit" class="secondary">加入小队 ${icon('arrow')}</button></form></div>`;
   for(const [id,path] of [['#create-team','/api/core/teams'],['#join-team','/api/core/join']])bindForm(id,async(form,fd)=>{
-    const created=await api(path,values(fd));state.personal=false;sessionStorage.removeItem('songban-personal');state.team=created.id;localStorage.setItem('studio-squad',state.team);await load();go(id==='#create-team'?'direction':'work');toast('小队已连接。');
+    const created=await api(path,values(fd));state.personal=false;sessionStorage.removeItem('songban-personal');state.team=created.id;localStorage.setItem('studio-squad',state.team);await load();go(id==='#create-team'?'team':'work');toast(id==='#create-team'?'小队已创建。先复制队伍码邀请同伴，再一起确认方向。':'已加入小队。个人讨论仍在我的个人空间。');
   });
 }
 function teamPage(){
@@ -263,7 +285,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
   const markDirty=e=>{if(e.target.form){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);
   root.addEventListener('change',markDirty);
-  window.addEventListener('hashchange',()=>{if(location.hash==='#possibilities')return;captureDrafts();routeFromHash();render();window.scrollTo(0,0);});
+  window.addEventListener('hashchange',()=>{if(location.hash==='#possibilities')return;captureDrafts();routeFromHash();render();window.scrollTo(0,0);refreshOnEntry();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOnEntry();});
   setInterval(()=>{if(!document.hidden&&!['login','events','event'].includes(state.page))refresh();},5000);
   window.addEventListener('storage',e=>{if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
 });

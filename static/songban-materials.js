@@ -3,12 +3,14 @@
 const SongbanMaterials = (() => {
   let guest = {text:'', url:'', files:[], nature:'unverified', author:''};
   const pending = new Map();
+  const fileDrafts = new Map();
+  let leaveGuard=null;
   const statuses = {received:'已收到，等待读取',reading:'读取中（中断后可重试）',ready:'已读取',partial:'已读取部分 / 需核对',failed:'读取失败',withdrawn:'已撤回'};
   const verifications = {unverified:'未独立核实',human_confirmed:'人工确认',deferred:'暂不处理',needs_review:'新证据待复核',source_withdrawn:'来源已撤回'};
   const kinds = {statement:'材料中的表述',suggestion:'AI 建议',unknown:'待确认'};
   const natures = {unverified:'来源性质待核实',sample:'虚构样例',self_report:'个人自述 / 聊天',organizer_notice:'自标主办方通知，未核验'};
   const requestId = key => {if(!pending.has(key))pending.set(key,crypto.randomUUID());return pending.get(key);};
-  function reset(){pending.clear();guest={text:'',url:'',files:[]};}
+  function reset(){pending.clear();fileDrafts.clear();guest={text:'',url:'',files:[]};for(const key of Object.keys(sessionStorage))if(key.startsWith('songban:materials:'))sessionStorage.removeItem(key);if(leaveGuard)window.removeEventListener('beforeunload',leaveGuard);leaveGuard=null;}
 
   async function mount(host, {teamId='', event=null}={}) {
     const epoch=state.epoch, token=state.token;
@@ -16,15 +18,34 @@ const SongbanMaterials = (() => {
     const alive=()=>host.isConnected&&epoch===state.epoch&&token===state.token;
     const path=suffix=>'/api/materials/spaces/'+encodeURIComponent(data.id)+suffix;
     const q=selector=>host.querySelector(selector);
+    const draftKey=token?`songban:materials:${encodeURIComponent(state.me.person.id)}:${encodeURIComponent(teamId||'personal')}:draft`:'';
+    let stored=null,persisted=true;
+    try{stored=draftKey?JSON.parse(sessionStorage.getItem(draftKey)||'null'):null;}catch{}
+    const initial=stored||(!teamId?guest:{});
     const label=teamId?'团队共享材料':'我的个人草稿';
     host.classList.add('materials');
     host.innerHTML=`<section class="card material-intake"><div class="row spread"><span class="chip">${label}</span><a href="#/${teamId?'event':'materials'}" class="text-link">${teamId?'回到个人资料入口':'查看团队资料'}</a></div><h2>把手头的资料放进来，<br>松伴帮你理清楚。</h2><p class="muted">规则、聊天、截图和想法，可以一起放。整理只使用此空间中已读取的材料；不会读取其他私聊。</p><form id="material-input"><label for="material-text">文字或聊天记录</label><textarea id="material-text" rows="5" maxlength="40000" placeholder="直接粘贴，不必先分好类。也可以在这里粘贴截图。"></textarea><label for="material-url">公开网页链接</label><input id="material-url" type="url" placeholder="https://…"><div class="material-meta"><div><label for="material-author">原作者 / 发言者（选填）</label><input id="material-author" maxlength="200" placeholder="不知道就留空"></div><div><label for="material-nature">材料性质</label><select id="material-nature"><option value="unverified">待核实材料</option><option value="self_report">个人自述 / 聊天</option><option value="organizer_notice">主办方通知（需核实）</option><option value="sample">虚构样例</option></select></div></div><div class="material-drop" tabindex="0" aria-label="文件拖放区域，按回车选择文件"><label for="material-files">添加截图或文件，也可以拖到这里</label><input id="material-files" type="file" multiple accept=".png,.jpg,.jpeg,.pdf,.docx,.txt"><p id="material-queued" class="caption"></p></div><p class="caption">PNG/JPEG、PDF、DOCX、TXT；单文件 8 MB，PDF 最多 20 页，图片最多 2000 万像素。文字每份 4 万字；每个空间 40 份 / 50 MB（含撤回原件），每次 AI 整理最多 8 万字。DOCX 图片请另传。</p><div class="action-row"><button type="submit" class="secondary">${token?'保存并读取材料':'登录后保存材料'}</button>${event?'<button type="button" id="material-sample" class="ghost">加入本活动样例规则</button>':''}</div></form><p class="caption">${teamId?'本团队成员可以查看原件和结果。':'当前输入先留在本页；登录后保存至个人空间。选择共享范围后，团队才能看到材料。'}</p></section><p id="material-message" role="status" aria-live="polite"></p><div id="material-saved"></div><div id="material-results"></div><div id="material-share"></div>`;
-    q('#material-text').value=guest.text; q('#material-url').value=guest.url; q('#material-nature').value=guest.nature||'unverified'; q('#material-author').value=guest.author||'';
-    let files=guest.files.slice();
+    for(const [id,key] of [['material-text','text'],['material-url','url'],['material-author','author']])q('#'+id).value=typeof initial[key]==='string'?initial[key]:'';
+    q('#material-nature').value=Object.hasOwn(natures,initial.nature)?initial.nature:'unverified';
+    let files=(fileDrafts.get(draftKey)||(!teamId&&!stored?guest.files:[])||[]).slice();
+    const caption=q('.material-intake > p.caption');
+    if(token)caption.textContent=teamId?'点击保存后，本团队成员可以查看原件和结果。':'点击保存后存入个人空间；选择共享范围并确认后，团队才能看到材料。';
+    const draftNotice=document.createElement('p');draftNotice.className='caption';draftNotice.setAttribute('role','status');q('#material-input').append(draftNotice);
+    let missingFiles=Array.isArray(stored?.fileNames)&&stored.fileNames.length&&!files.length;
     const queue=()=>q('#material-queued').textContent=files.length?files.map(f=>f.name+' · '+Math.ceil(f.size/1024)+' KB').join('；'):'尚未选择附件';queue();
-    const keep=()=>{if(!token)guest={text:q('#material-text').value,url:q('#material-url').value,files,nature:q('#material-nature').value,author:q('#material-author').value};};
+    const keep=()=>{
+      if(!alive())return;
+      const input={text:q('#material-text').value,url:q('#material-url').value,nature:q('#material-nature').value,author:q('#material-author').value};
+      if(!token){guest={...input,files};return;}
+      fileDrafts.set(draftKey,files.slice());
+      try{if(input.text||input.url||input.author||files.length||missingFiles)sessionStorage.setItem(draftKey,JSON.stringify({...input,fileNames:missingFiles?stored.fileNames:files.map(f=>f.name)}));else sessionStorage.removeItem(draftKey);persisted=true;}catch{persisted=false;}
+      draftNotice.textContent=!persisted?'当前输入未能暂存，请保存材料后再离开。':missingFiles?'文字草稿已恢复；附件需重新选择，浏览器刷新不会保留文件。':files.length?'文字已暂存在本标签页；附件请在刷新前保存，或回来后重新选择。':input.text||input.url||input.author?'未保存到服务器；文字草稿已暂存在本标签页，刷新可恢复。退出或切换账号时清除。':'尚未输入材料。填写后点击保存，才会上传到服务器。';
+    };
+    if(token){guest={text:'',url:'',files:[]};keep();}
+    if(leaveGuard)window.removeEventListener('beforeunload',leaveGuard);
+    leaveGuard=e=>{if(alive()&&(files.length||!persisted)){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',leaveGuard);
     q('#material-text').oninput=keep;q('#material-url').oninput=keep;q('#material-nature').onchange=keep;q('#material-author').oninput=keep;
-    function queueFiles(list){files.push(...list);queue();keep();}
+    function queueFiles(list){missingFiles=false;files.push(...list);queue();keep();}
     q('#material-files').onchange=e=>{queueFiles(e.target.files);e.target.value='';};
     const drop=q('.material-drop');drop.ondragover=e=>{e.preventDefault();drop.classList.add('dragging');};drop.ondragleave=()=>drop.classList.remove('dragging');drop.ondrop=e=>{e.preventDefault();drop.classList.remove('dragging');queueFiles(e.dataTransfer.files);};drop.onkeydown=e=>{if(e.target===drop&&e.key==='Enter'){e.preventDefault();q('#material-files').click();}};
     q('#material-input').addEventListener('paste',e=>{const images=[...e.clipboardData.items].filter(x=>x.kind==='file').map(x=>x.getAsFile());if(images.length){e.preventDefault();queueFiles(images);}});
@@ -37,11 +58,11 @@ const SongbanMaterials = (() => {
       const meta={author:q('#material-author').value,nature:q('#material-nature').value};const errors=[];
       const text=q('#material-text').value.trim(),url=q('#material-url').value.trim();
       if(!text&&!url&&!files.length)throw Error('先粘贴文字、添加链接或选择文件。');
-      if(text){await add({...meta,kind:'text',name:'文字 / 聊天摘录',content:text});q('#material-text').value='';}
-      if(url){await add({...meta,kind:'url',name:url.slice(0,200),content:url});q('#material-url').value='';}
+      if(text){await add({...meta,kind:'text',name:'文字 / 聊天摘录',content:text});if(q('#material-text').value.trim()===text)q('#material-text').value='';keep();}
+      if(url){await add({...meta,kind:'url',name:url.slice(0,200),content:url});if(q('#material-url').value.trim()===url)q('#material-url').value='';keep();}
       const remaining=[];
       for(const f of files){try{if(f.size>8000000)throw Error(f.name+' 超过 8 MB，未上传。');await add({...meta,kind:'file',name:f.name,content:await encodeFile(f)});}catch(e){remaining.push(f);errors.push(e.message);}}
-      files=remaining;queue();guest={text:'',url:'',files:[]};message(errors.length?errors.join('；'):'已保存。逐份读取状态见下方；失败材料可以补充文字或重试。',errors.length>0);
+      files=remaining;queue();guest={text:'',url:'',files:[]};keep();message(errors.length?errors.join('；'):'已保存。逐份读取状态见下方；失败材料可以补充文字或重试。',errors.length>0);
     });};
     if(event)q('#material-sample').onclick=()=>{if(!token){guest.text=event.rules||'';q('#material-text').value=guest.text;q('#material-nature').value='sample';keep();message('这是虚构活动样例。登录后确认性质再保存。');return;}action(()=>add({kind:'text',name:event.title+'（虚构样例）',content:event.rules||'',nature:'sample',author:''}));};
 
@@ -79,7 +100,10 @@ const SongbanMaterials = (() => {
       if(draft.kind==='direction'){go('direction');const f=$('#direction-form');if(f&&!f.elements.rules.disabled){f.elements.rules.value=[f.elements.rules.value,draft.text].filter(Boolean).join('\n\n');f.dataset.dirty='true';toast('草稿已带入，请核对来源和长度后保存共同方向。');}else toast('草稿已留在团队资料入口，由队长核对方向。');}
       else{await api(endpoint('/reports'),{event_id:'materials-draft:'+draft.canonical_id,summary:draft.text,evidence:['资料入口草稿：'+draft.canonical_id],tool:'资料入口行动草稿',origin:'human',status:'discussion'});await refresh(true);go('tasks');toast('已保存为讨论。仍需生成统筹草案并由队长确认。');}
     });}
-    if(token){try{await reload();}catch(e){message(e.message,true);}}else message('未登录内容暂留当前页面，刷新会丢失。登录后可保存原件、读取材料和调用模型。');
+    if(token){try{await reload();}catch(e){message(e.message,true);}}else{
+      message('未登录内容暂留当前页面，刷新会丢失。登录后可保存原件、读取材料和调用模型。');
+      api('/api/studio/sms-status').then(s=>{if(alive()&&!(s.registration_available??s.ready))message('短信注册暂不可用。可以浏览活动；已有账号可用密码登录后保存材料。当前未登录输入仅留本页，刷新会丢失。');}).catch(()=>{});
+    }
   }
   return {mount,reset};
 })();

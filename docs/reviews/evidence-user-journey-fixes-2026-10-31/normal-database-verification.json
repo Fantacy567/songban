@@ -1,0 +1,9 @@
+{
+  "existing_table_counts_unchanged": true,
+  "new_tables": [
+    "workbench_session_edits"
+  ],
+  "new_table_rows": {
+    "workbench_session_edits": 0
+  }
+}

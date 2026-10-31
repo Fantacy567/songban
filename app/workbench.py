@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS workbench_sessions (
  UNIQUE(owner_id,request_id)
 );
 CREATE INDEX IF NOT EXISTS workbench_owner ON workbench_sessions(owner_id,team_id);
+CREATE TABLE IF NOT EXISTS workbench_session_edits (
+ session_id TEXT NOT NULL REFERENCES workbench_sessions(id), request_id TEXT NOT NULL,
+ fingerprint TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(session_id,request_id)
+);
 CREATE TABLE IF NOT EXISTS workbench_requests (
  id TEXT PRIMARY KEY, request_id TEXT NOT NULL, session_id TEXT NOT NULL REFERENCES workbench_sessions(id),
  owner_id TEXT NOT NULL, fingerprint TEXT NOT NULL, status TEXT NOT NULL,
@@ -73,6 +77,11 @@ class NewSession(Strict):
     team_id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
+class RenameSession(Strict):
+    request_id: str = Field(min_length=8, max_length=100)
+    title: str = Field(min_length=1, max_length=120)
+
+
 class Turn(Strict):
     request_id: str = Field(min_length=8, max_length=100)
     text: str = Field(min_length=1, max_length=8000)
@@ -96,7 +105,12 @@ class Share(Strict):
 
 
 def session_json(row):
-    return {k: row[k] for k in ('id', 'title', 'team_id', 'created_at', 'updated_at')}
+    result = {k: row[k] for k in ('id', 'title', 'team_id', 'created_at', 'updated_at')}
+    renamed = row['explicit_title'] if 'explicit_title' in row.keys() else False
+    if not renamed and result['title'] in ('新讨论', '新的项目讨论'):
+        question = row['first_question'] if 'first_question' in row.keys() else None
+        result['title'] = clean(' '.join(question.split()))[:48] if question else '未开始的讨论'
+    return result
 
 
 def message_json(row):
@@ -134,13 +148,15 @@ def register_workbench(api, db, problem, now, uid, digest, core, runner=None):
 
     def owned(con, sid, authorization):
         actor, _ = actor_scope(con, authorization)
-        row = con.execute('SELECT * FROM workbench_sessions WHERE id=? AND owner_id=?', (sid, actor['id'])).fetchone()
+        row = con.execute('''SELECT s.*, (SELECT text FROM workbench_messages WHERE session_id=s.id AND role='user' ORDER BY seq LIMIT 1) AS first_question,
+                          EXISTS(SELECT 1 FROM workbench_session_edits WHERE session_id=s.id) AS explicit_title
+                          FROM workbench_sessions s WHERE id=? AND owner_id=?''', (sid, actor['id'])).fetchone()
         if not row:
             raise problem(404, 'session_missing', '会话不存在或不属于当前账号。')
         actor, squad = actor_scope(con, authorization, row['team_id'])
         return row, actor, squad
 
-    def facts(con, actor, squad):
+    def facts(con, actor, squad, include_guidance=False):
         if not squad:
             return {'team': None, 'direction': None, 'my_tasks': []}
         snap = core['snapshot'](con, squad, actor)
@@ -148,7 +164,10 @@ def register_workbench(api, db, problem, now, uid, digest, core, runner=None):
         team = {'id': squad['id'], 'name': squad['name'], 'is_captain': bool(snap['me']['captain']), 'revision': snap['revision'], 'plan_version': snap['plan_version']}
         direction = {k: str(snap['direction'].get(k, '')) for k in ('goal', 'rules', 'rubric', 'non_goals', 'deadline')}
         tasks = [{k: t.get(k) for k in ('key', 'title', 'acceptance', 'depends_on', 'status', 'owner_id')} for t in snap['active_plan'].get('tasks', []) if t.get('owner_id') == actor['id']][:30]
-        return clean_data({'team': team, 'direction': direction, 'my_tasks': tasks})
+        result = {'team': team, 'direction': direction, 'my_tasks': tasks}
+        if include_guidance:
+            result['workflow'] = {k: snap['workflow'][k] for k in ('next_action', 'accepted_tasks', 'total_tasks')}
+        return clean_data(result)
 
     def basis(context):
         # Sharing changes core.revision, but not necessarily the facts used by this turn.
@@ -248,7 +267,8 @@ def register_workbench(api, db, problem, now, uid, digest, core, runner=None):
     def get_context(team_id: str = '', authorization: str = Header(default='')):
         with db() as con:
             actor, squad = actor_scope(con, authorization, team_id or None)
-            context = facts(con, actor, squad)
+            context = facts(con, actor, squad, include_guidance=True)
+            context['personal_session_count'] = con.execute('SELECT COUNT(*) FROM workbench_sessions WHERE owner_id=? AND team_id IS NULL', (actor['id'],)).fetchone()[0]
             catalog = sources(con, actor, team_id or None)
         cfg = team_model_config()
         return context | {'roles': ROLES, 'sources': clean_data(catalog), 'model': {'configured': runner is not None or bool(cfg.get('api_key')), 'requested_model': cfg.get('model_id') if runner is None else None}}
@@ -257,8 +277,29 @@ def register_workbench(api, db, problem, now, uid, digest, core, runner=None):
     def list_sessions(team_id: str = '', authorization: str = Header(default='')):
         with db() as con:
             actor, _ = actor_scope(con, authorization, team_id or None)
-            rows = con.execute('SELECT * FROM workbench_sessions WHERE owner_id=? AND team_id IS ? ORDER BY updated_at DESC,rowid DESC', (actor['id'], team_id or None)).fetchall()
+            rows = con.execute('''SELECT s.*, (SELECT text FROM workbench_messages WHERE session_id=s.id AND role='user' ORDER BY seq LIMIT 1) AS first_question,
+                               EXISTS(SELECT 1 FROM workbench_session_edits WHERE session_id=s.id) AS explicit_title
+                               FROM workbench_sessions s WHERE owner_id=? AND team_id IS ? ORDER BY updated_at DESC,s.rowid DESC''', (actor['id'], team_id or None)).fetchall()
         return {'sessions': [session_json(r) for r in rows]}
+
+    @api.patch('/api/workbench/sessions/{sid}')
+    def rename_session(sid: str, body: RenameSession, authorization: str = Header(default='')):
+        title = clean(body.title.strip())
+        if not title:
+            raise problem(422, 'invalid_title', '请填写会话名称。')
+        with db(True) as con:
+            owned(con, sid, authorization)
+            fp = fingerprint({'title': body.title})
+            prior = con.execute('SELECT fingerprint FROM workbench_session_edits WHERE session_id=? AND request_id=?', (sid, body.request_id)).fetchone()
+            if prior:
+                if prior['fingerprint'] != fp:
+                    raise problem(409, 'request_conflict', '同一改名请求编号的内容不同。')
+                session, _, _ = owned(con, sid, authorization)
+                return {'session': session_json(session)}
+            con.execute('INSERT INTO workbench_session_edits VALUES(?,?,?,?)', (sid, body.request_id, fp, now()))
+            con.execute('UPDATE workbench_sessions SET title=?,updated_at=? WHERE id=?', (title, now(), sid))
+            session, _, _ = owned(con, sid, authorization)
+        return {'session': session_json(session)}
 
     @api.post('/api/workbench/sessions')
     def new_session(body: NewSession, authorization: str = Header(default='')):

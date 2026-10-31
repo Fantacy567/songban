@@ -1,0 +1,126 @@
+{
+  "ok": true,
+  "base": "http://127.0.0.1:8899",
+  "db": "E:\\松伴\\songban-materials\\.browser-cache\\workbench\\ux-fixes-final-20261031\\workbench.sqlite3",
+  "model": "explicit protocol fixture; no paid model calls",
+  "sms": "disabled; no login-code requests needed",
+  "results": [
+    {
+      "name": "API: OpenAPI exposes all workbench routes",
+      "status": "passed",
+      "milliseconds": 105
+    },
+    {
+      "name": "API: personal/team source catalog and authentication boundaries",
+      "status": "passed",
+      "milliseconds": 46
+    },
+    {
+      "name": "API: session creation idempotency, mismatch conflict and scoped history",
+      "status": "passed",
+      "milliseconds": 34
+    },
+    {
+      "name": "API: persistent personal turn, selected sources only, safe actions and truthful model fields",
+      "status": "passed",
+      "milliseconds": 27
+    },
+    {
+      "name": "API: repeat turn calls fixture once, changed payload returns 409",
+      "status": "passed",
+      "milliseconds": 39
+    },
+    {
+      "name": "API: inaccessible source rejected before model invocation",
+      "status": "passed",
+      "milliseconds": 15
+    },
+    {
+      "name": "API: shared summary creates real core note, deduplicates and never auto-reviews",
+      "status": "passed",
+      "milliseconds": 65
+    },
+    {
+      "name": "API: one running turn per session; polling is read-only",
+      "status": "passed",
+      "milliseconds": 3041
+    },
+    {
+      "name": "API: timeout is unknown; duplicate and polling never rerun it",
+      "status": "passed",
+      "milliseconds": 33,
+      "detail": "Explicit user retry with new ID remains a separate action; no automatic replay tested."
+    },
+    {
+      "name": "UI: no-team workspace is usable; history restores and HTML stays text",
+      "status": "passed",
+      "milliseconds": 193
+    },
+    {
+      "name": "UI: selected source send and unsaved input survives five-second refresh",
+      "status": "passed",
+      "milliseconds": 5790
+    },
+    {
+      "name": "UI: edited share preview writes only after confirmation and preserves composer",
+      "status": "passed",
+      "milliseconds": 269
+    },
+    {
+      "name": "UI: failed new-session request preserves current conversation and input",
+      "status": "passed",
+      "milliseconds": 21
+    },
+    {
+      "name": "UI: original tasks, direction and captain confirmation remain reachable",
+      "status": "passed",
+      "milliseconds": 384
+    },
+    {
+      "name": "UI: late turn cannot render into another scope; returning restores persisted reply",
+      "status": "passed",
+      "milliseconds": 3723
+    },
+    {
+      "name": "UI: cross-tab identity switch discards late response and private UI",
+      "status": "passed",
+      "milliseconds": 3809
+    },
+    {
+      "name": "UI: unknown result keeps input and requires explicit new-attempt confirmation",
+      "status": "passed",
+      "milliseconds": 3483
+    },
+    {
+      "name": "UI: draft survives reload after real password login",
+      "status": "passed",
+      "milliseconds": 330
+    },
+    {
+      "name": "UI: team-switch draft survives reload and remains isolated from personal scope",
+      "status": "passed",
+      "milliseconds": 138
+    },
+    {
+      "name": "UI: 390/768/1440 workspace layout has no horizontal overflow",
+      "status": "passed",
+      "milliseconds": 690
+    },
+    {
+      "name": "UI: compatibility collaboration route mounts workbench",
+      "status": "passed",
+      "milliseconds": 14
+    },
+    {
+      "name": "UI: logout clears private caches; different account never sees old draft/history",
+      "status": "passed",
+      "milliseconds": 423
+    },
+    {
+      "name": "UI: no browser runtime exceptions",
+      "status": "passed",
+      "milliseconds": 0
+    }
+  ],
+  "browserErrors": []
+}

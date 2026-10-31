@@ -24,7 +24,7 @@ from .contest_intel import (
     summarize_facts,
     supervise_against_contest,
 )
-from .sms import deliver_login_code, must_deliver, sms_status, test_codes_allowed
+from .sms import deliver_login_code, must_deliver, sms_status, test_codes_allowed, mac_sms_enabled
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
@@ -798,7 +798,8 @@ def register_studio(api, db, problem, now, uid, digest):
     @api.get("/api/studio/sms-status")
     def sms_configuration_status():
         # Configuration presence is not a delivery or account-balance check.
-        return sms_status()
+        status = sms_status()
+        return status | {'test_mode': test_codes_allowed(), 'registration_available': status['ready'] or test_codes_allowed() or mac_sms_enabled()}
 
     @api.get("/api/studio/connect")
     def connect_status():

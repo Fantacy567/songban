@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "checked_at": "2026-10-31T05:13:39.501Z",
+  "base": "http://127.0.0.1:8893",
+  "health": {
+    "status": "ok",
+    "service": "hackathon-collab",
+    "version": "0.9.2",
+    "model_configured": true,
+    "core_only": true
+  },
+  "sms": {
+    "configured": false,
+    "ready": false,
+    "registration_available": false,
+    "test_mode": false,
+    "delivery_verified": false
+  },
+  "new_backend_route": true,
+  "early_notice": true,
+  "disabled_unavailable_registration": true,
+  "password_login_still_enabled": true,
+  "browser_mutations": [],
+  "browser_errors": []
+}

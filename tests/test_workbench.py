@@ -92,6 +92,45 @@ class WorkbenchTests(unittest.TestCase):
         for path in ('/context', '/sessions', '/sessions/{sid}', '/sessions/{sid}/turns', '/sessions/{sid}/share', '/requests/{ident}'):
             self.assertIn('/api/workbench' + path, self.app.openapi()['paths'])
 
+    def test_history_titles_use_first_question_and_rename_stays_private(self):
+        first = self.new(title='新的项目讨论')
+        empty = self.new(title='新的项目讨论')
+        response = self.turn(ws=first, text='  校园失物\n如何核对认领人？  ')
+        self.assertEqual(response.status_code, 200, response.text)
+        rows = self.client.get('/api/workbench/sessions', headers=self.h('a')).json()['sessions']
+        titles = {r['id']: r['title'] for r in rows}
+        self.assertEqual(titles[first], '校园失物 如何核对认领人？')
+        self.assertEqual(titles[empty], '未开始的讨论')
+        path = '/api/workbench/sessions/' + first
+        self.assertEqual(self.client.patch(path, headers=self.h('b'), json={'request_id': self.key(), 'title': '越权名称'}).status_code, 404)
+        self.assertEqual(self.client.patch(path, headers=self.h('a'), json={'request_id': self.key(), 'title': '   '}).status_code, 422)
+        command = {'request_id': self.key(), 'title': '认领流程与隐私'}
+        renamed = self.client.patch(path, headers=self.h('a'), json=command)
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(self.client.patch(path, headers=self.h('a'), json=command).json(), renamed.json())
+        self.assertEqual(self.client.patch(path, headers=self.h('a'), json=command | {'title':'冲突'}).status_code, 409)
+        self.turn(ws=first, text='继续讨论')
+        self.assertEqual(self.history(ws=first).json()['session']['title'], '认领流程与隐私')
+        # An explicit rename also wins when it happens to match a default label.
+        self.client.patch(path, headers=self.h('a'), json={'request_id': self.key(), 'title': '新的项目讨论'})
+        self.assertEqual(self.history(ws=first).json()['session']['title'], '新的项目讨论')
+        titles = {r['id']: r['title'] for r in self.client.get('/api/workbench/sessions', headers=self.h('a')).json()['sessions']}
+        self.assertEqual(titles[first], '新的项目讨论')
+        self.assertEqual(self.client.patch(path, headers=self.h('a'), json=command).json()['session']['title'], '新的项目讨论')
+        foreign = self.client.get('/api/workbench/sessions', headers=self.h('b')).json()['sessions']
+        self.assertNotIn(first, [row['id'] for row in foreign])
+
+    def test_team_guidance_is_for_viewer_and_not_added_to_model_context(self):
+        context = self.client.get('/api/workbench/context', params={'team_id': self.sid}, headers=self.h('a')).json()
+        self.assertEqual(context['personal_session_count'], 1)
+        self.assertIn('next_action', context['workflow'])
+        other = self.client.get('/api/workbench/context', params={'team_id': self.sid}, headers=self.h('b')).json()
+        self.assertEqual(other['personal_session_count'], 0)
+        ws = self.new(team=self.sid)
+        self.assertEqual(self.turn(ws=ws).status_code, 200)
+        self.assertNotIn('workflow', self.calls[-1])
+        self.assertNotIn('personal_session_count', self.calls[-1])
+
     def test_create_idempotent_conflict_preserves_history(self):
         body = {'request_id': 'stable-create', 'title': '第一次', 'team_id': None}
         a = self.client.post('/api/workbench/sessions', headers=self.h('a'), json=body)
