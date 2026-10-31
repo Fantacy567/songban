@@ -4,11 +4,14 @@ import json
 import os
 from pathlib import Path
 import queue
+import shutil
 import subprocess
 import threading
 import time
 
 def check(home,cwd,cli='codex'):
+ # Windows CreateProcess does not search PATHEXT for npm's codex.cmd shim.
+ cli=shutil.which(cli) or cli
  env=dict(os.environ);env['CODEX_HOME']=str(Path(home)/'.codex')
  p=subprocess.Popen([cli,'app-server','--stdio'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',env=env,cwd=cwd,bufsize=1)
  q=queue.Queue();errors=[]
