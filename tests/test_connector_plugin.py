@@ -1,5 +1,6 @@
 import importlib.util
 import json
+from tests.platform_files import assert_private, directory_link
 from pathlib import Path
 import subprocess
 import sys
@@ -45,18 +46,28 @@ class NativePluginTests(unittest.TestCase):
    home=Path(d);conf=home/'.codex/config.toml';conf.parent.mkdir();conf.write_text('model="test-model"\nmodel_provider="openai"\n[plugins."other@demo"]\nenabled=false\n')
    r=install_connector_plugin('team','me','test-id','sbconn_synthetic-secret','http://127.0.0.1:8888',home=home,probe=lambda *_:True)
    self.assertTrue(r['enabled']);self.assertEqual(r['kind'],'native-plugin')
+   self.assertTrue(r['host_tools_loaded'])
    from scripts.check_native_plugin_host import check
    host=check(home,home);self.assertTrue(host['upload_tool_loaded']);self.assertEqual(host['loader_errors'],[])
-   mcp=json.loads((Path(r['project_dir'])/'mcp.json').read_text());self.assertEqual(mcp['mcpServers']['songban']['type'],'stdio')
+   mcp=json.loads((Path(r['project_dir'])/'mcp.json').read_text(encoding='utf-8'));self.assertEqual(mcp['mcpServers']['songban']['type'],'stdio')
+   self.assertEqual(Path(mcp['mcpServers']['songban']['command']).name,mcp['mcpServers']['songban']['command'])
    import tomllib
-   c=tomllib.loads(conf.read_text());self.assertEqual(c['model'],'test-model');self.assertEqual(c['model_provider'],'openai');self.assertFalse(c['plugins']['other@demo']['enabled'])
+   c=tomllib.loads(conf.read_text(encoding='utf-8'));self.assertEqual(c['model'],'test-model');self.assertEqual(c['model_provider'],'openai');self.assertFalse(c['plugins']['other@demo']['enabled'])
    for p in (home/'.codex/plugins/cache/songban-local').rglob('*'):
     if p.is_file():self.assertNotIn(b'sbconn_synthetic-secret',p.read_bytes())
-   self.assertEqual(Path(r['config_file']).stat().st_mode&0o777,0o600)
+   assert_private(self,Path(r['config_file']))
 
  def test_failed_probe_restores_binding_and_does_not_enable(self):
   with tempfile.TemporaryDirectory() as d:
    with self.assertRaises(InstallError):install_connector_plugin('team','me','test','sbconn_test','http://127.0.0.1:8888',home=d,probe=lambda *_:False)
+   self.assertFalse((Path(d)/'.codex/plugins/songban-local/private/connection.json').exists())
+
+ def test_host_rejection_is_not_reported_as_success(self):
+  with tempfile.TemporaryDirectory() as d:
+   with patch('app.connector_plugin.check_host',return_value={'upload_tool_loaded':False,'loader_errors':['fixture host rejection']}):
+    with self.assertRaises(InstallError) as caught:
+     install_connector_plugin('team','me','test','sbconn_test','http://127.0.0.1:8888',home=d,probe=lambda *_:True)
+   self.assertEqual(caught.exception.code,'plugin_not_loaded')
    self.assertFalse((Path(d)/'.codex/plugins/songban-local/private/connection.json').exists())
 
 if __name__=='__main__':unittest.main()

@@ -1,0 +1,53 @@
+{
+  "clean_environment": "E:\\松伴\\songban-materials\\.browser-cache\\materials\\full-audit-20261031\\clean-env",
+  "system_site_packages": false,
+  "passed": true,
+  "results": [
+    {
+      "file": "screenshot.png",
+      "segments": 1,
+      "methods": [
+        "ocr"
+      ],
+      "warnings": [
+        "图片识别可能有误，请对照原件核实。"
+      ]
+    },
+    {
+      "file": "photo.jpg",
+      "segments": 1,
+      "methods": [
+        "ocr"
+      ],
+      "warnings": [
+        "图片识别可能有误，请对照原件核实。"
+      ]
+    },
+    {
+      "file": "scan.pdf",
+      "segments": 1,
+      "methods": [
+        "ocr"
+      ],
+      "warnings": [
+        "第 1 页经过图片识别，可能有误，请对照原件核对。"
+      ]
+    },
+    {
+      "file": "rules.pdf",
+      "segments": 1,
+      "methods": [
+        "text"
+      ],
+      "warnings": []
+    },
+    {
+      "file": "chat.docx",
+      "segments": 1,
+      "methods": [
+        "text"
+      ],
+      "warnings": []
+    }
+  ]
+}

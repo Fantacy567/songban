@@ -1,0 +1,19 @@
+{
+  "transport": "real stdio subprocess + real loopback HTTP + SQLite",
+  "model": "explicit fixture",
+  "sms": "fixture; no actual SMS",
+  "initial_sent": [
+    1,
+    1
+  ],
+  "plan_not_auto_published": true,
+  "own_task_counts": [
+    1,
+    1
+  ],
+  "same_direction": true,
+  "accepted": 2,
+  "all_checked": true,
+  "revoked_connection_error": "HTTP 401：连接已暂停、撤销、过期或不属于这支团队。",
+  "native_plugin_host_tested_by_this_probe": false
+}

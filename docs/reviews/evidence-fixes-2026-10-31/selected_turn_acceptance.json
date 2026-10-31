@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-31T01:45:40.671Z",
+  "selected_skill_installed": true,
+  "installation_surface": "API (legacy skill is not a current picker option)",
+  "chinese_display_name": "松伴连接器",
+  "implicit_invocation": false,
+  "unselected_no_request_record": true,
+  "selected_note_saved": true,
+  "duplicate_deduplicated": true,
+  "model_input_contains_library": true,
+  "proposal_cites_note": true,
+  "real_native_picker_tested": false,
+  "model": "明确的协议测试替身，非真实模型",
+  "errors": []
+}

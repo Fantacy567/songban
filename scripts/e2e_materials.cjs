@@ -3,7 +3,7 @@ const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const base='http://127.0.0.1:8893';
+const base=process.env.SONGBAN_QA_URL||'http://127.0.0.1:8893';
 const out=path.resolve('.browser-cache/materials');
 const errors=[];
 async function api(url,token,body,method){const r=await fetch(base+url,{method:method||(body?'POST':'GET'),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();assert(r.ok,JSON.stringify(d));return d;}

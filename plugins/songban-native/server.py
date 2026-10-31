@@ -63,4 +63,6 @@ def main():
     print(json.dumps({'jsonrpc':'2.0','id':req['id'],'error':{'code':-32601,'message':'未知方法'}}),flush=True);continue
    print(json.dumps({'jsonrpc':'2.0','id':req['id'],'result':r},ensure_ascii=False),flush=True)
   except (ValueError,TypeError,AttributeError):print(json.dumps({'jsonrpc':'2.0','id':req.get('id') if isinstance(req,dict) else None,'error':{'code':-32600,'message':'请求格式错误'}}),flush=True)
-if __name__=='__main__':main()
+if __name__=='__main__':
+ for stream in (sys.stdin,sys.stdout,sys.stderr):stream.reconfigure(encoding='utf-8')
+ main()

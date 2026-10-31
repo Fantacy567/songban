@@ -452,6 +452,7 @@ def register_materials(api, db, problem, now, uid, digest, runner=None):
             selected = [i for i in json.loads(s['result']).get('items', []) if i['id'] in body.item_ids]
             if len(selected) != len(set(body.item_ids)) or any(i['verification'] in ('source_withdrawn', 'needs_review') for i in selected):
                 raise problem(422, 'invalid_selection', '选择中含有失效或待复核条目，请先核对。')
+            item_basis = {'space': space, 'items': {i['id']: fingerprint(i) for i in selected}}
             target = 'team:' + body.team_id
             con.execute('INSERT OR IGNORE INTO materials_spaces(id,team_id) VALUES(?,?)', (target, body.team_id))
             mapping = {}
@@ -476,7 +477,7 @@ def register_materials(api, db, problem, now, uid, digest, runner=None):
             data = {'kind': body.kind, 'items': selected, 'text': '\n'.join(('材料表述：' if i['kind'] == 'statement' else '建议：' if i['kind'] == 'suggestion' else '待确认：') + i['text'] + ('【样例】' if any(c['nature'] == 'sample' for c in i['citations']) else '') for i in selected), 'source_ids': list(mapping.values()), 'source_space': target, 'created_by': person, 'notice': '仅为草稿，尚未改变团队方向或正式任务。'}
             if len(data['text']) > 2500:
                 raise problem(422, 'draft_too_long', '所选草稿超过 2500 字，请减少选择后继续。')
-            ident = uid(); data['canonical_id'] = ident
+            ident = uid(); data['canonical_id'] = ident; data['item_basis'] = item_basis
             con.execute('INSERT INTO materials_drafts VALUES(?,?,?,?,?,?,?)', (ident, space, body.team_id, body.request_id, fp, dump(data), now()))
             if target != space:
                 con.execute('INSERT INTO materials_drafts VALUES(?,?,?,?,?,?,?)', (uid(), target, body.team_id, 'shared:' + ident, fp, dump(data), now()))
@@ -492,6 +493,21 @@ def register_materials(api, db, problem, now, uid, digest, runner=None):
                 raise problem(404, 'draft_missing', '草稿不存在。')
             team_access(con, row['team_id'], person)
             data = json.loads(row['body'])
+            basis = data.get('item_basis')
+            current_items = {i['id']: i for i in json.loads(s['result']).get('items', [])}
+            if basis and basis['space'] == space:
+                changed = any(ident not in current_items or fingerprint(current_items[ident]) != value for ident, value in basis['items'].items())
+            elif not basis and current_items:
+                # Older drafts did not store a basis. Compare their same-space content,
+                # excluding source IDs remapped when a personal snapshot was shared.
+                def legacy_content(item):
+                    return {k: v for k, v in item.items() if k != 'citations'}
+                changed = any(i['id'] not in current_items or legacy_content(i) != legacy_content(current_items[i['id']]) for i in data['items'])
+            else:
+                # An explicitly shared copy is independent of later personal edits.
+                changed = False
+            if changed:
+                raise problem(409, 'draft_items_changed', '草稿中的条目已修改或重新整理，请核对当前内容并重新创建草稿。')
             for item in data['items']:
                 for citation in item['citations']:
                     ref = source(con, data['source_space'], citation['source_id'])

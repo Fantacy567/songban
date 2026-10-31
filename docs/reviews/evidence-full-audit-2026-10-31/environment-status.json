@@ -1,0 +1,23 @@
+{
+  "url": "http://127.0.0.1:8893",
+  "health": {
+    "status": "ok",
+    "service": "hackathon-collab",
+    "version": "0.9.2",
+    "model_configured": true,
+    "core_only": true
+  },
+  "sms": {
+    "ready": false,
+    "configured": false,
+    "delivery_verified": false,
+    "provider": "",
+    "missing": [
+      "阿里云 AccessKey",
+      "赠送签名名称",
+      "赠送模板 CODE"
+    ],
+    "notice": "个人账号不要再填短信服务的企业资质。打开 https://dypns.console.aliyun.com 开通号码认证里的「短信认证」，用系统赠送的签名和模板。再创建 AccessKey，把四项写进松伴文件夹的 .env。"
+  },
+  "normal_service_restored": true
+}

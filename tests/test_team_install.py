@@ -1,4 +1,5 @@
 import json
+from tests.platform_files import assert_private, directory_link
 from pathlib import Path
 import tempfile
 import tomllib
@@ -23,14 +24,14 @@ model_provider = "do-not-change-provider"
 keep = true
 [mcp_servers.existing]
 command = "existing-command"
-''';p.write_text(before)
-        r=self.install();after=tomllib.loads(p.read_text())
+''';p.write_text(before,encoding='utf-8')
+        r=self.install();after=tomllib.loads(p.read_text(encoding='utf-8'))
         self.assertEqual(after['model'],'do-not-change-model');self.assertEqual(after['model_provider'],'do-not-change-provider');self.assertTrue(after['features']['keep'])
         self.assertEqual(after['mcp_servers']['existing']['command'],'existing-command')
-        self.assertIn('# 用户原来的注释',p.read_text());self.assertNotIn('sbconn_',p.read_text())
+        self.assertIn('# 用户原来的注释',p.read_text(encoding='utf-8'));self.assertNotIn('sbconn_',p.read_text(encoding='utf-8'))
         self.assertTrue(r['bridge_verified']);self.assertFalse(r['client_loaded'])
-        config=self.root/'.songban/connection.json';self.assertEqual(config.stat().st_mode&0o777,0o600)
-        self.assertEqual(json.loads(config.read_text())['token'],'sbconn_only-a-test-connection')
+        config=self.root/'.songban/connection.json';assert_private(self,config)
+        self.assertEqual(json.loads(config.read_text(encoding='utf-8'))['token'],'sbconn_only-a-test-connection')
         self.assertTrue((self.root/'.agents/skills/songban-team/SKILL.md').is_file())
         self.assertTrue((Path(r['backup_dir'])/'.codex/config.toml').is_file())
 
@@ -39,43 +40,43 @@ command = "existing-command"
             with self.subTest(tool=tool):
                 p=self.root/folder/'mcp.json';p.parent.mkdir();p.write_text(json.dumps({'mcpServers':{'keep':{'command':'keep-me'}},'other':True}))
                 r=self.install(tool,connection_id='id-'+tool)
-                data=json.loads(p.read_text());self.assertEqual(data['mcpServers']['keep']['command'],'keep-me');self.assertTrue(data['other'])
-                self.assertIn('songban-team',data['mcpServers']);self.assertNotIn('sbconn_',p.read_text())
+                data=json.loads(p.read_text(encoding='utf-8'));self.assertEqual(data['mcpServers']['keep']['command'],'keep-me');self.assertTrue(data['other'])
+                self.assertIn('songban-team',data['mcpServers']);self.assertNotIn('sbconn_',p.read_text(encoding='utf-8'))
 
     def test_failure_restores_previous_config_and_removes_new_credentials(self):
         p=self.root/'.cursor/mcp.json';p.parent.mkdir();original='{"mcpServers":{"original":{"command":"keep"}}}';p.write_text(original)
         def fail(*a):raise InstallError('connection_check_failed','模拟网络失败',502)
         with self.assertRaises(InstallError):self.install('cursor',probe=fail)
-        self.assertEqual(p.read_text(),original)
+        self.assertEqual(p.read_text(encoding='utf-8'),original)
         self.assertFalse((self.root/'.songban/connection.json').exists())
         self.assertFalse((self.root/'.songban/install.lock').exists())
 
     def test_reinstall_only_replaces_our_managed_block(self):
         self.install();r=self.install(token='sbconn_new-test-connection',connection_id='new-install')
-        p=self.root/'.codex/config.toml';self.assertEqual(p.read_text().count('[mcp_servers.songban-team]'),1)
+        p=self.root/'.codex/config.toml';self.assertEqual(p.read_text(encoding='utf-8').count('[mcp_servers.songban-team]'),1)
         self.assertEqual(r['previous_connection_id'],'install-test')
 
     def test_existing_unrelated_named_connection_refused(self):
-        p=self.root/'.cursor/mcp.json';p.parent.mkdir();before='{"mcpServers":{"songban-team":{"command":"not-ours"}}}';p.write_text(before)
+        p=self.root/'.cursor/mcp.json';p.parent.mkdir();before='{"mcpServers":{"songban-team":{"command":"not-ours"}}}';p.write_text(before,encoding='utf-8')
         with self.assertRaises(InstallError):self.install('cursor')
-        self.assertEqual(p.read_text(),before)
+        self.assertEqual(p.read_text(encoding='utf-8'),before)
 
     def test_symlink_cannot_redirect_to_global_config(self):
         with tempfile.TemporaryDirectory() as elsewhere:
-            (self.root/'.codex').symlink_to(elsewhere,target_is_directory=True)
+            directory_link(self.root/'.codex',elsewhere)
             with self.assertRaises(InstallError):self.install()
             self.assertFalse((Path(elsewhere)/'config.toml').exists())
 
     def test_backup_symlink_refused(self):
         with tempfile.TemporaryDirectory() as elsewhere:
-            d=self.root/'.songban';d.mkdir();(d/'install-backups').symlink_to(elsewhere,target_is_directory=True)
+            d=self.root/'.songban';d.mkdir();directory_link(d/'install-backups',elsewhere)
             with self.assertRaises(InstallError):self.install()
             self.assertEqual(list(Path(elsewhere).iterdir()),[])
 
     def test_invalid_config_not_overwritten(self):
         p=self.root/'.codex/config.toml';p.parent.mkdir();p.write_text('not [valid toml')
         with self.assertRaises(InstallError):self.install()
-        self.assertEqual(p.read_text(),'not [valid toml')
+        self.assertEqual(p.read_text(encoding='utf-8'),'not [valid toml')
 
     def test_other_member_cannot_replace_personal_connection(self):
         self.install()

@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-31",
+  "revision": "3cd3a45b55bcc34900ad672f5048c5ec59f8610b",
+  "branch": "feat/material-intake",
+  "cached_main": "6d146fc6fee5e15437c6b0d8df192e83fa267ff2",
+  "remote_refresh": "failed: GitHub port 443 connection timeout; latest remote not verified",
+  "python": "3.12.14",
+  "os": "Windows-11-10.0.26300-SP0",
+  "discovered_executions": 221,
+  "unique_source_tests": 194,
+  "repeated_source_tests": 27,
+  "standard_full": {
+    "executed": 221,
+    "failures": 1,
+    "errors": 6,
+    "seconds": 43.729
+  },
+  "utf8_full": {
+    "executed": 221,
+    "failures": 3,
+    "errors": 2,
+    "seconds": 43.033
+  },
+  "default_core": {
+    "executed": 91,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 20.503
+  },
+  "clean_install_materials": {
+    "executed": 2,
+    "errors": 2,
+    "missing_imports": [
+      "docx",
+      "reportlab"
+    ]
+  },
+  "repeated_sources": [
+    "tests\\test_team_core.py"
+  ]
+}

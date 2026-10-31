@@ -24,8 +24,8 @@ def redact(s):
 def binding(path=None):
  p=Path(path) if path else Path(__file__).resolve().parent.parent/'binding.json'
  try:
-  d=json.loads(p.read_text())
-  if 'connection_file' in d:d=json.loads(Path(d['connection_file']).expanduser().read_text())
+  d=json.loads(p.read_text(encoding='utf-8-sig'))
+  if 'connection_file' in d:d=json.loads(Path(d['connection_file']).expanduser().read_text(encoding='utf-8-sig'))
  except (ValueError,OSError,TypeError):raise ConnectorError('松伴连接器尚未绑定团队，请在松伴网页安装或重新绑定。') from None
  if not isinstance(d,dict) or not all(isinstance(d.get(k),str) and d[k] for k in ('url','team_id','token')):raise ConnectorError('团队连接配置不完整。')
  u=urlsplit(d['url'])
@@ -88,7 +88,7 @@ def main(argv=None):
  if args.action=='context':
   r=request(d,'/my-tasks');print(json.dumps({'team_id':d['team_id'],**r},ensure_ascii=False));return
  if args.file and Path(args.file).stat().st_size>60000:raise ConnectorError('输入过长，请勿发送整段历史。')
- raw=Path(args.file).read_text() if args.file else sys.stdin.read(60001)
+ raw=Path(args.file).read_text(encoding='utf-8-sig') if args.file else sys.stdin.read(1000001)
  if len(raw)>60000:raise ConnectorError('输入过长，请勿发送整段历史。')
  try:data=payload(json.loads(raw))
  except (ValueError,TypeError):raise ConnectorError('本轮JSON摘要格式不正确，未上传。') from None
@@ -98,5 +98,6 @@ def main(argv=None):
 
 
 if __name__=='__main__':
+ for stream in (sys.stdin,sys.stdout,sys.stderr):stream.reconfigure(encoding='utf-8')
  try:main()
  except (ConnectorError,OSError) as e:print(json.dumps({'synced':False,'error':str(e)},ensure_ascii=False),file=sys.stderr);sys.exit(1)

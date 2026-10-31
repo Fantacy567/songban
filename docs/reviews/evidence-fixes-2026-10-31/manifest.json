@@ -1,0 +1,102 @@
+{
+  "acceptance.json": {
+    "bytes": 778,
+    "sha256": "e2e939d2502371ad7fe966a9c8c6e4ea2ad2bb2103deee879378639f957adecb"
+  },
+  "browser-gaps.json": {
+    "bytes": 1122,
+    "sha256": "082b5a8ba0d9d1a8c569a3be3f5c2c45ce3ee2766ba31f57673ac013d17d2161"
+  },
+  "clean-install.txt": {
+    "bytes": 511,
+    "sha256": "db482bd48527cc5e08e6ec123c14bdfac588bfb8421873e02e61b7fabfd3faa3"
+  },
+  "clean-parsers.json": {
+    "bytes": 1090,
+    "sha256": "c690d19436a9988b87f2290ddaf5e604f45efc774b1868c97f19063e8b79ccda"
+  },
+  "core-closure.json": {
+    "bytes": 4197,
+    "sha256": "feb44a2876e77b54a72f810ded483d6c092e400276c74493069ae6e6b7e69643"
+  },
+  "delivery-next-action.png": {
+    "bytes": 169493,
+    "sha256": "28a504691da27bfa098011a69c5b258a41c0ab73dbba7078923c0cd86d710f31"
+  },
+  "environment-status.json": {
+    "bytes": 757,
+    "sha256": "34bddc0488cddb7c0d6097d07af36463553041c75337639772db5a47317c361d"
+  },
+  "fix-clean-full.log": {
+    "bytes": 27212,
+    "sha256": "1d5caf9a3f665fee20fe388ed3baa1ab022982e0ed16239ebe3837d5b09fcc28"
+  },
+  "fix-core_e2e.log": {
+    "bytes": 615,
+    "sha256": "acf64ea9e3ebe3ea40f75f2c96e85bac76fe41b5379b87d40f559881b85de714"
+  },
+  "fix-core_install_e2e.log": {
+    "bytes": 302,
+    "sha256": "e727d66d9d062b0086e83f7eafd73613c9769dd72d885e4c0063b21430c72bcf"
+  },
+  "fix-core_native_plugin_e2e.log": {
+    "bytes": 209,
+    "sha256": "efd6b7b6d54c77298aa72e7ed9b86c5e580dd635ce42bec2245d2c5f0aa20062"
+  },
+  "fix-core_selected_turn_e2e.log": {
+    "bytes": 203,
+    "sha256": "17f5355162f99c8bf3a319277d8e9abea37b7d9ef14b23090ffbc765b4e01523"
+  },
+  "fix-final-targeted.log": {
+    "bytes": 406,
+    "sha256": "c1ca7686223ff4394a6f8359cd9a51047471262d6917764b6063c9265eda3522"
+  },
+  "fix-full-final.log": {
+    "bytes": 27208,
+    "sha256": "650ca67d563be4d2f49be24ffc08417a83204f8d4e4353373541a2a423631951"
+  },
+  "fix-materials-e2e.log": {
+    "bytes": 469,
+    "sha256": "da611bf4658d4085b3a6d09e640cfb98342a6c7bcdd9d6548ec2b7618b0ff0f6"
+  },
+  "fix-unified.log": {
+    "bytes": 448,
+    "sha256": "18a9029caded6eb764e90f98f933bfb6f5ff83c42bd07e1a5bea0a115435eb9f"
+  },
+  "materials-browser.json": {
+    "bytes": 605,
+    "sha256": "809327a252947e6e26df8d1baca21909a6045f44e4ea3dbea238536f97999dff"
+  },
+  "mcp-loop.json": {
+    "bytes": 493,
+    "sha256": "4f0d755e5c5920b9df6fe1a76fe9ba10bd97d26440a51f5cdb209a77f7dac55f"
+  },
+  "native_plugin_acceptance.json": {
+    "bytes": 540,
+    "sha256": "661b7c50ac290af6d0210c27317582674d21fbeeefd4b80e73011c17890a51b8"
+  },
+  "one_click_install.json": {
+    "bytes": 933,
+    "sha256": "fe0e91534556174fbf2a9c3fd315477ea27a39e6d38b87afe202d09b8b8bd921"
+  },
+  "plugin-host.json": {
+    "bytes": 177,
+    "sha256": "6baf3c4dc1cc86a9fb675faf92f8ca0a994d85c8b7f3d09d3ff327870cb9dac3"
+  },
+  "selected_turn_acceptance.json": {
+    "bytes": 522,
+    "sha256": "9e492b709a77fc5de22846f7d182deda2abfc8f5436e0b633ad247a205c0ae93"
+  },
+  "shared-draft-visible.png": {
+    "bytes": 157813,
+    "sha256": "7f2d0c5100bf59d92dc3ade183d3890cbeac9bd648229a17cc813bb013646f9e"
+  },
+  "test-summary.json": {
+    "bytes": 1301,
+    "sha256": "a8e1e1105048a8ad3d17f2a0cd817d47092834a1fe15f3d6d71da916f8c3afec"
+  },
+  "unified-browser.json": {
+    "bytes": 203,
+    "sha256": "cbde7cb92cbfe9704146ab362a82de942a37aa2bf13c74fd71307b7dc302e0d4"
+  }
+}

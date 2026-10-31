@@ -38,13 +38,13 @@ class BridgeError(Exception):
 def private_dir():
     p=Path.cwd()/'.songban';p.mkdir(mode=0o700,exist_ok=True)
     ignore=p/'.gitignore'
-    if not ignore.exists():ignore.write_text('*\n')
+    if not ignore.exists():ignore.write_text('*\n',encoding='utf-8')
     return p
 
 
 def config():
     p=Path(os.environ.get('SONGBAN_CONFIG',str(Path.cwd()/'.songban'/'connection.json')))
-    data=json.loads(p.read_text()) if p.exists() else {}
+    data=json.loads(p.read_text(encoding='utf-8-sig')) if p.exists() else {}
     for key,env in [('url','SONGBAN_URL'),('team_id','SONGBAN_TEAM_ID'),('token','SONGBAN_TOKEN')]:
         if os.environ.get(env):data[key]=os.environ[env]
     if not all(isinstance(data.get(k),str) and data[k] for k in ('url','team_id','token')):
@@ -101,7 +101,7 @@ def read_update(filename):
     p=Path(filename).resolve()
     if not p.is_relative_to(Path.cwd().resolve()):raise BridgeError('只读取当前项目目录中的共享进展文件。')
     if p.stat().st_size>MAX_BYTES:raise BridgeError('进展文件过大。')
-    return prepare(json.loads(p.read_text()))
+    return prepare(json.loads(p.read_text(encoding='utf-8-sig')))
 
 
 def enqueue(body):
@@ -109,8 +109,8 @@ def enqueue(body):
     digest=hashlib.sha256((c['url']+c['team_id']+c['token']).encode()).hexdigest()
     data={'connection':digest,'payload':body}
     name=hashlib.sha256((digest+body['event_id']).encode()).hexdigest()+'.json';p=root/name
-    if p.exists() and p.read_text()!=encode(data):raise BridgeError('同一事件ID的队列内容不同，请创建新事件ID。')
-    p.write_text(encode(data));p.chmod(0o600)
+    if p.exists() and p.read_text(encoding='utf-8-sig')!=encode(data):raise BridgeError('同一事件ID的队列内容不同，请创建新事件ID。')
+    p.write_text(encode(data),encoding='utf-8');p.chmod(0o600)
     return p
 
 
@@ -118,7 +118,7 @@ def flush():
     c=config();digest=hashlib.sha256((c['url']+c['team_id']+c['token']).encode()).hexdigest();results=[];rejected=[]
     root=private_dir()/'outbox'
     for p in sorted(root.glob('*.json'),key=lambda p:p.stat().st_mtime) if root.exists() else []:
-        stored=json.loads(p.read_text())
+        stored=json.loads(p.read_text(encoding='utf-8-sig'))
         if stored['connection']!=digest:continue  # never upload an old team's queue to a new team
         try:
             result=call('/reports',stored['payload']);p.unlink();results.append(result)
@@ -133,7 +133,7 @@ def flush():
 def sync_file(filename):
     data=read_update(filename)
     # Content-derived ID when absent in input gives hooks/retries deterministic deduplication.
-    original=json.loads(Path(filename).read_text())
+    original=json.loads(Path(filename).read_text(encoding='utf-8-sig'))
     if not original.get('event_id'):
         data['event_id']='file-'+hashlib.sha256(encode({k:v for k,v in data.items() if k!='event_id'}).encode()).hexdigest()[:32]
     enqueue(data)
@@ -144,8 +144,8 @@ def pull_local_tasks():
     """Return direction + own tasks to file-based agents, not just MCP clients."""
     data=call('/my-tasks')
     root=private_dir();target=root/'team-state.json';content=encode(data)
-    if not target.exists() or target.read_text()!=content:
-        temporary=root/'team-state.tmp';temporary.write_text(content);temporary.chmod(0o600);temporary.replace(target)
+    if not target.exists() or target.read_text(encoding='utf-8-sig')!=content:
+        temporary=root/'team-state.tmp';temporary.write_text(content,encoding='utf-8');temporary.chmod(0o600);temporary.replace(target)
     return data
 
 
@@ -245,7 +245,7 @@ def main():
     if args.mode=='mcp':mcp();return
     if args.mode=='connect':
         data={'url':input('团队网站地址（如 http://127.0.0.1:8886）：').strip(),'team_id':input('队伍ID：').strip(),'token':getpass.getpass('插件连接凭证（输入不显示）：').strip(),'project_root':str(Path.cwd().resolve())}
-        file=private_dir()/'connection.json';file.write_text(encode(data));file.chmod(0o600)
+        file=private_dir()/'connection.json';file.write_text(encode(data),encoding='utf-8');file.chmod(0o600)
         try:result=call('/my-tasks')
         except Exception:file.unlink(missing_ok=True);raise
         print('连接成功；凭证保存在当前项目已忽略的 .songban 目录。可以运行 watch 自动同步共享文件。');return
@@ -258,7 +258,7 @@ def main():
                     stamp=hashlib.sha256(f.read_bytes()).hexdigest()
                     if stamp!=last:
                         data=read_update(args.file)
-                        if not json.loads(f.read_text()).get('event_id'):data['event_id']='file-'+hashlib.sha256(encode({k:v for k,v in data.items() if k!='event_id'}).encode()).hexdigest()[:32]
+                        if not json.loads(f.read_text(encoding='utf-8-sig')).get('event_id'):data['event_id']='file-'+hashlib.sha256(encode({k:v for k,v in data.items() if k!='event_id'}).encode()).hexdigest()[:32]
                         enqueue(data);last=stamp
                 result=flush()
                 if result['sent'] or result['rejected']:print(encode(result),flush=True)
@@ -280,6 +280,7 @@ def main():
 
 
 if __name__=='__main__':
+    for stream in (sys.stdin,sys.stdout,sys.stderr):stream.reconfigure(encoding='utf-8')
     try:main()
     except KeyboardInterrupt:pass
     except Exception as e:

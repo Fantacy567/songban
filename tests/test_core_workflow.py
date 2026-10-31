@@ -106,6 +106,21 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(s['workflow']['accepted_tasks'],0)
         self.assertIsNone(s['active_plan']['tasks'][0]['handoff'])
 
+    def test_completed_plan_points_to_delivery(self):
+        self.plan();self.done();self.check()
+        self.done('T2','b');self.check('T2','a')
+        action=self.snap()['workflow']['next_action']
+        self.assertEqual(action['kind'],'delivery')
+        self.assertEqual(action['page'],'delivery')
+
+    def test_single_member_has_reviewer_invitation_exit(self):
+        self.plan();self.done()
+        snap=self.snap();snap['members']=[m for m in snap['members'] if m['id']=='a']
+        action=build_workflow(snap,'2026-10-31T00:00:00Z')['next_action']
+        self.assertEqual(action['kind'],'invite_reviewer')
+        self.assertEqual(action['page'],'team')
+        self.assertEqual(self.check(member='a').status_code,403)
+
     def test_restart_preserves_check_and_export_has_truthful_limits(self):
         self.plan();self.done();check=self.check().json()
         with TestClient(create_app(self.path,core_only=True,core_model_runner=core.plan_for)) as c:
