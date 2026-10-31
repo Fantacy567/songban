@@ -1,4 +1,5 @@
 import unittest,uuid,sqlite3,tempfile
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 from fastapi.testclient import TestClient
@@ -22,11 +23,21 @@ class DemoModeTests(unittest.TestCase):
    self.assertEqual(self.client.post('/demo/api/core/teams',headers=h,json={'name':'跳过'}).status_code,409)
    self.assertEqual(self.client.get('/api/core/me',headers=h).status_code,401)
   self.assertNotEqual(*tokens)
-  with sqlite3.connect(self.path) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM people').fetchone()[0],0)
+  with closing(sqlite3.connect(self.path)) as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM people').fetchone()[0],0)
   self.assertEqual(self.client.post('/api/demo/bootstrap').status_code,404)
  def test_demo_rejects_remote_hosts_and_missing_session(self):
   self.assertEqual(self.client.get('/demo/',headers={'Host':'example.com'}).status_code,403)
   self.assertEqual(self.client.post('/demo/api/demo/bootstrap').status_code,409)
+
+ def test_demo_shell_preserves_chinese_with_windows_ansi_default(self):
+  read_text=Path.read_text
+  def ansi_default(path,*args,**kwargs):
+   if not args and kwargs.get('encoding') is None:kwargs['encoding']='cp1252'
+   return read_text(path,*args,**kwargs)
+  with patch.object(Path,'read_text',ansi_default):response=self.client.get('/demo/')
+  self.assertEqual(response.status_code,200)
+  self.assertIn('松伴',response.text)
+  self.assertIn('window.SONGBAN_DEMO_BASE="/demo"',response.text)
 
  def test_explicit_public_origin_keeps_session_and_real_account_isolation(self):
   with patch.dict('os.environ',{'SONGBAN_DEMO_PUBLIC_ORIGIN':'https://preview.example.com'}):

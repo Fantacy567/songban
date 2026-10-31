@@ -4,6 +4,9 @@ import argparse,json,sys
 from pathlib import Path
 
 def main():
+ # Keep Chinese instructions readable when Windows redirects output using an ANSI code page.
+ for stream in (sys.stdout,sys.stderr):
+  if hasattr(stream,'reconfigure'):stream.reconfigure(encoding='utf-8',errors='replace')
  if sys.version_info<(3,11):
   print('需要 Python 3.11 或以上。请安装后重新运行。');return 2
  parser=argparse.ArgumentParser(description='安装网页中所选队伍的松伴连接器')

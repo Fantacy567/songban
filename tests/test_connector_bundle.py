@@ -1,4 +1,4 @@
-import io,json,sqlite3,subprocess,sys,tempfile,unittest,zipfile
+import io,json,os,sqlite3,subprocess,sys,tempfile,unittest,zipfile
 from pathlib import Path
 from contextlib import closing
 from unittest.mock import patch
@@ -47,5 +47,6 @@ class ConnectorBundleTests(unittest.TestCase):
   folder=self.root/'unpacked/songban-connector-install'
   # A bad binding should produce a readable error without touching tool configuration.
   (folder/'connection.json').write_text('{}')
-  result=subprocess.run([sys.executable,str(folder/'install.py'),'--check','--home',str(self.root/'client')],cwd=folder,capture_output=True,text=True,timeout=15)
-  self.assertNotEqual(result.returncode,0);self.assertNotIn('Traceback',result.stdout+result.stderr);self.assertFalse((self.root/'client/.codex').exists())
+  env={**os.environ,'PYTHONUTF8':'0','PYTHONIOENCODING':'cp1252'}
+  result=subprocess.run([sys.executable,str(folder/'install.py'),'--check','--home',str(self.root/'client')],cwd=folder,capture_output=True,text=True,encoding='utf-8',env=env,timeout=15)
+  self.assertNotEqual(result.returncode,0);self.assertNotIn('Traceback',result.stdout+result.stderr);self.assertIn('连接检查未通过',result.stdout);self.assertFalse((self.root/'client/.codex').exists())

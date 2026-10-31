@@ -34,7 +34,7 @@ class Demo:
   local_allowed=host in ['127.0.0.1','localhost','testserver'] and peer in ['127.0.0.1','::1','testclient']
   if not (local_allowed or public_allowed):return await JSONResponse({'error':{'message':'演示仅限本机访问。'}},403)(scope,receive,send)
   path=scope['path']
-  if path=='/':return await HTMLResponse((ROOT/'static/songban.html').read_text().replace('<head>','<head>'+BOOT.replace('__DEMO_BASE__',json.dumps(self.base_path))),headers={'Cache-Control':'no-store'})(scope,receive,send)
+  if path=='/':return await HTMLResponse((ROOT/'static/songban.html').read_text(encoding='utf-8').replace('<head>','<head>'+BOOT.replace('__DEMO_BASE__',json.dumps(self.base_path))),headers={'Cache-Control':'no-store'})(scope,receive,send)
   key=headers.get(b'x-songban-demo',b'').decode()
   if path.startswith('/api/'):
    try:uuid.UUID(key);app,users=self.session(key)
