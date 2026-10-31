@@ -43,7 +43,7 @@ def invoke(name,args,path):
 def main():
  p=argparse.ArgumentParser();p.add_argument('--binding',required=True);p.add_argument('--check',action='store_true');a=p.parse_args()
  if a.check:
-  d=binding(a.binding);request(d,'/my-tasks');print(json.dumps({'connected':True,'team_id':d['team_id']}));return
+  d=binding(a.binding);request(d,'/context');print(json.dumps({'connected':True,'team_id':d['team_id']}));return
  for line in sys.stdin:
   req={}
   try:

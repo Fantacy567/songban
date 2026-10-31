@@ -30,6 +30,10 @@ def binding(path=None):
  if not isinstance(d,dict) or not all(isinstance(d.get(k),str) and d[k] for k in ('url','team_id','token')):raise ConnectorError('团队连接配置不完整。')
  u=urlsplit(d['url'])
  if not ((u.scheme=='https' or (u.scheme=='http' and u.hostname in ('127.0.0.1','localhost','::1'))) and u.hostname and not (u.username or u.password or u.query or u.fragment) and u.path in ('','/')):raise ConnectorError('团队地址无效；只支持HTTPS或明确的本机地址。')
+ if d.get('base_path','') not in ('','/demo'):raise ConnectorError('演示连接路径无效。')
+ if 'demo_session' in d:
+  try:uuid.UUID(d['demo_session'])
+  except (ValueError,TypeError,AttributeError):raise ConnectorError('演示会话无效，请重新连接。') from None
  if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',d['team_id']) or not d['token'].startswith('sbconn_'):raise ConnectorError('请使用本人在松伴生成的团队连接。')
  return d
 
@@ -40,7 +44,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def request(d,suffix,data=None):
  raw=json.dumps(data,ensure_ascii=False,allow_nan=False).encode() if data is not None else None
- req=urllib.request.Request(d['url'].rstrip('/')+'/api/core/teams/'+d['team_id']+suffix,data=raw,headers={'Authorization':'Bearer '+d['token'],'Content-Type':'application/json'},method='POST' if raw is not None else 'GET')
+ req=urllib.request.Request(d['url'].rstrip('/')+d.get('base_path','')+'/api/core/teams/'+d['team_id']+suffix,data=raw,headers={'Authorization':'Bearer '+d['token'],'Content-Type':'application/json',**({'X-Songban-Demo':d['demo_session']} if d.get('demo_session') else {})},method='POST' if raw is not None else 'GET')
  try:
   opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
   with opener.open(req,timeout=20) as r:
@@ -86,7 +90,7 @@ def main(argv=None):
  if not args.selected:raise ConnectorError('本轮未标为显式选择，不读取或同步任何对话内容。')
  d=binding(args.binding)
  if args.action=='context':
-  r=request(d,'/my-tasks');print(json.dumps({'team_id':d['team_id'],**r},ensure_ascii=False));return
+  r=request(d,'/context');print(json.dumps({'team_id':d['team_id'],**r},ensure_ascii=False));return
  if args.file and Path(args.file).stat().st_size>60000:raise ConnectorError('输入过长，请勿发送整段历史。')
  raw=Path(args.file).read_text(encoding='utf-8-sig') if args.file else sys.stdin.read(1000001)
  if len(raw)>60000:raise ConnectorError('输入过长，请勿发送整段历史。')

@@ -12,6 +12,7 @@ import re
 import secrets
 import sys
 import time
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -45,13 +46,17 @@ def private_dir():
 def config():
     p=Path(os.environ.get('SONGBAN_CONFIG',str(Path.cwd()/'.songban'/'connection.json')))
     data=json.loads(p.read_text(encoding='utf-8-sig')) if p.exists() else {}
-    for key,env in [('url','SONGBAN_URL'),('team_id','SONGBAN_TEAM_ID'),('token','SONGBAN_TOKEN')]:
+    for key,env in [('url','SONGBAN_URL'),('team_id','SONGBAN_TEAM_ID'),('token','SONGBAN_TOKEN'),('base_path','SONGBAN_BASE_PATH'),('demo_session','SONGBAN_DEMO_SESSION')]:
         if os.environ.get(env):data[key]=os.environ[env]
     if not all(isinstance(data.get(k),str) and data[k] for k in ('url','team_id','token')):
         raise BridgeError('尚未连接。请先在当前项目运行 python3 bridge.py connect，或配置三个环境变量。')
     u=urllib.parse.urlsplit(data['url'])
     if not ((u.scheme=='https' or (u.scheme=='http' and u.hostname in ('127.0.0.1','localhost','::1'))) and u.hostname and not (u.username or u.password or u.query or u.fragment) and u.path in ('','/')):
         raise BridgeError('团队服务需使用HTTPS，或本机HTTP地址；不要填写带密钥或额外路径的地址。')
+    if data.get('base_path','') not in ('','/demo'):raise BridgeError('演示连接路径无效。')
+    if 'demo_session' in data:
+        try:uuid.UUID(data['demo_session'])
+        except (ValueError,TypeError,AttributeError):raise BridgeError('演示会话无效，请重新连接。') from None
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',data['team_id']):raise BridgeError('队伍ID格式不正确。')
     if not data['token'].startswith('sbconn_'):raise BridgeError('请使用网页生成的插件连接凭证，不要使用账号密码或模型密钥。')
     if data.get('project_root') and Path(data['project_root']).resolve()!=Path.cwd().resolve():
@@ -65,8 +70,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def call(path,body=None):
-    c=config();url=c['url']+'/api/core/teams/'+c['team_id']+path
-    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json'},method='POST' if body is not None else 'GET')
+    c=config();url=c['url']+c.get('base_path','')+'/api/core/teams/'+c['team_id']+path
+    req=urllib.request.Request(url,data=encode(body).encode() if body is not None else None,headers={'Authorization':'Bearer '+c['token'],'Content-Type':'application/json',**({'X-Songban-Demo':c['demo_session']} if c.get('demo_session') else {})},method='POST' if body is not None else 'GET')
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     try:
         with opener.open(req,timeout=20) as response:
@@ -249,7 +254,7 @@ def main():
     if args.mode=='connect':
         data={'url':input('团队网站地址（如 http://127.0.0.1:8886）：').strip(),'team_id':input('队伍ID：').strip(),'token':getpass.getpass('插件连接凭证（输入不显示）：').strip(),'project_root':str(Path.cwd().resolve())}
         file=private_dir()/'connection.json';file.write_text(encode(data),encoding='utf-8');file.chmod(0o600)
-        try:result=call('/my-tasks')
+        try:result=call('/context')
         except Exception:file.unlink(missing_ok=True);raise
         print('连接成功；凭证保存在当前项目已忽略的 .songban 目录。可以运行 watch 自动同步共享文件。');return
     if args.mode=='watch':

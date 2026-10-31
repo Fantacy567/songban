@@ -16,7 +16,7 @@ class Demo:
   with self.lock:
    if key not in self.sessions:
     if len(self.sessions)>=100:raise ValueError('演示会话已满，请重启演示服务。')
-    app=create_app(Path(self.tmp.name)/(key+'.sqlite3'),core_only=True,materials_model_runner=fixture.materials,workbench_model_runner=fixture.workbench,core_model_runner=fixture.plan,idea_model_runner=fixture.ranking,recap_model_runner=fixture.recap,interview_runner=fixture.interview,enforce_journey=True);app.state.demo=True
+    app=create_app(Path(self.tmp.name)/(key+'.sqlite3'),core_only=True,materials_model_runner=fixture.materials,workbench_model_runner=fixture.workbench,core_model_runner=fixture.plan,idea_model_runner=fixture.ranking,recap_model_runner=fixture.recap,interview_runner=fixture.interview,enforce_journey=True);app.state.demo=True;app.state.demo_base_path=self.base_path
     users=[]
     with closing(sqlite3.connect(app.state.db_path)) as con:
      for name in ['小松（演示）','小林（模拟队友）']:

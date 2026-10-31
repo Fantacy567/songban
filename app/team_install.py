@@ -90,20 +90,20 @@ def config_text(root,tool,before,entry):
 def probe_bridge(bridge,config,root):
     env={k:v for k,v in os.environ.items() if not k.startswith('SONGBAN_')}
     env.update({'SONGBAN_CONFIG':str(config),'SONGBAN_PROJECT_ROOT':str(root),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'})
-    requests=[{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'songban-installer','version':'1'}}},{'jsonrpc':'2.0','method':'notifications/initialized'}, {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'songban_get_my_tasks','arguments':{}}}]
+    requests=[{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'songban-installer','version':'1'}}},{'jsonrpc':'2.0','method':'notifications/initialized'}, {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'songban_get_team_context','arguments':{}}}]
     try:
         result=subprocess.run([sys.executable,str(bridge),'mcp'],input='\n'.join(json.dumps(r) for r in requests)+'\n',text=True,encoding='utf-8',capture_output=True,env=env,cwd=root,timeout=26,check=False)
         responses=[json.loads(l) for l in result.stdout.splitlines() if l.strip()]
         reply=next(r for r in responses if r.get('id')==2)['result']
         if result.returncode or reply.get('isError'):raise ValueError()
         data=json.loads(reply['content'][0]['text'])
-        if not isinstance(data.get('tasks'),list) or not isinstance(data.get('direction'),dict):raise ValueError()
+        if not isinstance(data.get('active_plan'),dict) or not isinstance(data.get('direction'),dict):raise ValueError()
         return {'bridge_verified':True,'plan_version':data['plan_version'],'client_loaded':False}
     except (OSError,subprocess.SubprocessError,ValueError,KeyError,StopIteration,IndexError,TypeError):
         raise InstallError('connection_check_failed','插件未能取回团队任务，已回退本次安装。请检查团队地址和网络后重试。',502) from None
 
 
-def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None):
+def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None,binding_options=None):
     root=project_path(str(root))
     if tool not in TOOLS:raise InstallError('unsupported_tool','当前一键安装支持Codex、WorkBuddy和Cursor；其他工具请使用通用插件。')
     u=urlsplit(url)
@@ -124,7 +124,7 @@ def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None):
         private_config=target_path(root,'.songban/connection.json')
         entry={'command':sys.executable,'args':[str(bridge),'mcp'],'env':{'SONGBAN_CONFIG':str(private_config),'SONGBAN_PROJECT_ROOT':str(root),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}
         merged=config_text(root,tool,before,entry)
-        files={config:merged.encode(),private_config:json.dumps({'url':url,'team_id':sid,'token':token,'project_root':str(root)},ensure_ascii=False).encode()}
+        files={config:merged.encode(),private_config:json.dumps({'url':url,'team_id':sid,'token':token,'project_root':str(root),**(binding_options or {})},ensure_ascii=False).encode()}
         ignore=target_path(root,'.songban/.gitignore');files[ignore]=b'*\n'
         for rel in ('bridge.py','README.md','mcp.example.json','update.example.json','skills/songban-team/SKILL.md','skills/songban-team/agents/openai.yaml'):
             files[target_path(root,'.songban/plugin/'+rel)]=(PLUGIN_ROOT/rel).read_bytes()

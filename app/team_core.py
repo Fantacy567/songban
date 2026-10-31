@@ -691,13 +691,15 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
             count=con.execute('SELECT COUNT(*) FROM core_connections WHERE squad_id=? AND user_id=? AND revoked=0 AND expires_at>?',(sid,actor['id'],now())).fetchone()[0]
             if count>=10:raise problem(409,'connection_limit','请先撤销不用的旧连接，最多保留10个。')
             con.execute('INSERT INTO core_connections(id,squad_id,user_id,label,token_hash,prefix,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',(ident,sid,actor['id'],('松伴连接器' if tool in ('connector-skill','connector-plugin') else TOOLS[tool][1])+' · 一键安装',digest(clear),clear[:12],now(),expiry))
+        binding_options={'base_path':getattr(api.state,'demo_base_path',''),'demo_session':request.headers.get('x-songban-demo','')} if getattr(api.state,'demo',False) else {}
+        extra={'binding_options':binding_options} if binding_options else {}
         try:
             if tool=='connector-plugin':
-                result=install_connector_plugin(sid,actor['id'],ident,clear,str(request.base_url).rstrip('/'))
+                result=install_connector_plugin(sid,actor['id'],ident,clear,str(request.base_url).rstrip('/'),**extra)
             elif tool=='connector-skill':
-                result=install_connector_skill(sid,actor['id'],ident,clear,str(request.base_url).rstrip('/'))
+                result=install_connector_skill(sid,actor['id'],ident,clear,str(request.base_url).rstrip('/'),**extra)
             else:
-                result=install_project(root,tool,str(request.base_url).rstrip('/'),sid,actor['id'],ident,clear)
+                result=install_project(root,tool,str(request.base_url).rstrip('/'),sid,actor['id'],ident,clear,**extra)
             previous=result.pop('previous_connection_id',None)
             if previous:
                 with db(True) as con:con.execute('UPDATE core_connections SET revoked=1 WHERE id=? AND squad_id=? AND user_id=?',(previous,sid,actor['id']))

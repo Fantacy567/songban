@@ -79,7 +79,7 @@ function icon(kind) {
   const paths={events:'M5 5h14v15H5z M8 2v6 M16 2v6 M5 10h14',work:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',arrow:'M4 12h16 M14 6l6 6-6 6'};
   return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[kind]||paths.arrow}"/></svg>`;
 }
-function pine(small=false){return `<div class="pine ${small?'pine-small':''}" role="img" aria-label="松伴小松树"><img src="/static/design/pine-mascot.png" alt="" width="220" height="260"></div>`;}
+function pine(small=false){return `<div class="pine ${small?'pine-small':''}" role="img" aria-label="松伴小松树"><div class="pine-shape"></div><div class="pine-eyes"><i></i><i></i></div></div>`;}
 function brand(){return '<a class="wordmark" href="#/login" aria-label="松伴首页"><b>松伴</b><span>SONGBAN</span></a>';}
 function head(kicker,title,description){return `<div class="page-heading"><div><p class="eyebrow">${esc(kicker)}</p><h1>${esc(title)}</h1><p class="subtitle">${esc(description)}</p></div>${pine(true)}</div>`;}
 function go(page) {
@@ -158,7 +158,7 @@ function workbenchPage(){
 function landing(){
   unmountWorkbench();
   const projects=[['question-workshop','问号工坊','Agent'],['dinner-agent','晚饭有谱','Agent'],['tiny-room','方寸小屋','3D'],['creator-shop','小摊计划','商业化产品 · 硬件'],['leaf-archive','叶脉档案','模型训练 · 硬件'],['cloud-post','云上邮局','游戏']];
-  root.innerHTML=`<div class="landing reference-design" data-shell="songban-v1" data-route="login"><header class="landing-header">${brand()}<div class="header-actions"><button class="ink-button" data-auth>${state.me?'回到实践':'登录'} ↗</button></div></header><main id="main-content" tabindex="-1"><section class="landing-hero"><div class="hero-copy"><h1>有松伴在场<br>每一步都有方向</h1><p class="subtitle">一场黑客松，一群同路人，让创作一步步发生。</p><a class="primary landing-cta" href="/demo/">找到适合我的黑客松 ${icon('arrow')}</a><p class="caption">免手机号体验 · 演示使用虚构资料</p></div>${pine()}<div class="project-deck" id="possibilities" aria-label="创作方向示意，非已完成作品">${projects.map(([slug,title,type],i)=>`<div class="project-card card-${i}"><img src="/static/design/${slug}.webp" alt="${title}创作方向示意" width="440" height="620"><div class="project-caption"><strong>${title}</strong><small>${type}</small></div></div>`).join('')}</div></section></main><footer class="page-footer">从小而完整的作品开始，留下真实的进展。</footer></div>`;
+  root.innerHTML=`<div class="landing reference-design" data-shell="songban-v1" data-route="login"><header class="landing-header">${brand()}<div class="header-actions"><button class="ink-button" data-auth>${state.me?'回到实践':'登录'} ↗</button></div></header><main id="main-content" tabindex="-1"><section class="landing-hero"><div class="hero-copy"><h1>有松伴在场<br>每一步都有方向</h1><p class="subtitle">一场黑客松，一群同路人，让创作一步步发生。</p><a class="primary landing-cta" href="/demo/">找到适合我的黑客松 ${icon('arrow')}</a><p class="caption">免手机号体验 · 演示使用虚构资料</p></div><div class="pine" role="img" aria-label="松伴小松树"><img src="/static/design/pine-mascot.png" alt="" width="220" height="260"></div><div class="project-deck" id="possibilities" aria-label="创作方向示意，非已完成作品">${projects.map(([slug,title,type],i)=>`<div class="project-card card-${i}" style="--card-index:${i}"><img src="/static/design/${slug}.webp" alt="${title}创作方向示意" width="440" height="620"><div class="project-caption"><strong>${title}</strong><small>${type}</small></div></div>`).join('')}</div></section></main><footer class="page-footer">从小而完整的作品开始，留下真实的进展。</footer></div>`;
   $('[data-auth]').onclick=()=>state.me?go('work'):openAuth();
 }
 function modal(title,body){
@@ -247,7 +247,7 @@ function deliveryPage(){
 }
 async function refresh(force=false){
   if(!state.token||!state.team)return;
-  if(state.syncing){if(force)state.pendingRefresh=true;return;}
+  if(state.syncing){if(!force)return;await new Promise(resolve=>(state.refreshWaiters??=[]).push(resolve));return refresh(true);}
   state.syncing=true;const team=state.team;
   try{
     const data=await api(endpoint(''));const flow=await api('/api/journey?team_id='+encodeURIComponent(team));if(team!==state.team)return;
@@ -260,7 +260,7 @@ async function refresh(force=false){
     if(changed&&editing&&!force&&['myTasks','teamTasks'].includes(state.page))updateTaskMeters(data);
     const status=$('#sync-state');if(status)status.textContent=changed&&editing&&!force?'有新进展，保存前请核对':'已同步 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
   }catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}
-  finally{state.syncing=false;if(state.pendingRefresh){state.pendingRefresh=false;refresh(true);}}
+  finally{state.syncing=false;const waiters=state.refreshWaiters||[];state.refreshWaiters=[];waiters.forEach(resolve=>resolve());}
 }
 function routeFromHash(){
   const [route,query]=(location.hash.replace(/^#\/?/,'')||'login').split('?');

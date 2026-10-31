@@ -43,3 +43,20 @@ class UnifiedTests(unittest.TestCase):
   self.onboard();self.contest();team=self.call('/api/core/teams',{'name':'队伍'});base='/api/core/teams/'+team['id']
   self.call('/api/journey/teams/'+team['id']+'/submission',{'receipt':'fake','materials':'fake','confirmed':True},status=409)
   self.call(base+'/recap',{'expected_version':0,'feelings':'提前复盘','result':'fake'},'PUT',409)
+
+ def test_native_install_probe_reads_context_before_task_publication(self):
+  from tests.test_connector_plugin import server
+  from unittest.mock import patch
+  from contextlib import redirect_stdout
+  import io
+  self.onboard();self.contest();team=self.call('/api/core/teams',{'name':'连接器验证'})
+  base='/api/core/teams/'+team['id'];connection=self.call(base+'/connections',{'label':'原生连接验证'})
+  binding={'url':'http://testserver','team_id':team['id'],'token':connection['token']}
+  def request(d,suffix):
+   response=self.c.get(base+suffix,headers={'Authorization':'Bearer '+d['token']})
+   if response.status_code!=200:raise server.ConnectorError(response.json()['error']['code'])
+   return response.json()
+  with patch.object(server,'binding',return_value=binding),patch.object(server,'request',side_effect=request),patch('sys.argv',['server.py','--binding','synthetic.json','--check']),redirect_stdout(io.StringIO()) as output:
+   server.main()
+  self.assertTrue(json.loads(output.getvalue())['connected'])
+  self.assertEqual(self.c.get(base+'/my-tasks',headers={'Authorization':'Bearer '+connection['token']}).status_code,409)
