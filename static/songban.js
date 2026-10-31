@@ -3,8 +3,8 @@ const root = document.querySelector('#app');
 const $ = selector => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {discussion:'讨论',in_progress:'进行中',blocked:'受阻',reported_done:'本人报告完成',todo:'尚无进展'};
-const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'discussion',direction:'direction',work:'overview',collaboration:'overview',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
-const pageRoutes = {discussion:'ideas',overview:'work',plugin:'tools',recap:'review'};
+const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'discussion',direction:'direction',work:'myTasks','team-work':'teamTasks',collaboration:'overview',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
+const pageRoutes = {discussion:'ideas',overview:'collaboration',myTasks:'work',teamTasks:'team-work',plugin:'tools',recap:'review'};
 const state = {token:localStorage.getItem('studio-token') || '',team:localStorage.getItem('studio-squad') || '',page:'login',me:null,data:null,busy:false,epoch:0,events:[],eventId:sessionStorage.getItem('songban-event') || '',selectedRules:'',drafts:new Map(),syncing:false};
 const endpoint = suffix => '/api/core/teams/' + encodeURIComponent(state.team) + suffix;
 const values = data => Object.fromEntries(data.entries());
@@ -82,7 +82,7 @@ function go(page) {
 }
 function shell() {
   const activity=['events','event'].includes(state.page);
-  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['team','小队'],['ideas','选题讨论'],['direction','方向'],['work','任务'],['tools','个人工具'],['library','资料库'],['materials','资料入口'],['members','成员'],['delivery','交付'],['review','复盘']].map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队">${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div></main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
+  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['team','小队'],['ideas','选题讨论'],['direction','方向'],['work','个人任务'],['team-work','团队任务'],['tools','个人工具'],['library','资料库'],['materials','资料入口'],['members','成员'],['delivery','交付'],['review','复盘']].map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队">${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div></main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
   root.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>openAuth());
   $('[data-help]').onclick=()=>showHelp();
   if($('#logout'))$('#logout').onclick=()=>{clearIdentity();go('login');toast('已退出当前浏览器。');};
@@ -101,7 +101,7 @@ function render() {
   if(state.page==='event'){eventPage();return;}
   if(!state.me){$('#content').innerHTML=`${head('一起动手','让想法，有一个开始。','登录后创建或加入真实团队，和同伴一起保存进展。')}<section class="card empty"><p>使用手机号登录，接着完成你的作品。</p><button class="primary" data-auth-required>登录并继续 ${icon('arrow')}</button></section>`;$('[data-auth-required]').onclick=()=>openAuth();return;}
   if(!state.data){renderOnboarding();return;}
-  const pages={team:teamPage,discussion:discussionPage,direction:direction,overview:overview,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
+  const pages={team:teamPage,discussion:discussionPage,direction:direction,overview:overview,myTasks:myTasksPage,teamTasks:teamTasksPage,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
   (pages[state.page]||overview)();
   if(state.page==='direction'&&!state.data.direction.rules&&state.selectedRules){const f=$('#direction-form');f.elements.rules.value=state.selectedRules;f.dataset.dirty='true';}
   restoreDrafts();
@@ -202,7 +202,8 @@ function recapPage(){
   bindForm('#reflection-form',async(form,fd)=>{await api(endpoint('/reports'),{summary:'复盘：'+values(fd).summary,event_id:crypto.randomUUID(),tool:'网页复盘',origin:'human',status:'discussion'});state.drafts.delete(state.team+':reflection-form');await refresh(true);toast('复盘已保存到团队。');});
 }
 async function refresh(force=false){
-  if(!state.token||!state.team||state.syncing)return;
+  if(!state.token||!state.team)return;
+  if(state.syncing){if(force)state.pendingRefresh=true;return;}
   state.syncing=true;const team=state.team;
   try{
     const data=await api(endpoint(''));if(team!==state.team)return;
@@ -210,9 +211,10 @@ async function refresh(force=false){
     const editing=!!root.querySelector('form[data-dirty="true"],dialog[open]')||state.busy;
     if(force){captureDrafts();state.data=data;render();}
     else if(changed&&!editing&&state.page!=='materials'){state.data=data;if(state.page==='library'&&$('#library-notes'))libraryMarkUpdated();else if(!['login','events','event'].includes(state.page))render();}
+    if(changed&&editing&&!force&&['myTasks','teamTasks'].includes(state.page))updateTaskMeters(data);
     const status=$('#sync-state');if(status)status.textContent=changed&&editing&&!force?'有新进展，保存前请核对':'已同步 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
   }catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}
-  finally{state.syncing=false;}
+  finally{state.syncing=false;if(state.pendingRefresh){state.pendingRefresh=false;refresh(true);}}
 }
 function routeFromHash(){
   const [route,query]=(location.hash.replace(/^#\/?/,'')||'login').split('?');
@@ -221,12 +223,12 @@ function routeFromHash(){
 }
 document.addEventListener('DOMContentLoaded',async()=>{
   routeFromHash();
-  if(state.token){try{await load();if(state.page==='login'&&state.me.teams.length)state.page='overview';}catch(error){if(state.token)toast(error.message);}}
+  if(state.token){try{await load();if(state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
   render();
   const markDirty=e=>{if(e.target.form){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);
   root.addEventListener('change',markDirty);
   window.addEventListener('hashchange',()=>{if(location.hash==='#possibilities')return;captureDrafts();routeFromHash();render();window.scrollTo(0,0);});
-  setInterval(()=>{if(!document.hidden&&!['login','events','event'].includes(state.page))refresh();},5000);
-  window.addEventListener('storage',e=>{if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
+  setInterval(()=>{if(!document.hidden&&!['login','events','event'].includes(state.page))refresh();},2000);
+  window.addEventListener('storage',e=>{if(e.key==='songban-task-update'&&e.newValue){try{if(JSON.parse(e.newValue).team===state.team)refresh();}catch{}}if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
 });

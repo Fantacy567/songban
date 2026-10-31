@@ -23,6 +23,7 @@ from .team_install import TOOLS, InstallError, is_local_request, project_path, i
 from .connector_skill import install_connector_skill
 from .connector_plugin import install_connector_plugin
 from .conversation_library import register_library, library_counts
+from .task_progress import member_task_progress
 from .core_workflow import SCHEMA as WORKFLOW_SCHEMA, enrich_handoffs, build_workflow, handoff_markdown
 
 SCHEMA = """
@@ -182,10 +183,11 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         active=json.loads(s['active_plan'])
         for task in active.get('tasks',[]):
             # Task state must not disappear when its report leaves the recent-feed window.
-            row=con.execute("SELECT id,body,created_at FROM core_reports WHERE squad_id=? AND user_id=? AND json_extract(body,'$.task_key')=? AND json_extract(body,'$.plan_version')=? AND COALESCE(json_extract(body,'$.capture_only'),0)=0 ORDER BY seq DESC LIMIT 1",(squad['id'],task['owner_id'],task['key'],s['plan_version'])).fetchone()
+            row=con.execute("SELECT id,body,created_at,seq FROM core_reports WHERE squad_id=? AND user_id=? AND json_extract(body,'$.task_key')=? AND json_extract(body,'$.plan_version')=? AND COALESCE(json_extract(body,'$.capture_only'),0)=0 ORDER BY seq DESC LIMIT 1",(squad['id'],task['owner_id'],task['key'],s['plan_version'])).fetchone()
             latest=({'id':row['id'],**json.loads(row['body'])} if row else None)
             task['status']=latest['status'] if latest else 'todo'
             task['latest_report_id']=latest['id'] if latest else None
+            task['latest_report_seq']=row['seq'] if row else 0
             task['latest_progress']=({'summary':latest['summary'],'evidence':latest['evidence'],'verification':latest['verification']} if latest else None)
             check=None
             if task['latest_report_id']:
@@ -208,6 +210,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         result['library_stats']=library_counts(con,squad['id'])
         result['my_connector_count']=con.execute('SELECT COUNT(*) FROM core_connections WHERE squad_id=? AND user_id=? AND revoked=0 AND paused=0 AND expires_at>?',(squad['id'],actor['id'],now())).fetchone()[0]
         result['workflow']=build_workflow(result,now())
+        result['task_progress']=member_task_progress(members,active.get('tasks',[]))
         return result
 
     def model_context(snap):
