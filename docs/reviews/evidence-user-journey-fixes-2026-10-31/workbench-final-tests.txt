@@ -1,0 +1,36 @@
+C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_actions_sanitized_and_member_review_removed (tests.test_workbench.WorkbenchTests.test_actions_sanitized_and_member_review_removed) ... ok
+test_actual_model_unknown_remains_null (tests.test_workbench.WorkbenchTests.test_actual_model_unknown_remains_null) ... ok
+test_bounded_materials_include_truncation_warning (tests.test_workbench.WorkbenchTests.test_bounded_materials_include_truncation_warning) ... ok
+test_cached_response_and_history_cannot_reuse_revoked_source (tests.test_workbench.WorkbenchTests.test_cached_response_and_history_cannot_reuse_revoked_source) ... ok
+test_catalog_and_selected_materials_only (tests.test_workbench.WorkbenchTests.test_catalog_and_selected_materials_only) ... ok
+test_concurrent_share_creates_one_note (tests.test_workbench.WorkbenchTests.test_concurrent_share_creates_one_note) ... ok
+test_create_idempotent_conflict_preserves_history (tests.test_workbench.WorkbenchTests.test_create_idempotent_conflict_preserves_history) ... ok
+test_expired_pending_never_calls_runner_even_after_recovery (tests.test_workbench.WorkbenchTests.test_expired_pending_never_calls_runner_even_after_recovery) ... ok
+test_global_concurrency_limit_across_apps (tests.test_workbench.WorkbenchTests.test_global_concurrency_limit_across_apps) ... ok
+test_history_selection_and_sensitive_context (tests.test_workbench.WorkbenchTests.test_history_selection_and_sensitive_context) ... ok
+test_history_titles_use_first_question_and_rename_stays_private (tests.test_workbench.WorkbenchTests.test_history_titles_use_first_question_and_rename_stays_private) ... ok
+test_late_response_after_expiry_is_never_saved (tests.test_workbench.WorkbenchTests.test_late_response_after_expiry_is_never_saved) ... ok
+test_missing_model_and_invalid_fixture_are_not_success (tests.test_workbench.WorkbenchTests.test_missing_model_and_invalid_fixture_are_not_success) ... ok
+test_my_confirmed_tasks_only (tests.test_workbench.WorkbenchTests.test_my_confirmed_tasks_only) ... ok
+test_owner_team_and_connector_isolation (tests.test_workbench.WorkbenchTests.test_owner_team_and_connector_isolation) ... ok
+test_parallel_same_session_and_same_request (tests.test_workbench.WorkbenchTests.test_parallel_same_session_and_same_request) ... ok
+test_personal_context_and_openapi_contract (tests.test_workbench.WorkbenchTests.test_personal_context_and_openapi_contract) ... ok
+test_phone_shaped_source_ids_and_real_sha256_survive_api_and_restart (tests.test_workbench.WorkbenchTests.test_phone_shaped_source_ids_and_real_sha256_survive_api_and_restart) ... ok
+test_restart_and_lease_expiry_do_not_replay (tests.test_workbench.WorkbenchTests.test_restart_and_lease_expiry_do_not_replay) ... ok
+test_share_crash_after_archive_is_recoverable (tests.test_workbench.WorkbenchTests.test_share_crash_after_archive_is_recoverable) ... ok
+test_share_does_not_reintroduce_private_details_removed_from_summary (tests.test_workbench.WorkbenchTests.test_share_does_not_reintroduce_private_details_removed_from_summary) ... ok
+test_share_explicit_true_source_round_and_no_analysis (tests.test_workbench.WorkbenchTests.test_share_explicit_true_source_round_and_no_analysis) ... ok
+test_source_change_and_token_revocation_discard_late_response (tests.test_workbench.WorkbenchTests.test_source_change_and_token_revocation_discard_late_response) ... ok
+test_team_guidance_is_for_viewer_and_not_added_to_model_context (tests.test_workbench.WorkbenchTests.test_team_guidance_is_for_viewer_and_not_added_to_model_context) ... ok
+test_team_session_cannot_share_to_different_team (tests.test_workbench.WorkbenchTests.test_team_session_cannot_share_to_different_team) ... ok
+test_timeout_unknown_no_replay_and_explicit_new_attempt (tests.test_workbench.WorkbenchTests.test_timeout_unknown_no_replay_and_explicit_new_attempt) ... ok
+test_turn_idempotency_and_provenance (tests.test_workbench.WorkbenchTests.test_turn_idempotency_and_provenance) ... ok
+test_user_rate_limit (tests.test_workbench.WorkbenchTests.test_user_rate_limit) ... ok
+test_validation (tests.test_workbench.WorkbenchTests.test_validation) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 10.657s
+
+OK

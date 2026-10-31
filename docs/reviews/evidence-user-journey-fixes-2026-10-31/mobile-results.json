@@ -1,0 +1,53 @@
+{
+  "base": "http://127.0.0.1:8902",
+  "mobile": true,
+  "sms": "fixture",
+  "model": "fixture",
+  "results": [
+    {
+      "name": "Register via UI with explicit test SMS",
+      "passed": true
+    },
+    {
+      "name": "Material draft survives refresh and navigation, then saves",
+      "passed": true
+    },
+    {
+      "name": "Private history uses first question and supports durable rename",
+      "passed": true
+    },
+    {
+      "name": "Timeout recovery displays actual checked state, then explicit retry",
+      "passed": true
+    },
+    {
+      "name": "Create two teams and join companion, with immediate invite guidance",
+      "passed": true
+    },
+    {
+      "name": "Personal share navigates to each selected team and labels edited summary",
+      "passed": true
+    },
+    {
+      "name": "Direction uses Beijing date input and truthful first-plan guidance",
+      "passed": true
+    },
+    {
+      "name": "Two actual text reports and peer checks update on navigation",
+      "passed": true
+    },
+    {
+      "name": "Handoff export and retrospective complete without claiming external submission",
+      "passed": true
+    },
+    {
+      "name": "Relogin shows current stage, old history, and no private-cache carryover",
+      "passed": true
+    },
+    {
+      "name": "No uncaught browser errors",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

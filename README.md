@@ -1,19 +1,145 @@
-> 最新学习产品规划：[文档目录](docs/planning/README.md)。已拆分整体规划、产品流程、前端、后端、美术与接口规范；交付规则不限定 UI 风格或布局。内容为待实施草案。
+# 松伴 · 当前仓库导航
 
-> [Spec Kit 项目宪法](.specify/memory/constitution.md) 已直接写入强制接口规范；[详细接口附件](docs/planning/前后端接口规范.md)给出字段、状态、权限和联调样例。现行代码入口与新产品规划分别说明。
+核对日期：2026-10-31；代码基线：`b08c04e`。本节按当前路由和实现整理；下方旧版本记录只用于追溯。
 
-# 松伴 · 统一黑客松前台（2026-10-30）
+当前项目是 FastAPI + SQLite 的团队协作应用。前台采用原生页面壳，个人讨论工作台使用 React + TypeScript 构建为同源静态资源。账户、团队权限、方向和正式任务沿用现有后端。
 
-默认 `/` 和 `/learning` 现在提供同一套「活动／实践」前台，参考所给预览站重写品牌首页、登录弹窗、活动与团队页面。保留手机号＋密码登录，新增短信验证码登录；两种方式使用同一账号和团队。实现与验收边界见 [统一前台接入说明](docs/core-collaboration/统一前台接入说明.md)。
+## 从哪里看代码
 
-- 页面：`static/songban.html`、`songban.css`、`songban.js`、`songban-views.js`，保持原生静态文件，无构建步骤。
-- 真实协作：注册／登录 → 创建或加入小队 → 保存方向 → 统筹／队长确认 → 同步成果 → 同伴检查 → 交付核对／复盘。团队数据沿用 `/api/core`。
-- 登录：密码走 `POST /api/studio/login`；验证码走 `POST /api/studio/login-code`；验证码发送仍走 `/api/studio/codes`。短信服务未配置时明确返回错误，不模拟已发送。
-- 活动目录仍是带明确标记的虚构样例；团队模型需要服务端配置。浏览器测试使用隔离的短信和模型替身，不证明真实供应商已经可用。
-- 兼容：旧核心工作台保留 `/core`；`SONGBAN_CORE_ONLY=0` 继续启用旧 studio 默认入口。旧学习演示源码和会话 API 保留，统一前台不将演示会话当成团队授权。
-- 启动：`python -m uvicorn app.main:app --host 127.0.0.1 --port 8886`。
+- [app/main.py](app/main.py)：应用工厂、数据库初始化、页面入口、模块注册、历史项目及学习体验 API。
+- [app/onboarding.py](app/onboarding.py)：访客入口、兴趣选择校验与个人偏好保存；访客继续使用现有账号令牌与团队权限。
+- [app/studio.py](app/studio.py) 与 [app/sms.py](app/sms.py)：现有账号、密码／验证码登录及短信适配；`studio.py` 同时保留历史业务。
+- [app/team_core.py](app/team_core.py) 与 [app/core_workflow.py](app/core_workflow.py)：团队、共同方向、同步记录、统筹、队长确认、任务检查和下一步建议，接口前缀 `/api/core`。
+- [app/materials.py](app/materials.py) 与 [app/materials_parse.py](app/materials_parse.py)：个人／团队资料空间、文档与图片解析、人工修订和交接草稿，接口前缀 `/api/materials`。
+- [app/workbench.py](app/workbench.py) 与 [app/workbench_model.py](app/workbench_model.py)：私人讨论会话、模型请求、恢复及明确共享，接口前缀 `/api/workbench`。
+- [static/songban.html](static/songban.html)、[static/songban.js](static/songban.js)、[static/songban-views.js](static/songban-views.js)：统一页面壳、路由、登录和团队页面；`songban-materials.*` 承载资料入口，`songban-landing.css` 与 `landing/` 承载首页样式和素材。
+- [frontend/workbench/](frontend/workbench/)：React 工作台源码；构建输出为 `static/workbench/workbench.js` 和 `workbench.css`。修改这个模块需要重新构建。
+- [plugins/](plugins/)：原生连接器及项目 MCP／命令行适配；安装与宿主核验在 `app/connector_plugin.py`、`app/team_install.py`、`app/plugin_host.py`。
+- [tests/](tests/)、[scripts/](scripts/)、[docs/](docs/)：自动化测试、构建／验收／运维脚本、接口与规划及验收记录。
 
-以下是此前代码入口说明；与上述入口冲突时以上述说明为准。
+## QQ 邮箱登录配置
+
+在仓库私密 `.env` 中配置 `QQ_SMTP_EMAIL`（QQ 或 Foxmail 发件地址）和 `QQ_SMTP_AUTH_CODE`（SMTP 授权码，不是 QQ 密码），然后重启服务。模板见 [.env.example](.env.example)。授权码获取方式见 [QQ 邮箱官方帮助](https://help.mail.qq.com/detail/106/985)。不要将真实配置提交到 Git。
+
+发信使用 `smtp.qq.com:465`，开启 TLS 和证书验证。用户可用其他服务商的有效邮箱收取验证码。`GET /api/studio/email-status` 只说明配置是否齐全，不代表收件成功；真实收件需要用户在登录页点击「邮箱登录 → 获取验证码」并检查收件箱或垃圾邮件。
+
+新邮箱先验证，再填写姓名、能力、目标和密码完成注册。访客注册会保留个人身份及已保存资料。已有手机号账号应先登录，在右上角「账号 → 绑定邮箱」完成验证，避免注册成另一个账号。邮箱绑定后，两种联系方式使用同一个账号和密码。
+
+验证码 10 分钟有效、使用一次后作废，连续验证失败 5 次锁定；发送间隔 60 秒，每邮箱每小时最多 5 次、每来源地址每小时最多 20 次。发送失败不留下可登录的验证码，页面及接口不返回邮箱验证码或 SMTP 授权码。
+
+实现：`app/email_delivery.py`（QQ SMTP），`app/email_login.py`（邮箱身份与验证码）。回归：`.venv\Scripts\python.exe -m unittest tests.test_email_login tests.test_dual_login tests.test_environment tests.test_sms`；测试均隔离真实发信。
+
+## 当前页面与业务流程
+
+默认 `SONGBAN_CORE_ONLY=1`，`/` 与 `/learning` 都返回 `static/songban.html`，提供「活动／实践」统一前台。
+
+1. `#/login`：品牌首页与登录弹窗。支持手机号／邮箱加密码、短信验证码、邮箱验证码。已有手机号账号在右上角「账号」中绑定邮箱后，继续使用同一份团队和资料；未配置的验证码服务如实显示不可用。
+2. `#/onboarding`：选择兴趣、做过的事情和可投入时间，选填城市与经历；无需登录。保存后进入 `#/events`、`#/event` 活动目录与详情，当前活动是明确标注的虚构样例。
+3. `#/team`、`#/members`：创建／加入小队、成员资料与团队设置。
+4. `#/materials`、`#/work`：导入资料，在个人或团队范围内进行本人的私有讨论。讨论须明确共享后才进入团队记录。
+5. `#/direction`：队长核对并保存共同目标、规则、评分要求、不做事项和截止时间。
+6. `#/tasks`：个人任务显示总体进度，团队任务显示成员名片、各自进度条和任务清单；进度按已验收任务数计算。真实小队保留同步进展、统筹、队长确认和同伴检查；模拟小队提供 4 位成员与可操作的示例任务。
+7. `#/tools`、`#/library`：连接个人工具、查看明确共享的团队资料与对话记录。
+8. `#/delivery`、`#/review`：交付核对、交接记录导出及团队复盘。
+
+**容易混淆的入口：** `#/work` 是讨论工作台，正式任务在 `#/tasks`；`#/onboarding` 是已接入的兴趣选择页，成员设置仍在 `#/members`；`#/ideas` 映射到方向页，`#/collaboration` 映射到工作台。旧 `static/learning.*` 和 `/api/learning/v1/sessions` 仍保留，不能把体验会话当成真实团队授权。
+
+兼容页面 `/core`、`/classic` 仍在；设置 `SONGBAN_CORE_ONLY=0` 会将根入口切回旧 studio，并开放兼容接口。日常开发以统一前台和对应模块为准，勿因文件同名相似而改到旧页面。
+
+## 本机网址清单
+
+以下端口状态于 2026-10-31 在当前电脑核对。`127.0.0.1` 仅指打开链接的这台电脑；这些地址不代表公网部署。
+
+### 当前项目：8893
+
+当前服务运行正常。无需手机号登录：首次保存兴趣或进入工作台、活动详情等页面时会建立独立访客身份，沿用现有权限保存自己的数据。团队页面仍需创建或加入小队；已有账号可选择登录。访客凭证保存在当前浏览器，退出或清除网站数据后不能靠手机号找回该访客空间。
+
+- [http://127.0.0.1:8893/](http://127.0.0.1:8893/)：主站入口。
+- [http://127.0.0.1:8893/#/login](http://127.0.0.1:8893/#/login)：品牌首页，点击登录打开账号弹窗。
+- [http://127.0.0.1:8893/#/onboarding](http://127.0.0.1:8893/#/onboarding)：兴趣、城市、经历和时间选择，保存后继续浏览活动。
+- [http://127.0.0.1:8893/#/events](http://127.0.0.1:8893/#/events)：样例活动列表。
+- [http://127.0.0.1:8893/#/event?id=education-agent-weekend](http://127.0.0.1:8893/#/event?id=education-agent-weekend)：教育 Agent 创作周末样例详情和比赛资料入口。资料整理结果集中显示比赛时间、地点、赛道、提交截止、组队要求、展示安排、提交内容和评分标准；缺失信息标为待补充，活动日期不会作为提交截止时间。
+- [http://127.0.0.1:8893/#/team](http://127.0.0.1:8893/#/team)：创建、加入或查看小队。
+- [http://127.0.0.1:8893/#/direction](http://127.0.0.1:8893/#/direction)：共同方向、比赛规则与截止时间；队长保存。
+- [http://127.0.0.1:8893/#/work](http://127.0.0.1:8893/#/work)：本人讨论工作台，支持个人空间及团队范围内的私有讨论。
+- [http://127.0.0.1:8893/#/tasks](http://127.0.0.1:8893/#/tasks)：个人／团队进度、成员名片、正式任务与统筹；可切换 4 人模拟小队。
+- [http://127.0.0.1:8893/#/tools](http://127.0.0.1:8893/#/tools)：个人工具连接与插件安装入口。
+- [http://127.0.0.1:8893/#/library](http://127.0.0.1:8893/#/library)：团队已共享的对话和资料记录。
+- [http://127.0.0.1:8893/#/materials](http://127.0.0.1:8893/#/materials)：个人／团队资料导入、解析、整理与交接。
+- [http://127.0.0.1:8893/#/members](http://127.0.0.1:8893/#/members)：成员资料和团队设置。
+- [http://127.0.0.1:8893/#/delivery](http://127.0.0.1:8893/#/delivery)：交付要求核对和交接记录导出。
+- [http://127.0.0.1:8893/#/review](http://127.0.0.1:8893/#/review)：团队复盘。
+
+兼容路由 `#/ideas` → `#/direction`、`#/collaboration` → `#/work`；`/learning` 是同一主站的另一个入口。它们不是独立的网站。
+
+### 仓库保留的旧页面
+
+- [http://127.0.0.1:8893/core](http://127.0.0.1:8893/core)：旧「团队同频」界面，当前可访问，沿用真实账号和团队接口。
+- [http://127.0.0.1:8893/static/learning.html#/onboarding](http://127.0.0.1:8893/static/learning.html#/onboarding)：仓库原有的学习体验／兴趣选择页，使用样例流程，与真实团队授权隔离。该源码仍在仓库，和已删除的 8906 临时演示不同。
+- [http://127.0.0.1:8893/classic](http://127.0.0.1:8893/classic)：更早的项目协作界面；当前核心模式锁定，实测 HTTP 423。
+- [http://127.0.0.1:8893/workflow](http://127.0.0.1:8893/workflow)：历史图形流程页；当前核心模式锁定，实测 HTTP 423。
+
+### 开发与测试
+
+- [新版家长报告演示：8900](http://127.0.0.1:8900/#/review)：在复盘底部点击「生成家长报告」。服务端只读取当前孩子的兴趣、经历、本人分工与任务成果、同伴反馈和复盘草稿，实际调用已配置的模型生成过程概述、成长观察和家庭陪伴建议；页面支持复制文字、下载独立 HTML 和浏览器打印为 PDF。顶部可切换孩子；选择「已有成果与验收进度」可演示更完整的报告。任务状态和事实直接来自记录，模型观察附依据，缺少资料如实显示。生成失败或额度不足会显示错误，不用固定报告冒充模型输出。其他演示流程仍使用预设回复。
+- [全流程预填演示：8899](http://127.0.0.1:8899/#/onboarding)：无需输入账号，兴趣、城市、经历及各步文字输入（含选填材料、链接和作者）已预填为教育类黑客松的完整虚构案例。提供 5 位模拟成员、5 个选题对话，以及“从选题到领取任务”和“已有成果与验收进度”两个场景。顶部可切换成员、流程步骤，或点击“补入示例”填回空白输入。方向页先点击“开启选题讨论”，再点“填入 5 人讨论”“下一位队友确认”，可依次展示 3/5、4/5；本人确认、投票和队长确认仍点击页面原有按钮，其他人的投票、任务领取可用顶部模拟按钮完成。赛规、五人群聊、成果报告、检查说明、AI 提问及复盘均有具体案例文字；材料保存和 AI 发送后的空白会自动补回，手动修改或主动清空会保留，点击“补入示例”只补空白。案例集中维护在 `static/songban-demo-content.json`。该旧演示服务的模型回复、网页链接内容和工具连接均为模拟；真实模型家长报告使用上面的 8900 入口。
+- 重开这份演示：`.\.venv\Scripts\python.exe scripts/run_demo.py --port 8899`。每次启动使用 `.browser-cache/demo/` 下新建的独立数据库，不读取主站数据；演示改动只保存在本次演示数据库。主站 `8893` 的代码和账号入口不自动启用演示脚本。新版启动脚本仅为家长报告读取服务端模型配置，其余演示调用保持隔离；使用 `--resume 私密恢复清单.json` 可保留演示数据库与身份。
+
+- [http://127.0.0.1:8893/health](http://127.0.0.1:8893/health)：服务和数据库健康状态，当前返回正常；不证明真实模型调用或短信发送已验收。
+- [http://127.0.0.1:8893/api/docs](http://127.0.0.1:8893/api/docs)：Swagger API 调试入口。HTML 返回正常；界面依赖外部资源，展示仍受网络与页面安全策略影响。
+- [http://127.0.0.1:8893/api/openapi.json](http://127.0.0.1:8893/api/openapi.json)：机器可读的接口说明。包含兼容接口，不代表核心模式下全部开放。
+- [http://127.0.0.1:8896/](http://127.0.0.1:8896/)：当前运行的隔离工作台 QA 服务，由 `scripts/qa_workbench_server.py` 启动；使用合成账号、独立数据库和模拟模型回复。
+- `8886`：历史文档的启动示例端口，当前未监听。`8890`、`8892`、`8905` 当前也未监听。
+- `8906`：本次临时免登录演示已按要求关闭，相关目录已移入回收站，不能再用作入口。
+
+### GitHub 与外部参考站
+
+- [GitHub 仓库](https://github.com/Fantacy567/songban)：项目源码；当前开发分支为 [feat/material-intake](https://github.com/Fantacy567/songban/tree/feat/material-intake)。GitHub 仓库地址不是运行网站。
+- [线上参考演示首页](https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/login)：此前用户指定的独立演示站。
+- [线上参考演示兴趣选择](https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/onboarding)、[线上参考演示工作流程](https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/work)：同一参考站的页面，可能受其浏览器体验状态影响；与本机 8893 的真实团队数据独立。本次只核对仓库中的引用，没有修改或重新部署该站点。
+
+## 启动与构建
+
+Windows PowerShell，首次安装：
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8893
+```
+
+打开 `http://127.0.0.1:8893/`；健康检查为 `/health`，接口定义为 `/api/openapi.json`。端口已运行时直接访问，不重复启动。macOS／Linux 将 Python 路径换为 `.venv/bin/python`，端口也可按需调整。
+
+仓库已包含工作台构建产物。修改 `frontend/workbench/` 后运行：
+
+```sh
+npm ci
+npm run typecheck:workbench
+npm run build:workbench
+```
+
+SQLite 默认位于 `data/collab.sqlite3`，可通过 `DATABASE_PATH` 调整。`.env`、数据库、私人连接配置和 `.browser-cache/` 均不入库。模型及短信配置见 `.env.example` 和[短信配置说明](docs/core-collaboration/短信服务配置.md)；健康检查或配置存在不代表外部服务已经实际验收。
+
+## 验证与后续整理
+
+在独立测试环境安装 `requirements-test.txt` 后运行兼容回归；CI 使用相同的模式，测试模型和短信均为替身：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+$env:SONGBAN_CORE_ONLY = '0'
+.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+npm run typecheck:workbench
+npm run test:workbench
+```
+
+原生插件测试需要 Codex CLI；工作台浏览器测试需要 Playwright 浏览器，可用 `SONGBAN_CHROMIUM_EXECUTABLE` 指定已有 Chromium／Edge。测试应使用隔离数据库和配置，不在真实团队中写入验收数据。当前 GitHub Python 工作流覆盖 Windows／Linux 的 Python 回归，尚未包含工作台 TypeScript 与浏览器检查。
+
+兴趣引导和免登录访客入口已接入；私人兴趣通过 `/api/core/me/preferences` 保存到 SQLite，其他账号和团队连接器不能代为读写。当前仍需收口：参考演示的逐步执行体验尚未完整接入真实协作；活动数据仍为样例；真实报名、正式提交回执及家庭成长功能不能按规划文档宣称已实现。后续应先统一入口和真实业务状态，再逐项迁移体验，避免增加另一套账号、任务或团队事实。
+
+现行开发边界见[项目工作台宪法](docs/planning/项目工作台宪法.md)、[接口契约](docs/planning/项目工作台接口契约.md)及[统一前台接入说明](docs/core-collaboration/统一前台接入说明.md)。家庭学习与成长功能的[规划目录](docs/planning/README.md)、[Spec Kit 宪法](.specify/memory/constitution.md)包含草案内容，功能状态须对照所在分支的实现和测试。
+
+以下保留此前代码入口与阶段记录；其中旧入口、启动命令和能力描述若与本节冲突，以本节及实际代码为准。
 
 # 松伴 · 此前代码入口
 

@@ -15,6 +15,26 @@ sys.path.insert(0,str(SOURCE))
 spec=importlib.util.spec_from_file_location('native_server',SOURCE/'server.py');server=importlib.util.module_from_spec(spec);spec.loader.exec_module(server)
 
 class NativePluginTests(unittest.TestCase):
+ def test_topic_unselected_never_reads_binding_and_full_reply_kept(self):
+  args={'selected':True,'round_id':'round','event_id':'topic-turn','topic_title':'选题','user_message':'  本人原话\n','assistant_message':'可见回复全文\n第二段'}
+  with patch.object(server,'binding') as binding:
+   with self.assertRaises(server.ConnectorError):server.invoke('songban_share_topic_turn',{**args,'selected':False},'missing')
+   binding.assert_not_called()
+  with patch.object(server,'binding',return_value={}),patch.object(server,'request',return_value={'note_id':'turn'}) as request:
+   self.assertTrue(server.invoke('songban_share_topic_turn',args,'test')['synced'])
+   self.assertEqual(request.call_args.args[1],'/topic-selection/turns')
+   self.assertEqual(request.call_args.args[2]['assistant_message'],args['assistant_message'])
+   self.assertEqual(request.call_args.args[2]['user_message'],args['user_message'])
+
+ def test_topic_rejects_oversize_identity_and_missing_receipt(self):
+  args={'selected':True,'round_id':'round','event_id':'topic-turn','topic_title':'选题','user_message':'本人原话','assistant_message':'回复'}
+  for extra in ({'user_id':'other'},{'assistant_message':'x'*50001}):
+   with patch.object(server,'binding') as binding:
+    with self.assertRaises(server.ConnectorError):server.invoke('songban_share_topic_turn',{**args,**extra},'test')
+    binding.assert_not_called()
+  with patch.object(server,'binding',return_value={}),patch.object(server,'request',return_value={}):
+   with self.assertRaises(server.ConnectorError):server.invoke('songban_share_topic_turn',args,'test')
+
  def test_unselected_never_reads_binding(self):
   with patch.object(server,'binding') as binding:
    with self.assertRaises(server.ConnectorError):server.invoke('songban_sync_selected_turn',{'selected':False},'missing')

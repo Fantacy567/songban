@@ -61,6 +61,19 @@ def request(d,suffix,data=None):
   raise ConnectorError(msg) from None
 
 
+def topic_payload(data):
+ if not isinstance(data,dict) or data.get('selected') is not True:raise ConnectorError('未明确选择本轮选题共享，未上传。')
+ limits={'round_id':100,'event_id':120,'topic_title':160,'user_message':16000,'assistant_message':50000,'model_name':160,'session_label':120}
+ if set(data)-set(limits)-{'selected'}:raise ConnectorError('选题回合含不支持的字段。')
+ for key,limit in limits.items():
+  value=data.get(key,'')
+  if not isinstance(value,str) or len(value)>limit or (key not in ('model_name','session_label') and not value.strip()):raise ConnectorError('选题回合缺少字段或内容超长，未上传；请分段共享。')
+ if len(data['event_id'])<8:raise ConnectorError('请提供至少8个字符的稳定回合编号。')
+ result={k:redact(v) if isinstance(v,str) else v for k,v in data.items()}
+ if len(json.dumps(result,ensure_ascii=False).encode())>290000:raise ConnectorError('选题回合过长，未上传；请分段共享。')
+ return result
+
+
 def payload(data):
  if not isinstance(data,dict):raise ConnectorError('本轮摘要必须是JSON对象。')
  allowed={'event_id','session_label','summary','status','views','evidence','excerpt','blocker','occurred_at','user_message','assistant_summary','model_name'}

@@ -1,0 +1,237 @@
+{
+  "captured_at": "2026-10-31T12:21:56.862019+08:00",
+  "method": "read-only SQLite URI mode=ro; counts and structural checks only; no production database read",
+  "baseline": "df463269b0cbb3d8851f8240a95b10e818eb0007",
+  "sessions": [
+    {
+      "session": 1,
+      "counts": {
+        "people": 2,
+        "squads": 1,
+        "squad_members": 2,
+        "materials_sources": 2,
+        "workbench_sessions": 1,
+        "workbench_messages": 2,
+        "workbench_shares": 1
+      },
+      "plans": [
+        {
+          "version": 1,
+          "task_count": 2
+        }
+      ],
+      "completed_reports": 2,
+      "reflection_records": 2,
+      "peer_checks": [
+        {
+          "task": "T1",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        },
+        {
+          "task": "T2",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        }
+      ],
+      "export_files": [
+        {
+          "name": "handoff-export.md",
+          "bytes": 4944
+        }
+      ],
+      "screenshot_count": 49,
+      "model_calls": 3
+    },
+    {
+      "session": 2,
+      "counts": {
+        "people": 2,
+        "squads": 1,
+        "squad_members": 2,
+        "materials_sources": 1,
+        "workbench_sessions": 2,
+        "workbench_messages": 4,
+        "workbench_shares": 1
+      },
+      "plans": [
+        {
+          "version": 1,
+          "task_count": 2
+        }
+      ],
+      "completed_reports": 2,
+      "reflection_records": 2,
+      "peer_checks": [
+        {
+          "task": "T1",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        },
+        {
+          "task": "T2",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        }
+      ],
+      "export_files": [
+        {
+          "name": "handoff-export.txt",
+          "bytes": 5106
+        }
+      ],
+      "screenshot_count": 46,
+      "model_calls": 4
+    },
+    {
+      "session": 3,
+      "counts": {
+        "people": 2,
+        "squads": 1,
+        "squad_members": 2,
+        "materials_sources": 2,
+        "workbench_sessions": 2,
+        "workbench_messages": 2,
+        "workbench_shares": 1
+      },
+      "plans": [
+        {
+          "version": 1,
+          "task_count": 2
+        }
+      ],
+      "completed_reports": 2,
+      "reflection_records": 2,
+      "peer_checks": [
+        {
+          "task": "T1",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        },
+        {
+          "task": "T2",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        }
+      ],
+      "export_files": [
+        {
+          "name": "handoff-松伴-当前交接清单.md",
+          "bytes": 4461
+        }
+      ],
+      "screenshot_count": 51,
+      "model_calls": 3
+    },
+    {
+      "session": 4,
+      "counts": {
+        "people": 2,
+        "squads": 1,
+        "squad_members": 2,
+        "materials_sources": 2,
+        "workbench_sessions": 1,
+        "workbench_messages": 4,
+        "workbench_shares": 1
+      },
+      "plans": [
+        {
+          "version": 1,
+          "task_count": 2
+        }
+      ],
+      "completed_reports": 2,
+      "reflection_records": 3,
+      "peer_checks": [
+        {
+          "task": "T1",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        },
+        {
+          "task": "T2",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        }
+      ],
+      "export_files": [
+        {
+          "name": "handoff-export.md",
+          "bytes": 4206
+        }
+      ],
+      "screenshot_count": 59,
+      "model_calls": 4
+    },
+    {
+      "session": 5,
+      "counts": {
+        "people": 2,
+        "squads": 1,
+        "squad_members": 2,
+        "materials_sources": 2,
+        "workbench_sessions": 1,
+        "workbench_messages": 5,
+        "workbench_shares": 1
+      },
+      "plans": [
+        {
+          "version": 1,
+          "task_count": 2
+        }
+      ],
+      "completed_reports": 2,
+      "reflection_records": 1,
+      "peer_checks": [
+        {
+          "task": "T1",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        },
+        {
+          "task": "T2",
+          "plan_version": 1,
+          "verdict": "accepted",
+          "different_user_from_report_author": true,
+          "has_note": true,
+          "report_has_evidence": true
+        }
+      ],
+      "export_files": [
+        {
+          "name": "handoff-export.md",
+          "bytes": 4191
+        }
+      ],
+      "screenshot_count": 59,
+      "model_calls": 5
+    }
+  ]
+}

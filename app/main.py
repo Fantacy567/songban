@@ -23,6 +23,8 @@ from .studio import ensure_schema, register_studio
 from .team_core import ensure_core_schema, register_core
 from .materials import register_materials
 from .workbench import register_workbench
+from .onboarding import ensure_onboarding_schema, register_onboarding
+from .topic_selection import SCHEMA as TOPIC_SCHEMA, register_topic_selection
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
@@ -109,7 +111,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, topic_model_runner=None, parent_report_options=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -141,6 +143,8 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         initial.executescript(SCHEMA)
         ensure_schema(initial)
         ensure_core_schema(initial)
+        ensure_onboarding_schema(initial)
+        initial.executescript(TOPIC_SCHEMA)
         initial.execute(
             """
             CREATE TABLE IF NOT EXISTS learning_sessions (
@@ -274,7 +278,11 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         path = request.url.path
         if api.state.core_only:
             legacy = path in {"/classic", "/workflow", "/static/studio.html", "/static/index.html", "/static/workflow.html"} or path.startswith("/api/projects")
-            old_studio = path.startswith("/api/studio/") and path not in {"/api/studio/login", "/api/studio/login-code", "/api/studio/register", "/api/studio/codes", "/api/studio/sms-status"}
+            old_studio = path.startswith("/api/studio/") and path not in {
+                "/api/studio/login", "/api/studio/login-code", "/api/studio/register", "/api/studio/codes", "/api/studio/sms-status",
+                "/api/studio/email-status", "/api/studio/email-codes", "/api/studio/login-email",
+                "/api/studio/register-email", "/api/studio/email-bind", "/api/studio/account",
+            }
             if legacy or old_studio:
                 return JSONResponse({"error": {"code": "feature_locked", "message": "本轮只开放个人智能体与团队统筹主线，其他功能暂时封锁。"}}, status_code=423)
         if request.method in {"POST", "PUT", "PATCH"}:
@@ -827,8 +835,13 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
 
     register_studio(api, db, Problem, now, uid, digest)
     core = register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    api.state.topic_selection = register_topic_selection(api, db, Problem, now, uid, digest, core, topic_model_runner)
+    register_onboarding(api, db, Problem, now, uid, digest, core)
     register_materials(api, db, Problem, now, uid, digest, materials_model_runner)
     register_workbench(api, db, Problem, now, uid, digest, core, workbench_model_runner)
+    if parent_report_options is not None:
+        from .parent_report import register_parent_report
+        register_parent_report(api, db, Problem, now, digest, core, parent_report_options)
 
     @api.get("/classic", include_in_schema=False)
     def classic():

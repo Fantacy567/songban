@@ -3,14 +3,14 @@ import { MessageCard } from './MessageCard';
 import { ShareTurnPreview } from './ShareTurnPreview';
 import { SpecialistAvatar } from './SpecialistAvatar';
 import { ApiError, WorkbenchApi, errorText, operationKey, save, saved, uncertain } from './songban-adapter';
-import { allowedPages, roles, sourceNature, type Action, type Context, type Conversation, type Message, type MountOptions, type RoleId, type TurnResult } from './types';
+import { allowedPages, roles, sourceNature, type Action, type Context, type Conversation, type Message, type MountOptions, type RoleId, type TurnResult, type Session } from './types';
 
 type Pending = { request_id: string; text: string; role_id: RoleId; source_ids: string[] };
 const fields = new Set(['goal', 'rules', 'rubric', 'non_goals', 'deadline']);
 
 // Retained from TeamAssistantPanel: mounted/read/write guards, input preservation and GET recovery.
-export function ConversationPanel({ sessionId, scope, context, api, options }: {
-  sessionId: string; scope: string; context: Context; api: WorkbenchApi; options: MountOptions;
+export function ConversationPanel({ sessionId, scope, context, api, options, onSessionChange }: {
+  sessionId: string; scope: string; context: Context; api: WorkbenchApi; options: MountOptions; onSessionChange(session: Session): void;
 }) {
   const key = `${scope}:session:${sessionId}`;
   const initialDraft = useRef(saved<{ text: string; role: RoleId; sources: string[] }>(`${key}:draft`, { text: '', role: 'direction', sources: [] })).current;
@@ -21,6 +21,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
   const [pending, setPending] = useState<Pending | null>(() => saved(`${key}:pending`, null));
   const [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [checked, setChecked] = useState('');
   const [confirmNew, setConfirmNew] = useState(false), [share, setShare] = useState<Message | null>(null);
   const [reviewPrompt, setReviewPrompt] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(() => window.matchMedia('(min-width: 901px)').matches);
@@ -39,7 +40,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
     return () => media.removeEventListener('change', resize);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (explicit = false) => {
     if (activeRead.current || !api.active) return;
     activeRead.current = true; if (mounted.current) setRefreshing(true);
     try {
@@ -47,6 +48,14 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
       if (!mounted.current || !api.active) return;
       if (data.session.id !== sessionId) throw new Error('会话信息已变化，请重新读取。');
       setConversation(data); setError('');
+      onSessionChange(data.session);
+      if (explicit) {
+        const latest = data.requests.at(-1);
+        const answer = latest && data.messages.some(m => m.role === 'assistant' && m.request_id === latest.request_id);
+        const question = latest && data.messages.some(m => m.role === 'user' && m.request_id === latest.request_id);
+        const result = !latest ? '还没有发送提问，输入仍为草稿。' : answer ? '本轮提问与回答均已保存。' : `${question ? '本轮提问已保存' : '尚未找到本轮提问'}，${latest.status === 'running' || latest.status === 'pending' ? '回答仍在处理中，请稍后再核对。' : latest.status === 'failed' ? '本次生成未成功，输入已保留。' : '尚未找到回答；结果仍未知，不会自动重发。'}`;
+        setChecked(`刚刚核对（${new Date().toLocaleTimeString('zh-CN')}）：${result}`);
+      }
       const local = pendingRef.current;
       const record = local && data.requests.find(item => item.request_id === local.request_id);
       if (record && ['succeeded', 'failed', 'unknown'].includes(record.status)) {
@@ -64,7 +73,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
       activeRead.current = false;
       if (mounted.current && api.active) { setLoading(false); setRefreshing(false); }
     }
-  }, [api, base, key, sessionId]);
+  }, [api, base, key, sessionId, onSessionChange]);
   useEffect(() => {
     void refresh();
     const visible = () => { if (!document.hidden) void refresh(); };
@@ -86,7 +95,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
   const canSend = Boolean(conversation) && context.model.configured && !loading && !busy && !running && draft.trim().length > 0 && draft.trim().length <= 8000 && (!unresolved || confirmNew) && !sourcesChanged;
   async function send() {
     if (!canSend || activeWrite.current) return;
-    activeWrite.current = true; setBusy(true); setError(''); setNotice(''); setConfirmNew(false);
+    activeWrite.current = true; setBusy(true); setError(''); setNotice(''); setChecked(''); setConfirmNew(false);
     followLatest.current = true;
     const command: Pending = { request_id: operationKey(), text: draft.trim(), role_id: role, source_ids: validSources };
     setPending(command); pendingRef.current = command; save(`${key}:pending`, command);
@@ -121,7 +130,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
   }
   return <div className="sbw-layout">
     <section className="sbw-main" aria-label="本人讨论">
-      <header className="sbw-topbar"><span>本人讨论 <small>· 共享前只有你可见</small></span><button type="button" className="sbw-textButton" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '正在核对…' : '核对保存状态'}</button></header>
+      <header className="sbw-topbar"><span>本人讨论 <small>· 共享前只有你可见</small></span><button type="button" className="sbw-textButton" onClick={() => void refresh(true)} disabled={refreshing}>{refreshing ? '正在核对…' : '核对保存状态'}</button></header>
       <div className="sbw-thread" ref={thread} onScroll={event => { const el = event.currentTarget; followLatest.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }} aria-label="会话消息" aria-busy={loading}>
         {loading && <p className="sbw-muted" role="status">正在读取历史…</p>}
         {!loading && conversation?.messages.length === 0 && <div className="sbw-welcome"><SpecialistAvatar specialistKey={role} size={42} /><h2>先聊聊你现在的想法</h2><p>说说想解决的问题，或选几份材料一起看。建议可以慢慢改，确认后再交给团队。</p><div className="sbw-examples">{roles.map(item => <button type="button" key={item.id} onClick={() => { setRole(item.id); setDraft(item.prompt); }}>{item.name} ↗</button>)}</div></div>}
@@ -131,6 +140,7 @@ export function ConversationPanel({ sessionId, scope, context, api, options }: {
         {unresolved && <div className="sbw-notice"><p>上一次请求结果尚未确定。请先核对保存状态；新尝试可能重复生成。</p><label className="sbw-check"><input type="checkbox" checked={confirmNew} onChange={e => setConfirmNew(e.target.checked)} />我已核对，明确发起一次新尝试</label></div>}
         {error && <p className="sbw-error" role="alert">{error}</p>}
         {notice && <p className="sbw-notice" role="status">{notice}</p>}
+        {checked && <p className="sbw-notice" role="status">{checked}</p>}
         {reviewPrompt && <div className="sbw-notice"><p>先将需要采用的回答共享给团队，再到任务页点击发起统筹。统筹生成的计划仍需队长确认。</p><button type="button" onClick={() => options.onNavigate('tasks')}>已核对共享内容，进入任务与统筹</button><button type="button" className="sbw-textButton" onClick={() => setReviewPrompt(false)}>继续讨论</button></div>}
       </div>
       <form className="sbw-composerWrap" onSubmit={e => { e.preventDefault(); void send(); }}>

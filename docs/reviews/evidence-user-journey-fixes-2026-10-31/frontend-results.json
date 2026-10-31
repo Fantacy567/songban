@@ -1,0 +1,25 @@
+{
+  "fixture": true,
+  "passed": [
+    "plain-text rendering",
+    "selected sources and roles",
+    "preserve edited draft while pending",
+    "safe actions",
+    "explicit share preview and original-question disclosure",
+    "share uncertain recovery with same key",
+    "history and draft reload",
+    "390/768/1440 overflow",
+    "responsive material collapse and Chinese nature labels",
+    "source warnings, partial status and truncation",
+    "unknown never replays POST",
+    "explicit new attempt",
+    "running request reload",
+    "identity switch ignores late reply",
+    "personal share team selection",
+    "source withdrawal preserves session and draft",
+    "revocation clears private UI"
+  ],
+  "turnPosts": 6,
+  "sharePosts": 2,
+  "createPosts": 2
+}
