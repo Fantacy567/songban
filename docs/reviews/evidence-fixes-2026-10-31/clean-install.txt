@@ -1,0 +1,4 @@
+Command: clean-env/Scripts/python.exe -m pip install -r requirements-test.txt
+include-system-site-packages = false
+Successfully installed Pillow-13.0.0 PyYAML-6.0.3 charset-normalizer-3.4.4 colorama-0.4.6 flatbuffers-25.12.19 lxml-6.1.1 numpy-2.3.5 onnxruntime-1.31.1 opencv-python-5.0.0.93 packaging-26.3 protobuf-7.36.2 pyclipper-1.4.0 pypdf-6.10.0 pypdfium2-5.14.0 python-docx-1.2.0 rapidocr-onnxruntime-1.4.4 reportlab-4.4.9 shapely-2.2.0 six-1.17.0 tqdm-4.70.1
+pip check: No broken requirements found.

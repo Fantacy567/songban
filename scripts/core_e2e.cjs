@@ -1,13 +1,14 @@
+if(!process.env.SONGBAN_QA_DIR){require('./run_core_e2e.cjs').run(__filename).catch(e=>{console.error(e.message);process.exitCode=1;});return;}
 /* Actual UI + two independent MCP subprocesses + file watcher. Model reply is labelled substitute. */
-const {chromium}=require('/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 const {spawn}=require('node:child_process');
 const readline=require('node:readline');
 const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
 const base=process.env.CORE_TEST_BASE||'http://127.0.0.1:8888';
-const privateDir='/private/tmp/songban-core-acceptance-20261028';
-const out=path.resolve(__dirname,'../docs/core-collaboration/evidence');fs.mkdirSync(out,{recursive:true});
+const privateDir=process.env.SONGBAN_QA_DIR;
+const out=path.resolve(process.env.SONGBAN_E2E_OUTPUT);fs.mkdirSync(out,{recursive:true});
 const fixture=JSON.parse(fs.readFileSync(privateDir+'/private-fixture.json','utf8'));
 const bridge=path.resolve(__dirname,'../plugins/songban-team/bridge.py');
 const children=[],errors=[],steps=[];let browser;
@@ -15,7 +16,7 @@ function step(s){steps.push(s);console.log(s);}
 function agent(token,sid,suffix){
  const cwd=privateDir+'/agent-'+suffix;fs.mkdirSync(cwd,{recursive:true});
  const env={...process.env,SONGBAN_URL:base,SONGBAN_TEAM_ID:sid,SONGBAN_TOKEN:token};
- const p=spawn('python3',[bridge,'mcp'],{cwd,env,stdio:['pipe','pipe','pipe']});children.push(p);
+ const p=spawn(process.env.SONGBAN_QA_PYTHON,[bridge,'mcp'],{cwd,env,stdio:['pipe','pipe','pipe']});children.push(p);
  let n=0;const pending=new Map();const lines=readline.createInterface({input:p.stdout});
  lines.on('line',l=>{let r;try{r=JSON.parse(l);}catch{return;}const cb=pending.get(r.id);if(cb){pending.delete(r.id);cb(r);}});
  p.stderr.on('data',()=>{});
@@ -23,10 +24,10 @@ function agent(token,sid,suffix){
 }
 (async()=>{
  try{
-  browser=await chromium.launch({channel:'chrome',headless:true});
+  browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})});
   const a=await browser.newContext({viewport:{width:1440,height:1050}}),b=await browser.newContext({viewport:{width:1280,height:900}});
   const pa=await a.newPage(),pb=await b.newPage();for(const p of [pa,pb])p.on('pageerror',e=>errors.push(e.message));
-  for(const [p,f] of [[pa,fixture[0]],[pb,fixture[1]]]){await p.goto(base);await p.locator('#phone').fill(f.phone);await p.locator('#password').fill(f.password);await p.locator('#auth-form button[type=submit]').click();await p.locator('#team-switch').waitFor();}
+  for(const [p,f] of [[pa,fixture[0]],[pb,fixture[1]]]){await p.goto(base+'/core');await p.locator('#phone').fill(f.phone);await p.locator('#password').fill(f.password);await p.locator('#auth-form button[type=submit]').click();await p.locator('#team-switch').waitFor();}
   await pa.locator('#team-switch').selectOption('__new');await pa.locator('#team-name').fill('双工具协作 · 隔离验收');await pa.locator('#create-team button').click();await pa.locator('#direction-form').waitFor();
   const tokenA=await pa.evaluate(()=>localStorage.getItem('studio-token'));let sid=await pa.evaluate(()=>localStorage.getItem('studio-squad'));
   const authA={Authorization:'Bearer '+tokenA};const first=await a.request.get(base+'/api/core/teams/'+sid,{headers:authA}).then(r=>r.json());
@@ -48,7 +49,7 @@ function agent(token,sid,suffix){
   const r=await aa.tool('songban_sync_progress',reportA);assert.equal(r.isError,false);
   const r2=await aa.tool('songban_sync_progress',reportA);assert.equal(r2.data.results[0].duplicate,true);
   step('两个独立MCP进程连接同队；读取统一方向，工具A上传真实请求并验证重复去重');
-  const watcher=spawn('python3',[bridge,'watch','--interval','1'],{cwd:bb.cwd,env:bb.env,stdio:['ignore','pipe','pipe']});children.push(watcher);let watchOutput='';watcher.stdout.on('data',x=>watchOutput+=x.toString());watcher.stderr.on('data',()=>{});
+  const watcher=spawn(process.env.SONGBAN_QA_PYTHON,[bridge,'watch','--interval','1'],{cwd:bb.cwd,env:bb.env,stdio:['ignore','pipe','pipe']});children.push(watcher);let watchOutput='';watcher.stdout.on('data',x=>watchOutput+=x.toString());watcher.stderr.on('data',()=>{});
   const reportB={event_id:'watch-b-'+Date.now(),tool:'通用共享文件监听（协议验收）',summary:'页面已经准备好，仍在等待可调用的登录接口。',status:'blocked',blocker:'等待后端提供实际调用结果',views:[{topic:'登录接口是否可用',position:'前端尚未收到可调用接口，需要先联调'}]};
   fs.writeFileSync(path.join(bb.cwd,'songban-update.json'),JSON.stringify(reportB));
   let snap;for(let i=0;i<24;i++){await new Promise(r=>setTimeout(r,500));snap=await a.request.get(base+'/api/core/teams/'+sid,{headers:authA}).then(r=>r.json());if(snap.reports.length===2&&snap.proposal&&!snap.proposal.stale)break;}
@@ -64,7 +65,7 @@ function agent(token,sid,suffix){
   await pa.locator('#refresh').click();await pa.getByText('本人报告完成',{exact:true}).first().waitFor();await pa.waitForTimeout(350);await pa.screenshot({path:path.join(out,'confirmed_tasks_and_progress.png'),fullPage:true});
   await pa.locator('[data-tab=plugin]').click();await pa.locator(`[data-conn="${connections[0].id}"][data-action=revoke]`).click();await pa.getByText('已撤销',{exact:true}).waitFor();assert.equal((await aa.tool('songban_get_my_tasks')).isError,true);
   step('新进展更新已确认任务状态；网页撤销连接后原MCP立即被拒绝');
-  const mobile=await browser.newContext({viewport:{width:390,height:844}});const pm=await mobile.newPage();await pm.goto(base);await pm.evaluate(t=>localStorage.setItem('studio-token',t),tokenA);await pm.reload();await pm.locator('[data-tab=overview]').waitFor();await pm.waitForTimeout(350);await pm.screenshot({path:path.join(out,'mobile_team_space.png'),fullPage:true});assert.equal(await pm.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  const mobile=await browser.newContext({viewport:{width:390,height:844}});const pm=await mobile.newPage();await pm.goto(base+'/core');await pm.evaluate(t=>localStorage.setItem('studio-token',t),tokenA);await pm.reload();await pm.locator('[data-tab=overview]').waitFor();await pm.waitForTimeout(350);await pm.screenshot({path:path.join(out,'mobile_team_space.png'),fullPage:true});assert.equal(await pm.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);step('移动端无横向溢出，浏览器无未处理异常');
   fs.writeFileSync(path.join(out,'acceptance.json'),JSON.stringify({date:new Date().toISOString(),model:'明确标注的协议测试替身，非真实模型；实际网页、HTTP、MCP子进程和文件监听均真实执行',steps,errors},null,2));
  }finally{for(const p of children)p.kill('SIGTERM');if(browser)await browser.close();}

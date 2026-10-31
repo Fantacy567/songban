@@ -9,6 +9,7 @@ from contextlib import closing
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from app.main import create_app, digest, now
 from app.studio import hash_password
+from app.private_files import restrict_file
 import uvicorn
 
 
@@ -29,6 +30,9 @@ if __name__=='__main__':
         from functools import partial
         core.install_connector_plugin=partial(core.install_connector_plugin,home=args.plugin_home)
     app=create_app(root/'acceptance.sqlite3',core_only=True,core_model_runner=fixture_plan)
+    @app.get('/api/core-audit-fixture')
+    def audit_marker():
+        return {'isolated':True,'model':'fixture'}
     credentials=[]
     with closing(sqlite3.connect(root/'acceptance.sqlite3')) as con:
         for n,name in enumerate(['后端验收成员','前端验收成员']):
@@ -36,5 +40,5 @@ if __name__=='__main__':
             con.execute('INSERT OR REPLACE INTO people(id,phone,name,profile,skills,token_hash,created_at,password_hash) VALUES(?,?,?,?,?,?,?,?)',(ident,phone,name,'隔离功能验收','后端' if n==0 else '前端',digest(token),now(),hash_password(password)))
             credentials.append({'id':ident,'phone':phone,'password':password,'token':token})
         con.commit()
-    file=root/'private-fixture.json';file.write_text(json.dumps(credentials));file.chmod(0o600)
+    file=root/'private-fixture.json';file.write_text(json.dumps(credentials),encoding='utf-8');restrict_file(file)
     uvicorn.run(app,host='127.0.0.1',port=args.port,log_level='warning')

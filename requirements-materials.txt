@@ -1,4 +1,4 @@
-# Install alongside requirements.txt. Local OCR includes Chinese/English ONNX weights.
+# Included by requirements.txt. Local OCR includes Chinese/English ONNX weights.
 pypdf==6.10.0
 python-docx==1.2.0
 Pillow==13.0.0

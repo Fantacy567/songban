@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.materials_parse import parse_source
 from app.planner import PlannerError
-from tests.test_team_core import CoreTests
+from tests import test_team_core as core_fixture
 
 
 def fixture_model(context):
@@ -30,7 +30,7 @@ def fixture_model(context):
 
 class MaterialsTests(unittest.TestCase):
     def setUp(self):
-        CoreTests.setUp(self)
+        core_fixture.CoreTests.setUp(self)
         self.client.close()
         self.app = create_app(self.path, core_only=True, materials_model_runner=fixture_model)
         self.client = TestClient(self.app)
@@ -38,7 +38,7 @@ class MaterialsTests(unittest.TestCase):
         self.url = '/api/materials/spaces/' + self.space
         self.counter = 0
 
-    tearDown = CoreTests.tearDown
+    tearDown = core_fixture.CoreTests.tearDown
 
     def snap(self):
         return self.client.get(self.url, headers=self.h('a')).json()
@@ -198,6 +198,52 @@ class MaterialsTests(unittest.TestCase):
             with TestClient(create_app(self.path,core_only=True)) as c:
                 fresh=c.get(self.url,headers=self.h('a')).json()
                 self.assertEqual(fresh['result'],s['result']);self.assertEqual(fresh['sources'],s['sources'])
+
+    def test_same_team_draft_rejects_corrected_item_but_allows_unrelated_edits(self):
+        self.space = self.client.get('/api/materials/space?team_id='+self.sid,headers=self.h('a')).json()['id']
+        self.url = '/api/materials/spaces/'+self.space
+        s = self.prepared();selected,other = s['result']['items'][:2]
+        draft = self.export().json()
+        def prepare():
+            return self.client.post(self.url+'/drafts/'+draft['id']+'/prepare',headers=self.h('a'),json={'expected_revision':self.snap()['revision']})
+        def edit(item):
+            return self.client.patch(self.url+'/items/'+item['id'],headers=self.h('a'),json={'expected_revision':self.snap()['revision'],'text':'人工纠正：以核实后的内容为准','verification':'human_confirmed','note':'实际核对了原件'})
+        self.assertEqual(prepare().status_code,200)
+        self.assertEqual(edit(other).status_code,200)
+        self.assertEqual(prepare().status_code,200)
+        self.assertEqual(edit(selected).status_code,200)
+        r=prepare();self.assertEqual(r.status_code,409);self.assertEqual(r.json()['error']['code'],'draft_items_changed')
+        new=self.export().json()
+        self.assertEqual(self.client.post(self.url+'/drafts/'+new['id']+'/prepare',headers=self.h('a'),json={'expected_revision':self.snap()['revision']}).status_code,200)
+
+    def test_shared_copy_stays_usable_without_model_after_personal_edit(self):
+        s=self.prepared();draft=self.export().json();item=s['result']['items'][0]
+        self.client.patch(self.url+'/items/'+item['id'],headers=self.h('a'),json={'expected_revision':self.snap()['revision'],'text':'仅修改个人副本','verification':'human_confirmed','note':'不改变已分享副本'})
+        own=self.client.post(self.url+'/drafts/'+draft['id']+'/prepare',headers=self.h('a'),json={'expected_revision':self.snap()['revision']})
+        self.assertEqual(own.status_code,409)
+        with TestClient(create_app(self.path,core_only=True)) as client:
+            team=client.get('/api/materials/space?team_id='+self.sid,headers=self.h('b')).json()
+            self.assertFalse(team['result'].get('items'))
+            shared=team['drafts'][0]
+            r=client.post('/api/materials/spaces/'+team['id']+'/drafts/'+shared['id']+'/prepare',headers=self.h('b'),json={'expected_revision':team['revision']})
+            self.assertEqual(r.status_code,200,r.text)
+            self.assertNotIn('仅修改个人副本',r.json()['body']['text'])
+
+    def test_legacy_same_space_draft_compares_current_item(self):
+        import sqlite3
+        from contextlib import closing
+        self.space=self.client.get('/api/materials/space?team_id='+self.sid,headers=self.h('a')).json()['id']
+        self.url='/api/materials/spaces/'+self.space
+        s=self.prepared();draft=self.export().json()
+        with closing(sqlite3.connect(self.path)) as con:
+            body=draft['body'];body.pop('item_basis')
+            con.execute('UPDATE materials_drafts SET body=? WHERE id=?',(json.dumps(body),draft['id']))
+            con.commit()
+        url=self.url+'/drafts/'+draft['id']+'/prepare'
+        self.assertEqual(self.client.post(url,headers=self.h('a'),json={'expected_revision':self.snap()['revision']}).status_code,200)
+        item=s['result']['items'][0]
+        self.client.patch(self.url+'/items/'+item['id'],headers=self.h('a'),json={'expected_revision':self.snap()['revision'],'text':'旧草稿对应条目已纠正','verification':'human_confirmed','note':'人工核对'})
+        self.assertEqual(self.client.post(url,headers=self.h('a'),json={'expected_revision':self.snap()['revision']}).status_code,409)
 
     def test_real_txt_docx_and_pdf_parsing(self):
         from docx import Document

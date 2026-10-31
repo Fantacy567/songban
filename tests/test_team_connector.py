@@ -62,7 +62,7 @@ class ConnectorTests(unittest.TestCase):
         expected={'direction':{'goal':'共同目标'},'plan_version':2,'revision':9,'tasks':[{'key':'T1','title':'本人任务'}]}
         with patch.object(bridge,'call',return_value=expected):
             bridge.pull_local_tasks()
-        actual=json.loads((self.root/'.songban/team-state.json').read_text())
+        actual=json.loads((self.root/'.songban/team-state.json').read_text(encoding='utf-8'))
         self.assertEqual(actual,expected)
 
     def test_remote_plain_http_rejected(self):

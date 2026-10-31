@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "widths": [
+    390,
+    768,
+    1440
+  ],
+  "routes": 10,
+  "browserErrors": [],
+  "model": "explicit fixture, not a real model",
+  "sms": "simulated in isolated loopback QA server"
+}

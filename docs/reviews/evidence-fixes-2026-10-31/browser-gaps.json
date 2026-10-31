@@ -1,0 +1,39 @@
+{
+  "shared_draft_visibility": {
+    "api_draft_count": 1,
+    "api_has_result": false,
+    "visible_draft_buttons": 1,
+    "visible_draft_heading": 1,
+    "continue_to_direction": true
+  },
+  "event_team_transition": {
+    "selected_event": "campus-ai-cocreate",
+    "keeps_previous_team": true,
+    "create_team_forms": 0,
+    "route": "#/team",
+    "can_open_new_team_form": true,
+    "note": "Existing-team landing is not a hard block; a second click opens creation. Event linkage is not established."
+  },
+  "delivery_navigation": {
+    "before": {
+      "route": "#/work",
+      "next": {
+        "kind": "delivery",
+        "title": "核对本次交接与正式提交要求",
+        "reason": "当前任务已有同伴检查记录；代码版本、演示文件和主办方回执仍需分别核对。",
+        "page": "delivery",
+        "task_key": ""
+      }
+    },
+    "after_route": "#/delivery"
+  },
+  "delivery_controls": {
+    "file_upload_inputs": 0,
+    "forms": 0
+  },
+  "review_controls": {
+    "form": "reflection-form",
+    "saved_as": "POST /api/core/teams/{id}/reports"
+  },
+  "browser_errors": []
+}

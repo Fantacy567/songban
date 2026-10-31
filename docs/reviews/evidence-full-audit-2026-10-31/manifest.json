@@ -1,0 +1,66 @@
+{
+  "browser-gaps.json": {
+    "bytes": 1083,
+    "sha256": "4bd599fe301dbec130014ae51afbead4adf0f729b089e59698f77eb0753b8e96"
+  },
+  "clean-materials.txt": {
+    "bytes": 1714,
+    "sha256": "7fc4dba75c05baa6dc1866dda716a4c1bc721bd13b0d20e18ae83c4f952fab60"
+  },
+  "core-closure.json": {
+    "bytes": 3812,
+    "sha256": "65457809819a5d5862f7f46fb618782f4b7b1ab998dd79cb9cd34f17296d3df6"
+  },
+  "delivery-next-action.png": {
+    "bytes": 192470,
+    "sha256": "877ae9dd83c08ac51196411bd2470f4dec1ad043bccb185ed4ce73e94d429f93"
+  },
+  "environment-status.json": {
+    "bytes": 718,
+    "sha256": "428a8f923fd3db4b9024c0d0d7e2f88e6c9986db1334b770d6f8bb72d622f3ff"
+  },
+  "http-restart.json": {
+    "bytes": 379,
+    "sha256": "e5655b9b4e8bfa9ca406cbe9b7b116f03ccd2d100e00a147eb0f38d0a4efb593"
+  },
+  "materials-browser.json": {
+    "bytes": 636,
+    "sha256": "61de34ceaf792dab50900dc6869382c1ec26c96b501964f68229bafcac5c0fee"
+  },
+  "mcp-loop.json": {
+    "bytes": 493,
+    "sha256": "4f0d755e5c5920b9df6fe1a76fe9ba10bd97d26440a51f5cdb209a77f7dac55f"
+  },
+  "missing-shared-draft.png": {
+    "bytes": 137440,
+    "sha256": "42a331339a79122a3cee70a061b4c9ef221491040101c0079302cbc787645e2a"
+  },
+  "new-event-existing-team.png": {
+    "bytes": 73964,
+    "sha256": "12439526224602ff1c0ba68cec5727ebada474a5d4b9a7f7d13585781b63dfa7"
+  },
+  "plugin-host.json": {
+    "bytes": 951,
+    "sha256": "8cc467e7c1f7c93e1c17dbbd5a24dc3ebacdb42a761c754c4e37440f89292784"
+  },
+  "real-core-model.json": {
+    "bytes": 2835,
+    "sha256": "9c655e0d324304d8765c0c07899a427d5a731bc18ee7574b937b2838eedee5e8"
+  },
+  "test-summary.json": {
+    "bytes": 972,
+    "sha256": "1b2b36e18e753a7feef1c3d5e6aa4253acd85ff9b74f68633f2612539a6b04f1"
+  },
+  "unified-browser.json": {
+    "bytes": 214,
+    "sha256": "56dc796ce5da92f48bc02eab09976042228cada059777e69cb3ed64b411fb6e6"
+  },
+  "unit-failures-default.txt": {
+    "bytes": 7798,
+    "sha256": "bb774780249b2433705b85caac2b226e866c784edb1adb0bb43306bd72ad6211"
+  },
+  "unit-failures-utf8.txt": {
+    "bytes": 4024,
+    "sha256": "d82508e47a51944d3c041c3af112f2f89534095cb84facdbf3ca84809786233c"
+  }
+}

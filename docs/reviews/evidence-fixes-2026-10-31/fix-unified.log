@@ -1,0 +1,8 @@
+PASS real API flow: registration, SMS login, team join, direction, fixture plan, report, peer check, reload
+PASS password login preserves the same team
+PASS 30 responsive route checks at 390/768/1440
+PASS conflict recovery retains unsaved form input
+PASS saving a recovered draft clears the unsaved indicator
+PASS cross-tab login/logout synchronization
+PASS modal focus restore and both login modes on mobile
+PASS no browser runtime errors
