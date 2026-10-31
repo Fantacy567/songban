@@ -205,12 +205,20 @@ function openAuth(initial='password',prefill={}){
   };
   dialog.addEventListener('close',()=>clearInterval(timer));draw();
 }
+async function serialStateRead(read){
+  const previous=state.readQueue||Promise.resolve();let release;
+  state.readQueue=new Promise(resolve=>release=resolve);
+  await previous;
+  try{return await read();}finally{release();}
+}
 async function load(){
+ return serialStateRead(async()=>{
   state.me=await api('/api/core/me');
   if(state.personal)state.team='';
   else if(!state.me.teams.some(t=>t.id===state.team))state.team=state.me.teams[0]?.id||'';
   identityStorage.setItem('studio-squad',state.team);state.data=state.team?await api(endpoint('')):null;
   state.flow=await api('/api/journey?team_id='+encodeURIComponent(state.team));
+ });
 }
 async function eventsPage(){
   const container=$('#content');container.innerHTML=head('给第一次出发的你','这几场，也许适合你。','先看看活动的方向，再决定这次想做什么。')+'<p class="empty" role="status">正在读取活动…</p>';
@@ -249,7 +257,7 @@ async function refresh(force=false){
   if(!state.token||!state.team)return;
   if(state.syncing){if(!force)return;await new Promise(resolve=>(state.refreshWaiters??=[]).push(resolve));return refresh(true);}
   state.syncing=true;const team=state.team;
-  try{
+  try{await serialStateRead(async()=>{
     const data=await api(endpoint(''));const flow=await api('/api/journey?team_id='+encodeURIComponent(team));if(team!==state.team)return;
     const stageChanged=state.flow?.stage!==flow.stage;state.flow=flow;
     const changed=stageChanged||!state.data||data.division_status!==state.data.division_status||data.division_round_id!==state.data.division_round_id||data.revision!==state.data.revision||data.proposal?.id!==state.data.proposal?.id||data.review_running!==state.data.review_running||data.last_error!==state.data.last_error;
@@ -259,11 +267,11 @@ async function refresh(force=false){
     else if(changed&&!editing&&state.page!=='materials'){state.data=data;if(['library','ideaLibrary'].includes(state.page)&&$('#library-notes'))libraryMarkUpdated();else if(!['login','events','event'].includes(state.page))render();}
     if(changed&&editing&&!force&&['myTasks','teamTasks'].includes(state.page))updateTaskMeters(data);
     const status=$('#sync-state');if(status)status.textContent=changed&&editing&&!force?'有新进展，保存前请核对':'已同步 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-  }catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}
+  });}catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}
   finally{state.syncing=false;const waiters=state.refreshWaiters||[];state.refreshWaiters=[];waiters.forEach(resolve=>resolve());}
 }
-function routeFromHash(){
-  const [route,query]=(location.hash.replace(/^#\/?/,'')||'login').split('?');
+function routeFromHash(hash=location.hash){
+  const [route,query]=(hash.replace(/^#\/?/,'')||'login').split('?');
   const eventId=new URLSearchParams(query||'').get('id');if(eventId)state.eventId=eventId;
   state.page=routePages[route]||'events';
 }
@@ -275,7 +283,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   const markDirty=e=>{if(e.target.form){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);
   root.addEventListener('change',markDirty);
-  let routeVersion=0;window.addEventListener('hashchange',async()=>{if(location.hash==='#possibilities')return;const version=++routeVersion;captureDrafts();if(state.token){try{await load();}catch(e){toast(e.message);}}if(version!==routeVersion)return;routeFromHash();render();window.scrollTo(0,0);});
+  let routeVersion=0;window.addEventListener('hashchange',async()=>{if(location.hash==='#possibilities')return;const version=++routeVersion,requestedHash=location.hash;captureDrafts();if(state.token){try{await load();}catch(e){toast(e.message);}}if(version!==routeVersion)return;routeFromHash(requestedHash);render();window.scrollTo(0,0);});
   setInterval(()=>{if(!document.hidden&&!['login','events','event'].includes(state.page))refresh();},2000);
   window.addEventListener('storage',e=>{if(window.SONGBAN_DEMO)return;if(e.key==='songban-task-update'&&e.newValue){try{if(JSON.parse(e.newValue).team===state.team)refresh();}catch{}}if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
 });
