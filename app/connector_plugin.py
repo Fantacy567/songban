@@ -26,7 +26,8 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
  home=Path(home) if home else Path.home()
  codex_home=home/'.codex';base=codex_home/'plugins/songban-local';root=base/'catalog';target=root/'plugins/songban-connector'
  binding=base/'private/connection.json';catalog=root/'.agents/plugins/marketplace.json'
- cli=cli or shutil.which('codex')
+ desktop=Path('/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex')
+ cli=cli or (str(desktop) if desktop.is_file() else shutil.which('codex'))
  if not cli:raise InstallError('codex_missing','未找到Codex命令行工具，暂不能自动注册原生插件。',409)
  for p in (base,root,target,binding,catalog):
   if p.is_symlink() or not p.resolve().is_relative_to(codex_home.resolve()):raise InstallError('plugin_path_conflict','插件安装位置指向外部，已停止。',409)
@@ -51,7 +52,7 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
  except (OSError,subprocess.SubprocessError):modern=False
  portable=os.name=='nt' or modern
  mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name if portable else sys.executable,'args':['${PLUGIN_ROOT}/server.py' if portable else str(target/'server.py'),'--binding',str(binding)],'cwd':'${PLUGIN_ROOT}' if portable else str(target),'env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
- files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'1.1.0\n'
+ files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'1.2.1\n'
  cat={'name':'songban-local','interface':{'displayName':'松伴本机插件'},'plugins':[{'name':'songban-connector','source':{'source':'local','path':'./plugins/songban-connector'},'policy':{'installation':'AVAILABLE','authentication':'ON_INSTALL'},'category':'Productivity'}]}
  writes={target/k:v for k,v in files.items()}
  writes[catalog]=json.dumps(cat,ensure_ascii=False,indent=2).encode()

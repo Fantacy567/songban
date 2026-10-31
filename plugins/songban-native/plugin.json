@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "songban-connector",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "将获准分享的讨论同步至松伴团队资料库",
   "extensions": {
     "com.openai": {
@@ -22,7 +22,9 @@
           "连接松伴，读取我的团队方向和任务",
           "同步本轮项目进展到团队资料库"
         ]
-      }
+      },
+      "skills": "./skills/",
+      "mcpServers": "./mcp.json"
     }
   }
 }

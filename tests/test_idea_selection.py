@@ -61,3 +61,18 @@ class IdeaSelectionTests(unittest.TestCase):
         self.prepare();self.invalid=True;self.assertEqual(self.rank().status_code,200)
         ranking=self.board()['ranking'];self.assertEqual(ranking['status'],'failed');self.assertEqual(ranking['body'],{})
         self.assertEqual(len(self.board()['ideas']),2)
+
+    def test_new_team_blocks_direction_and_review_until_explicit_topic_choice(self):
+        import sqlite3
+        from contextlib import closing
+        with closing(sqlite3.connect(self.path)) as con:con.execute('DELETE FROM topic_selections WHERE squad_id=?',(self.sid,));con.commit()
+        snap=self.client.get(self.base,headers=self.h('a')).json();self.assertFalse(snap['topic_confirmed'])
+        r=self.client.put(self.base+'/direction',headers=self.h('a'),json={'goal':'提前开发','expected_revision':snap['revision']});self.assertEqual(r.status_code,409)
+        r=self.client.post(self.base+'/review',headers=self.h('a'),json={});self.assertEqual(r.status_code,409)
+        r=self.client.post(self.base+'/topic/confirm',headers=self.h('a'),json={'idea_id':self.a,'confirmed':True});self.assertEqual(r.status_code,200,r.text)
+        self.assertTrue(self.client.get(self.base,headers=self.h('a')).json()['topic_confirmed'])
+    def test_first_selected_turn_appears_under_own_idea_automatically(self):
+        r=self.client.post(self.base+'/conversation-notes',headers=self.h('a'),json={'selected':True,'event_id':'auto-public-turn','user_message':'我的校园工具设想','assistant_summary':'先验证页面流程','conversation_stage':'discussion'})
+        self.assertEqual(r.status_code,200,r.text)
+        items=self.client.get(self.base+'/library?scope=discussion',headers=self.h('b')).json()['items']
+        self.assertEqual(items[0]['idea_id'],self.a)

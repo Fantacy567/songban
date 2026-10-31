@@ -314,15 +314,16 @@ class MaterialsTests(unittest.TestCase):
             output,model=request_materials_model({'sources':[]});self.assertEqual(output['summary'],'ok');self.assertEqual(model,'test')
 
     def test_public_link_pin_dns_redirect_checks_and_html_text(self):
-        import httpx
-        from app.contest_intel import public_request, IntelError
-        def redirect(request):return httpx.Response(302,headers={'location':'http://127.0.0.1/private'})
-        with patch('app.contest_intel.socket.getaddrinfo',return_value=[(2,1,6,'',('93.184.216.34',443))]),httpx.Client(transport=httpx.MockTransport(redirect)) as client:
-            with self.assertRaises(IntelError):public_request(client,'GET','https://example.com')
-        response=httpx.Response(200,headers={'content-type':'text/html'},text='<html><body><p>真实正文</p><script>evil()</script></body></html>')
-        with patch('app.materials_parse.public_request',return_value=(response,'https://example.com')):
-            segments,warnings,original=parse_source('url','example',b'https://example.com')
-            self.assertIn('真实正文',segments[0]['text']);self.assertNotIn('evil',segments[0]['text']);self.assertEqual(original,response.content)
+        with patch('app.contest_intel.socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]):
+            import httpx
+            from app.contest_intel import public_request, IntelError
+            def redirect(request):return httpx.Response(302,headers={'location':'http://127.0.0.1/private'})
+            with patch('app.contest_intel.socket.getaddrinfo',return_value=[(2,1,6,'',('93.184.216.34',443))]),httpx.Client(transport=httpx.MockTransport(redirect)) as client:
+                with self.assertRaises(IntelError):public_request(client,'GET','https://example.com')
+            response=httpx.Response(200,headers={'content-type':'text/html'},text='<html><body><p>真实正文</p><script>evil()</script></body></html>')
+            with patch('app.materials_parse.public_request',return_value=(response,'https://example.com')):
+                segments,warnings,original=parse_source('url','example',b'https://example.com')
+                self.assertIn('真实正文',segments[0]['text']);self.assertNotIn('evil',segments[0]['text']);self.assertEqual(original,response.content)
 
     def test_late_parse_cannot_restore_withdrawn_material(self):
         source=self.add();started=threading.Event();release=threading.Event()

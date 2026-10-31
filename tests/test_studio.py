@@ -114,19 +114,20 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "url_not_allowed")
 
     def test_public_redirect_is_followed(self):
-        def handler(request):
-            if request.url.path == "/start":
-                return httpx.Response(302, headers={"location": "http://example.com/landed"})
-            return httpx.Response(
-                200,
-                text="<html><title>公开页</title><body><p>公开页面正文足够长可以阅读</p></body></html>",
-                headers={"content-type": "text/html"},
-            )
+        with patch('app.contest_intel.socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]):
+            def handler(request):
+                if request.url.path == "/start":
+                    return httpx.Response(302, headers={"location": "http://example.com/landed"})
+                return httpx.Response(
+                    200,
+                    text="<html><title>公开页</title><body><p>公开页面正文足够长可以阅读</p></body></html>",
+                    headers={"content-type": "text/html"},
+                )
 
-        text, title = fetch_public_page("http://example.com/start", transport=httpx.MockTransport(handler))
-        self.assertIn("公开页面", text)
-        self.assertNotIn("INTERNAL", text)
-        self.assertIn("公开", title)
+            text, title = fetch_public_page("http://example.com/start", transport=httpx.MockTransport(handler))
+            self.assertIn("公开页面", text)
+            self.assertNotIn("INTERNAL", text)
+            self.assertIn("公开", title)
 
     def test_dns_rebinding_is_blocked_before_the_request(self):
         public = [(2, 1, 6, "", ("93.184.216.34", 80))]
@@ -145,12 +146,13 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(called, [])
 
     def test_public_page_stops_oversized_responses(self):
-        def handler(_request):
-            return httpx.Response(200, content=b"x" * 2_800_001, headers={"content-type": "text/plain"})
+        with patch('app.contest_intel.socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]):
+            def handler(_request):
+                return httpx.Response(200, content=b"x" * 2_800_001, headers={"content-type": "text/plain"})
 
-        with self.assertRaises(IntelError) as caught:
-            fetch_public_page("http://example.com/large", transport=httpx.MockTransport(handler))
-        self.assertEqual(caught.exception.code, "page_too_large")
+            with self.assertRaises(IntelError) as caught:
+                fetch_public_page("http://example.com/large", transport=httpx.MockTransport(handler))
+            self.assertEqual(caught.exception.code, "page_too_large")
 
 
 class StudioFlowTests(unittest.TestCase):

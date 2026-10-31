@@ -7,6 +7,7 @@ from .planner import PlannerError
 from .conversation_library import STAGE_SQL
 
 SCHEMA='''
+CREATE TABLE IF NOT EXISTS topic_selections(squad_id TEXT PRIMARY KEY,idea_id TEXT NOT NULL,confirmed_by TEXT NOT NULL,confirmed_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS team_ideas(id TEXT PRIMARY KEY,squad_id TEXT NOT NULL,user_id TEXT NOT NULL,title TEXT NOT NULL,problem TEXT NOT NULL,proposal TEXT NOT NULL,version INTEGER NOT NULL,updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ideas_team ON team_ideas(squad_id);
 CREATE TABLE IF NOT EXISTS idea_note_links(note_id TEXT PRIMARY KEY,idea_id TEXT NOT NULL,squad_id TEXT NOT NULL,user_id TEXT NOT NULL);
@@ -99,6 +100,8 @@ def register_ideas(api,db,access,problem,now,uid,digest,runner=None):
         with db() as con:
             access(con,sid,authorization);data,context=board(con,sid)
             row=con.execute('SELECT * FROM idea_rankings WHERE squad_id=? ORDER BY rowid DESC LIMIT 1',(sid,)).fetchone()
+            selection=con.execute('SELECT * FROM topic_selections WHERE squad_id=?',(sid,)).fetchone()
+            data['selection']=dict(selection) if selection else None
             data['ranking']=({k:row[k] for k in ('id','status','error','model_id','created_at')}|{'body':json.loads(row['body']),'stale':row['fingerprint']!=data['fingerprint']}) if row else None
             return data
     def save_idea(sid,body,authorization,ident=None):
@@ -136,6 +139,27 @@ def register_ideas(api,db,access,problem,now,uid,digest,runner=None):
             if not idea or not note:raise problem(404,'idea_note_not_found','只能关联本人在本队选题阶段公开的对话与idea。')
             con.execute('INSERT INTO idea_note_links VALUES(?,?,?,?) ON CONFLICT(note_id) DO UPDATE SET idea_id=excluded.idea_id',(note_id,ident,sid,user['id']));bump(con,sid)
         return {'linked':True}
+    @api.put('/api/core/teams/{sid}/topic/criteria')
+    def criteria(sid:str,body:dict,authorization:str=Header(default='')):
+        if set(body)-{'rules','rubric','deadline'} or any(not isinstance(v,str) for v in body.values()):raise problem(422,'invalid_criteria','请填写赛事原文、评分维度和时间。')
+        if any(len(v)>12000 for v in body.values()):raise problem(422,'invalid_criteria','赛事文字过长。')
+        with db(True) as con:
+            access(con,sid,authorization,captain=True,connector=False)
+            row=con.execute('SELECT direction FROM core_settings WHERE squad_id=?',(sid,)).fetchone();direction=json.loads(row['direction'])
+            direction.update(body);con.execute('UPDATE core_settings SET direction=? WHERE squad_id=?',(dump(direction),sid));bump(con,sid)
+        return {'saved':True}
+    @api.post('/api/core/teams/{sid}/topic/confirm')
+    def confirm_topic(sid:str,body:dict,authorization:str=Header(default='')):
+        if set(body)!={'idea_id','confirmed'} or body['confirmed'] is not True:raise problem(422,'confirmation_required','请队伍讨论后明确确认这个选题。')
+        with db(True) as con:
+            user,_=access(con,sid,authorization,captain=True,connector=False)
+            idea=con.execute('SELECT * FROM team_ideas WHERE id=? AND squad_id=?',(body['idea_id'],sid)).fetchone()
+            if not idea:raise problem(404,'idea_not_found','请选择本队已公示的idea。')
+            if con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():raise problem(409,'topic_confirmed','本队已确认过选题，不能在此重复覆盖。')
+            con.execute('INSERT INTO topic_selections VALUES(?,?,?,?)',(sid,idea['id'],user['id'],now()))
+            row=con.execute('SELECT direction FROM core_settings WHERE squad_id=?',(sid,)).fetchone();direction=json.loads(row['direction']);direction['goal']=idea['title']+'\n'+idea['problem']
+            con.execute('UPDATE core_settings SET direction=? WHERE squad_id=?',(dump(direction),sid));bump(con,sid)
+        return {'confirmed':True}
     @api.post('/api/core/teams/{sid}/ideas/rank')
     def rank(sid:str,body:Rank,authorization:str=Header(default='')):
         with db(True) as con:
