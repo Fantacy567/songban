@@ -18,8 +18,19 @@ class WorkflowTests(unittest.TestCase):
 
     def plan(self):
         s=self.snap()
-        self.assertEqual(self.client.put(self.base+'/direction',headers=self.h('a'),json={'goal':'完成可用演示','rules':'提交代码与演示','rubric':'协作与可用性','expected_revision':s['revision']}).status_code,200)
-        self.assertEqual(self.confirm(self.review()).status_code,200)
+        self.assertEqual(self.client.put(self.base+'/direction',headers=self.h('a'),json={'goal':'完成可用演示，计划第'+str(self.snap()['plan_version']+1)+'版','rules':'提交代码与演示','rubric':'协作与可用性','expected_revision':s['revision']}).status_code,200)
+        import sqlite3
+        from contextlib import closing
+        with closing(sqlite3.connect(self.path)) as con:
+            users=[r[0] for r in con.execute('SELECT user_id FROM squad_members WHERE squad_id=?',(self.sid,))]
+        for user in users:
+            for answer in ['负责自己的模块','独立做基础工作，复杂问题请队友帮忙','3','提供可查看成果并由队友检查']:
+                state=self.client.get(self.base+'/division',headers=self.h(user)).json()
+                result=self.client.post(self.base+'/division/answers',headers=self.h(user),json={'round_id':state['round_id'],'step':state['me']['step'],'answer':answer})
+                self.assertEqual(result.status_code,200,result.text)
+            result=self.client.post(self.base+'/division/confirm',headers=self.h(user),json={'round_id':state['round_id'],'confirmed':True})
+            self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['status'],'published')
 
     def done(self,task='T1',member='a',event='done',evidence=None):
         r=self.report(self.h(member),event=event,task_key=task,plan_version=self.snap()['plan_version'],status='reported_done',evidence=['接口真实返回正常与失败结果（测试用文字）'] if evidence is None else evidence)
@@ -100,7 +111,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_new_plan_does_not_reuse_checks(self):
         self.plan();self.done();self.check()
-        self.assertEqual(self.confirm(self.review()).status_code,200)
+        self.plan()
         s=self.snap()
         self.assertEqual(s['plan_version'],2)
         self.assertEqual(s['workflow']['accepted_tasks'],0)

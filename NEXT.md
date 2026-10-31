@@ -1,3 +1,12 @@
+# 2026-10-31 · 分工问答与内部AI发布
+
+- 已实现：保存方向→每位队员差异化问答→各自确认→内部AI发布→领取任务。新增app/division.py，SQLite保存轮次/逐题回答/本人确认；发布复用同一active_plan与历史。新轮次禁止旧队长发布接口，关闭旧自动草案。
+- 主导航减到选题/方向/分工/任务/提交/复盘，辅助工具折叠。移除旧overview统筹发布面板与自动草案开关；个人/团队任务、同伴检查、交付与复盘保留。
+- 最终283项全量通过，53项核心定向通过；Chrome双成员真实UI走查通过（模型/SMS为明确替身），390/768/1440无溢出。脚本scripts/e2e_division.py；合成截图和模型失败记录见docs/core-collaboration/evidence/division。
+- 两次真实平台模型合成数据检查连接失败（SSL EOF）；未发布任务，问答与确认完整保留。不能宣称当前真实模型可用，也没有替换用户模型。Github connector transport和gh查询发生网络错误，远程状态待收尾。
+- 8890已在线备份SQLite后重启；根页、新JS及health均200；people/squads/plan_history/reports数量与备份前一致。备份在本机runtime/github-preview-before-division-20261031-142605.sqlite3，未改真实用户阶段或自动回答。
+- 差异化问题当前由服务端能力资料与回答驱动模板，最终任务协调调用真实模型；没有声称每题均为大模型生成。完整接入说明见docs/core-collaboration/分工问答与内部AI任务发布.md。
+
 # 2026-10-31 · 工具名显示回退
 
 - 用户要求模型名称未知时显示工具名。新增source_tool，与model_name独立；资料API提供speaker_name，优先真实模型名，否则工具名，最后AI工具未注明。列表与展开一致。
