@@ -459,7 +459,8 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
             if payload['excerpt']:body_text+='\n\n本轮必要摘录：'+payload['excerpt']
             if payload['blocker']:body_text+='\n\n受阻：'+payload['blocker']
             if payload['evidence']:body_text+='\n\n依据：'+'；'.join(payload['evidence'])
-            con.execute('INSERT OR IGNORE INTO library_notes(id,squad_id,author_id,body,suggestion,created_at) VALUES(?,?,?,?,?,?)',(note_id,sid,actor_id,body_text,'松伴连接器 · 用户显式选择回合；个人自报，未经独立验证',now()))
+            source_label = '松伴项目工作台' if payload['tool'] == '松伴项目工作台' else '松伴连接器'
+            con.execute('INSERT OR IGNORE INTO library_notes(id,squad_id,author_id,body,suggestion,created_at) VALUES(?,?,?,?,?,?)',(note_id,sid,actor_id,body_text,source_label+' · 用户显式选择回合；个人自报，未经独立验证',now()))
         with db(True) as con:
             actor,squad=access(con,sid,authorization);s=init(con,squad)
             prior=con.execute('SELECT * FROM core_reports WHERE connection_id=? AND event_id=?',(actor['connection_id'],event)).fetchone()
@@ -650,3 +651,6 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
             with db(True) as con:con.execute('UPDATE core_connections SET revoked=1 WHERE id=?',(ident,))
             if isinstance(e,InstallError):raise problem(e.status,e.code,e.message) from None
             raise problem(500,'install_failed','安装未完成；请检查项目写入权限。原有配置已尽量恢复，备份在项目.songban/install-backups中。') from None
+
+    # Internal port: the workbench reuses the core's identity and archive rules.
+    return {'person': person, 'access': access, 'snapshot': snapshot, 'save_report': save_report}

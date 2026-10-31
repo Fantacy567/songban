@@ -1,6 +1,7 @@
 .venv/
 .browser-cache/
 .env
+.env-write-*
 data/
 *.sqlite*
 *.db*

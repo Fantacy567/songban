@@ -5,22 +5,21 @@ import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.environment import load_env, SMS_KEYS
 from app.sms import _signed_get, provider_failure, sms_status
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--env-file', type=Path, help='Optional private .env file; no values are printed')
+    parser.add_argument('--env-file', type=Path, help='Private UTF-8 file; defaults to the project .env, never prints values')
     parser.add_argument('--check-identity', action='store_true', help='Read-only Aliyun STS request; does not send SMS')
     args = parser.parse_args()
-    if args.env_file:
-        for line in args.env_file.read_text().splitlines():
-            if not line.strip() or line.lstrip().startswith('#') or '=' not in line:
-                continue
-            name, value = line.split('=', 1)
-            name = name.strip()
-            if name.startswith('ALIYUN_') or name in {'SONGBAI_REQUIRE_SMS', 'SONGBAI_ALLOW_TEST_CODES'}:
-                os.environ[name] = value.strip().strip('"\'')
+    if args.env_file and not args.env_file.is_file():
+        parser.error('指定的配置文件不存在；请提供本机私密 .env 的路径。')
+    try:
+        load_env(args.env_file, keys=SMS_KEYS)
+    except (OSError, UnicodeError):
+        parser.error('无法读取配置文件；请检查权限并保存为 UTF-8。')
     status = sms_status()
     result = {k: status[k] for k in ('configured', 'provider', 'missing', 'delivery_verified')}
     result['test_codes_disabled'] = os.environ.get('SONGBAI_ALLOW_TEST_CODES') != '1'
@@ -35,4 +34,6 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     raise SystemExit(main())

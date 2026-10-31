@@ -45,19 +45,19 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   await a.reload();await a.locator('#confirmed-tasks').waitFor();assert((await a.locator('#confirmed-tasks').innerText()).includes('同伴检查通过'));await screenshot(a,'unified-work');
   console.log('PASS real API flow: registration, SMS login, team join, direction, fixture plan, report, peer check, reload');
   await route(a,'members');await a.locator('#logout').click();await a.getByRole('button',{name:/^登录/}).click();
-  await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');await a.locator('#auth-form button[type=submit]').click();await a.locator('#confirmed-tasks').waitFor();
+  await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');await a.locator('#auth-form button[type=submit]').click();await a.waitForFunction(()=>state.me&&state.page==='myTasks');await route(a,'tasks');await a.locator('#confirmed-tasks').waitFor();
   assert.equal((await request('/api/core/me',null,await a.evaluate(()=>localStorage.getItem('studio-token')))).teams[0].id,team.id);
   console.log('PASS password login preserves the same team');
   for(const width of [390,768,1440]){
     await a.setViewportSize({width,height:950});
-    for(const name of ['events','event','team','direction','work','team-work','tools','library','members','delivery','review']){
+    for(const name of ['events','event','team','direction','work','team-work','workbench','tools','library','members','delivery','review']){
       await route(a,name);await a.waitForTimeout(150);
       const overflow=await a.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
       assert(!overflow,`${name} overflows at ${width}`);
       if(['event','work','team'].includes(name))await screenshot(a,`unified-${name}-${width}`);
     }
   }
-  console.log('PASS 30 responsive route checks at 390/768/1440');
+  console.log('PASS 36 responsive route checks at 390/768/1440');
   await route(a,'direction');await a.locator('[name=goal]').fill('未保存的长中文草稿，离开页面也应保留');
   await a.getByRole('link',{name:'个人任务',exact:true}).first().click();await a.getByRole('link',{name:'方向',exact:true}).click();
   assert.equal(await a.locator('[name=goal]').inputValue(),'未保存的长中文草稿，离开页面也应保留');
@@ -72,12 +72,12 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   console.log('PASS saving a recovered draft clears the unsaved indicator');
   // Two tabs share one identity without bouncing storage events or reviving it.
   const tab=await ctxA.newPage();tab.on('pageerror',e=>errors.push(e.message));
-  await route(tab,'work');await tab.locator('#confirmed-tasks').waitFor();
+  await route(tab,'tasks');await tab.locator('#confirmed-tasks').waitFor();
   await a.locator('#logout').click();await tab.getByRole('button',{name:/^登录/}).waitFor();
   assert.equal(await tab.evaluate(()=>localStorage.getItem('studio-token')),null);
   await a.getByRole('button',{name:/^登录/}).click();
   await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');
-  await a.locator('#auth-form button[type=submit]').click();await a.locator('#confirmed-tasks').waitFor();
+  await a.locator('#auth-form button[type=submit]').click();await a.waitForFunction(()=>state.me&&state.page==='myTasks');await route(a,'tasks');await a.locator('#confirmed-tasks').waitFor();
   await tab.waitForFunction(()=>state.me?.teams.length>0);
   assert.equal(await a.evaluate(()=>state.token),await tab.evaluate(()=>state.token));
   await tab.close();console.log('PASS cross-tab login/logout synchronization');
