@@ -17,3 +17,6 @@ typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.54.0
 -r requirements-materials.lock.txt
+
+qrcode==8.2
+colorama==0.4.6; sys_platform == "win32"
