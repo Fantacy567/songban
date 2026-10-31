@@ -1,0 +1,25 @@
+{
+  "name": "songban-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:workbench": "node scripts/build_workbench.mjs",
+    "typecheck:workbench": "tsc --project tsconfig.workbench.json",
+    "test:workbench": "node frontend/workbench/tests/browser.cjs"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "esbuild": "0.25.11",
+    "playwright": "1.62.1",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,14 @@
+---
+description: 松伴项目工作台边界和分会话文件所有权
+globs: app/workbench*.py,frontend/workbench/**,static/workbench/**,scripts/*workbench*,tests/test_workbench*.py
+alwaysApply: false
+---
+
+- 先读 docs/planning/项目工作台宪法.md、项目工作台接口契约.md、项目工作台实施计划.md。
+- 只在 E:/松伴/songban-materials 工作，参考黑客松情报局目录只读。
+- 按分工编辑文件，共享入口由集成会话接线，保护短信修复。
+- 融入实践，不新增一级 AI 导航；私有对话不自动成为共同事实。
+- 复用现有登录、队长确认、方向和 SQLite，不引入第二套权限或 Next 服务。
+- 遵守持久请求、幂等、unknown、共享预览与身份切换契约。
+- fixture 不冒充真实调用，不复制凭证、源数据库和 DSH 本机配置。
+- 报告实际改动、命令、结果和问题，不自行 commit/push。

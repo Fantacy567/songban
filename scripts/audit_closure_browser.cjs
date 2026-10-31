@@ -48,7 +48,7 @@ async function api(url,token,body,method){const r=await fetch(base+url,{method:m
    await api(tb+'/reports',owner,{event_id:crypto.randomUUID(),task_key:task,plan_version:1,status:'reported_done',summary:'合成完成记录',evidence:['合成核验依据']});snap=await api(tb,token);const row=snap.active_plan.tasks.find(t=>t.key===task);
    await api(tb+'/tasks/'+task+'/check',reviewer,{expected_revision:snap.revision,plan_version:1,report_id:row.latest_report_id,verdict:'accepted',note:'核对合成测试输入'});
   }
-  await page.goto(base+'/#/work');await page.reload();await page.locator('#confirmed-tasks').waitFor();
+  await page.goto(base+'/#/tasks');await page.reload();await page.locator('#confirmed-tasks').waitFor();
   assert(await page.evaluate(()=>state.data.workflow.all_handoffs_checked));
   const before=await page.evaluate(()=>({route:location.hash,next:state.data.workflow.next_action}));
   await page.locator('#next-action').click();

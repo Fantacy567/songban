@@ -1,0 +1,224 @@
+{
+  "recorded_date": "2026-10-31",
+  "source_root": "C:\\Users\\27736\\Desktop\\黑客松情报局",
+  "source_revision": "local directory; no Git repository metadata",
+  "target_repository": "E:\\松伴\\songban-materials",
+  "target_base_commit": "dd7c09449c143977c3e28e87b295c27b1ce6ebdd",
+  "status": "implemented and locally verified; live provider effects not validated",
+  "items": [
+    {
+      "source": "src/components/ai-workbench.tsx",
+      "sha256": "0e1b0a1e4310ed2884e4260d9134638293837a6656660954b9ff1705a14170a4",
+      "disposition": "reuse_component_with_adaptation",
+      "proposed_target": "frontend/workbench/ProjectWorkbench.tsx",
+      "adaptation": "保留对话和卡片结构；替换导航、API、身份及会话操作，修正归档和错误恢复。",
+      "source_copied": true,
+      "actual_targets": [
+        "frontend/workbench/ProjectWorkbench.tsx",
+        "frontend/workbench/ConversationPanel.tsx",
+        "frontend/workbench/MessageCard.tsx"
+      ],
+      "implementation_kind": "adapted_source_parts",
+      "implementation_note": "见 frontend/workbench/REUSE.md 的实际提取说明。",
+      "target_sha256": {
+        "frontend/workbench/ProjectWorkbench.tsx": "aaa35fbb576d5f9d400e5dad3540aa4fe30f5d1f84be017ce5077cff62efc058",
+        "frontend/workbench/ConversationPanel.tsx": "1e9bed063086a894852af5f92e0b11dcfa246e9fa72ab9bc10c4bb8a6eee843e",
+        "frontend/workbench/MessageCard.tsx": "f99d0fbd6a80ab256e97a0470573fcd5f2ed2866a2df7419165b294a527946df"
+      }
+    },
+    {
+      "source": "src/components/ai-workbench.module.css",
+      "sha256": "71129c78d0c131254ecc9273a20a0c5c7f2487e6a9db2fe99d0a2e31a596f134",
+      "disposition": "reuse_layout_with_songban_tokens",
+      "proposed_target": "frontend/workbench/workbench.module.css",
+      "adaptation": "复用布局和滚动结构，使用松伴 tokens 与响应式规则。",
+      "source_copied": true,
+      "actual_targets": [
+        "frontend/workbench/workbench.css"
+      ],
+      "implementation_kind": "adapted_source_parts",
+      "implementation_note": "见 frontend/workbench/REUSE.md 的实际提取说明。",
+      "target_sha256": {
+        "frontend/workbench/workbench.css": "41ac713c8a775a3b77f9c40f423ebbad476027d39ca5d8a08d89239342900ff2"
+      }
+    },
+    {
+      "source": "src/components/specialist-avatar.tsx",
+      "sha256": "a0a8549c99be11fed3048bee271ef6aa71d2971c70744d9f0c4fe1e5f064a50a",
+      "disposition": "reuse_svg_component",
+      "proposed_target": "frontend/workbench/SpecialistAvatar.tsx",
+      "adaptation": "保留 SVG 绘制，替换松伴职责映射与颜色。",
+      "source_copied": true,
+      "actual_targets": [
+        "frontend/workbench/SpecialistAvatar.tsx"
+      ],
+      "implementation_kind": "adapted_source_parts",
+      "implementation_note": "见 frontend/workbench/REUSE.md 的实际提取说明。",
+      "target_sha256": {
+        "frontend/workbench/SpecialistAvatar.tsx": "0deb02be36d37a405ce70603ce0feb35a573290adb56a574730f62ffa13eb2db"
+      }
+    },
+    {
+      "source": "src/modules/team-assistant/TeamAssistantPanel.tsx",
+      "sha256": "2759afd791f7733d119f388d625ad1e79e6fba9d9a1578be8efc7670b21fea3b",
+      "disposition": "reuse_component_parts",
+      "proposed_target": "frontend/workbench/ConversationPanel.tsx",
+      "adaptation": "提取消息、来源与请求状态展示，替换 DSH 与项目 API 耦合。",
+      "source_copied": true,
+      "actual_targets": [
+        "frontend/workbench/ConversationPanel.tsx",
+        "frontend/workbench/MessageCard.tsx",
+        "frontend/workbench/songban-adapter.ts"
+      ],
+      "implementation_kind": "adapted_source_parts",
+      "implementation_note": "见 frontend/workbench/REUSE.md 的实际提取说明。",
+      "target_sha256": {
+        "frontend/workbench/ConversationPanel.tsx": "1e9bed063086a894852af5f92e0b11dcfa246e9fa72ab9bc10c4bb8a6eee843e",
+        "frontend/workbench/MessageCard.tsx": "f99d0fbd6a80ab256e97a0470573fcd5f2ed2866a2df7419165b294a527946df",
+        "frontend/workbench/songban-adapter.ts": "ba7fea2808d0205554e602f0fe14b66bf25728da1aa7d6d34910508730fbac57"
+      }
+    },
+    {
+      "source": "src/modules/team-collaboration/ShareSuggestionPreview.tsx",
+      "sha256": "e26cae708be1f6de8c43ae33da12c95aaa43fbb27505ae00cb3a72474970e96a",
+      "disposition": "reuse_component_parts",
+      "proposed_target": "frontend/workbench/ShareTurnPreview.tsx",
+      "adaptation": "保留编辑和预览过程，接松伴受控来源及 conversation-notes。",
+      "source_copied": true,
+      "actual_targets": [
+        "frontend/workbench/ShareTurnPreview.tsx",
+        "frontend/workbench/songban-adapter.ts"
+      ],
+      "implementation_kind": "adapted_source_parts",
+      "implementation_note": "见 frontend/workbench/REUSE.md 的实际提取说明。",
+      "target_sha256": {
+        "frontend/workbench/ShareTurnPreview.tsx": "d5a5a9b9477d799ddc9b15959650b58d722d49b8e42b1765ca2fe4af8318ed07",
+        "frontend/workbench/songban-adapter.ts": "ba7fea2808d0205554e602f0fe14b66bf25728da1aa7d6d34910508730fbac57"
+      }
+    },
+    {
+      "source": "src/modules/module-assistants/registry.ts",
+      "sha256": "97c02538e44f0c2a0e07f3f9be5f656302cba2b260a48d9ff96990a715d8bd4d",
+      "disposition": "adapt_registry",
+      "proposed_target": "app/workbench_roles.py",
+      "adaptation": "改为资料、方向和下一步职责；替换赛事报名与机构权限。",
+      "source_copied": false,
+      "actual_targets": [
+        "app/workbench_model.py"
+      ],
+      "implementation_kind": "python_sqlite_design_port",
+      "implementation_note": "设计移植到松伴，未逐行复制 TypeScript；身份与数据库沿用现有服务。",
+      "target_sha256": {
+        "app/workbench_model.py": "f09abd1c01f3f4f1e9816f39b54d5f323fb7456aeaed9bcda46617a06ae1075a"
+      }
+    },
+    {
+      "source": "src/server/ai-actions.ts",
+      "sha256": "4c7a4754d50f86dab0d1270585f37631834cea56a7075be2414d148e94cf8c4b",
+      "disposition": "port_validation_rules",
+      "proposed_target": "app/workbench_actions.py",
+      "adaptation": "封闭动作与字段校验移植到后端；动作类型改为松伴已有确认过程。",
+      "source_copied": false,
+      "actual_targets": [
+        "app/workbench_model.py"
+      ],
+      "implementation_kind": "python_sqlite_design_port",
+      "implementation_note": "设计移植到松伴，未逐行复制 TypeScript；身份与数据库沿用现有服务。",
+      "target_sha256": {
+        "app/workbench_model.py": "f09abd1c01f3f4f1e9816f39b54d5f323fb7456aeaed9bcda46617a06ae1075a"
+      }
+    },
+    {
+      "source": "src/components/client-api.ts",
+      "sha256": "0f818d24b23c8b7b37f7be14656427ecf45a9804dc4c2968fe6f799a1f74f97a",
+      "disposition": "extract_independent_helpers",
+      "proposed_target": "frontend/workbench/songban-adapter.ts",
+      "adaptation": "复用独立错误与取消逻辑；不采用源项目 Cookie、api/v1 和 envelope。",
+      "source_copied": false,
+      "actual_targets": [],
+      "implementation_kind": "reference_only_not_migrated",
+      "implementation_note": "未采用；实际适配器错误/取消逻辑来源是 TeamAssistantPanel 与 ShareSuggestionPreview。",
+      "target_sha256": {}
+    },
+    {
+      "source": "src/server/personal-workspace.ts",
+      "sha256": "b263aa46a5703e8c4f0d7d222a7f02a80c495b1a8001abe8056c86280a37da9f",
+      "disposition": "port_behavior_not_storage",
+      "proposed_target": "app/workbench_store.py",
+      "adaptation": "本人会话、持久请求、状态恢复；使用 SQLite 与松伴身份。",
+      "source_copied": false,
+      "actual_targets": [
+        "app/workbench.py"
+      ],
+      "implementation_kind": "python_sqlite_design_port",
+      "implementation_note": "设计移植到松伴，未逐行复制 TypeScript；身份与数据库沿用现有服务。",
+      "target_sha256": {
+        "app/workbench.py": "27d94af9b6273387e6a75ee01fecc1019366beaff80b885852c1ea9e8fc98d66"
+      }
+    },
+    {
+      "source": "src/modules/team-assistant/service.ts",
+      "sha256": "9b2583a0369583ade6b53085b035e6cd4ed3337fdbc9e7cd74a7bbcf52c6127b",
+      "disposition": "port_behavior_and_test_cases",
+      "proposed_target": "app/workbench.py",
+      "adaptation": "去重、上下文指纹、返回前复核与未知请求处理；不复制 DSH 专属依赖。",
+      "source_copied": false,
+      "actual_targets": [
+        "app/workbench.py"
+      ],
+      "implementation_kind": "python_sqlite_design_port",
+      "implementation_note": "设计移植到松伴，未逐行复制 TypeScript；身份与数据库沿用现有服务。",
+      "target_sha256": {
+        "app/workbench.py": "27d94af9b6273387e6a75ee01fecc1019366beaff80b885852c1ea9e8fc98d66"
+      }
+    },
+    {
+      "source": "src/server/project-charter.ts",
+      "sha256": "25044b2b777868bba566e6cac1c920acbd129f7545b6c7688fdddccf97fb61e9",
+      "disposition": "reuse_presentation_contract_only",
+      "proposed_target": "app/team_core.py existing direction service",
+      "adaptation": "目标卡映射现有共同方向；不迁移 project_charters 表和读后写实现。",
+      "source_copied": false,
+      "actual_targets": [],
+      "implementation_kind": "reference_only_not_migrated",
+      "target_sha256": {}
+    },
+    {
+      "source": "src/server/dsh-chat.ts",
+      "sha256": "8c7bcb7be07d139c1a19571d31d832bd49eed3b68e7f8f4597000e8a03c94e11",
+      "disposition": "reference_only",
+      "proposed_target": null,
+      "adaptation": "本期接松伴模型配置；不迁移 DSH 运行时。",
+      "source_copied": false,
+      "actual_targets": [],
+      "implementation_kind": "reference_only_not_migrated",
+      "target_sha256": {}
+    },
+    {
+      "source": "src/server/organizer-integration.ts",
+      "sha256": "a8e9597ee784e2dbbe9596dd0e3ed0721d42833982ed85c9ca1dda6c4718eb8f",
+      "disposition": "reference_and_regression_evidence",
+      "proposed_target": null,
+      "adaptation": "归档 SQL 与消息模型不一致；不复制整套主办方应用或归档分支。",
+      "source_copied": false,
+      "actual_targets": [],
+      "implementation_kind": "reference_only_not_migrated",
+      "target_sha256": {}
+    },
+    {
+      "source": "migrations/021_personal_dsh_workspaces.sql",
+      "sha256": "9b1fa8f5bf1c6022bdb0a166043465f2f29b21a0301a7ddc8f5a9ce032f291f1",
+      "disposition": "reference_and_schema_evidence",
+      "proposed_target": null,
+      "adaptation": "仅核对 session_id 归属与原存储；不执行该迁移。",
+      "source_copied": false,
+      "actual_targets": [],
+      "implementation_kind": "reference_only_not_migrated",
+      "target_sha256": {}
+    }
+  ],
+  "implementation_date": "2026-10-31",
+  "frontend_evidence": "frontend/workbench/REUSE.md",
+  "verification_report": "docs/planning/项目工作台测试报告.md",
+  "source_hashes_reverified": true
+}
