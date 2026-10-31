@@ -3,8 +3,8 @@ const root = document.querySelector('#app');
 const $ = selector => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {discussion:'讨论',in_progress:'进行中',blocked:'受阻',reported_done:'本人报告完成',todo:'尚无进展'};
-const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'discussion',direction:'direction',workbench:'workbench',tasks:'overview',work:'myTasks','team-work':'teamTasks',collaboration:'overview',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
-const pageRoutes = {discussion:'ideas',overview:'collaboration',myTasks:'work',teamTasks:'team-work',plugin:'tools',recap:'review'};
+const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',ideas:'discussion','idea-library':'ideaLibrary',direction:'direction',workbench:'workbench',tasks:'overview',work:'myTasks','team-work':'teamTasks',collaboration:'overview',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
+const pageRoutes = {discussion:'ideas',ideaLibrary:'idea-library',overview:'collaboration',myTasks:'work',teamTasks:'team-work',plugin:'tools',recap:'review'};
 const state = {token:localStorage.getItem('studio-token') || '',team:localStorage.getItem('studio-squad') || '',page:'login',personal:sessionStorage.getItem('songban-personal')==='1',me:null,data:null,busy:false,epoch:0,events:[],eventId:sessionStorage.getItem('songban-event') || '',selectedRules:'',drafts:new Map(),syncing:false};
 const endpoint = suffix => '/api/core/teams/' + encodeURIComponent(state.team) + suffix;
 const values = data => Object.fromEntries(data.entries());
@@ -109,7 +109,7 @@ function render() {
   if(state.page==='workbench'){workbenchPage();return;}
   if(state.page==='materials'){materialsPage();return;}
   if(!state.data){renderOnboarding();return;}
-  const pages={team:teamPage,discussion:discussionPage,direction:direction,overview:overview,myTasks:myTasksPage,teamTasks:teamTasksPage,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
+  const pages={team:teamPage,discussion:discussionPage,ideaLibrary:()=>libraryView('discussion'),direction:direction,overview:overview,myTasks:myTasksPage,teamTasks:teamTasksPage,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
   (pages[state.page]||overview)();
   if(state.page==='direction'&&!state.data.direction.rules&&state.selectedRules){const f=$('#direction-form');f.elements.rules.value=state.selectedRules;f.dataset.dirty='true';}
   restoreDrafts();
@@ -244,7 +244,7 @@ async function refresh(force=false){
     const editing=!!root.querySelector('form[data-dirty="true"],dialog[open]')||state.busy;
     if(state.page==='workbench'){state.data=data;}
     else if(force){captureDrafts();state.data=data;render();}
-    else if(changed&&!editing&&state.page!=='materials'){state.data=data;if(state.page==='library'&&$('#library-notes'))libraryMarkUpdated();else if(!['login','events','event'].includes(state.page))render();}
+    else if(changed&&!editing&&state.page!=='materials'){state.data=data;if(['library','ideaLibrary'].includes(state.page)&&$('#library-notes'))libraryMarkUpdated();else if(!['login','events','event'].includes(state.page))render();}
     if(changed&&editing&&!force&&['myTasks','teamTasks'].includes(state.page))updateTaskMeters(data);
     const status=$('#sync-state');if(status)status.textContent=changed&&editing&&!force?'有新进展，保存前请核对':'已同步 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
   }catch(error){const s=$('#sync-state');if(s)s.textContent='同步中断，输入已保留';if(force)toast(error.message);}

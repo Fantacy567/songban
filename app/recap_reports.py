@@ -42,12 +42,12 @@ SYSTEM='''你是松伴赛后成长报告助手，面向家长用自然中文解�
 不复述私聊、联系方式或凭证，不列出其他孩子姓名；家长只看整理后的本人报告。没有证据就说尚不了解。
 只返回JSON：{"summary":"本场概况","observations":[{"title":"本场表现","text":"事实与有保留的解读","source_ids":["真实来源ID"]}],"next_steps":["下次可尝试的行动"],"limitations":["资料范围和未知项"]}。
 最多8条观察、5条下一步和5条限制，总字数不超过2500字。不要输出Markdown代码围栏。'''
-def run_model(context):
+def run_model(context,system=SYSTEM):
     cfg=team_model_config()
     if not cfg.get('api_key'):raise PlannerError('model_not_configured','模型暂未配置，感悟已保存，稍后可以生成报告。',503)
     base=check_model_base(cfg.get('base_url',''))
     try:
-        payload={'model':cfg['model_id'],'messages':[{'role':'system','content':SYSTEM},{'role':'user','content':dump(context)}],'max_tokens':4500,'stream':False}
+        payload={'model':cfg['model_id'],'messages':[{'role':'system','content':system},{'role':'user','content':dump(context)}],'max_tokens':4500,'stream':False}
         if cfg['model_id'].lower().startswith(('doubao','deepseek')):payload['thinking']={'type':'disabled'}
         with httpx.Client(timeout=httpx.Timeout(90,connect=10),follow_redirects=False,trust_env=True) as client:
             response=client.post(base+'/chat/completions',headers={'Authorization':'Bearer '+cfg['api_key']},json=payload)

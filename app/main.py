@@ -110,7 +110,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -827,7 +827,7 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         return FileResponse(ROOT / "static" / "workflow.html")
 
     register_studio(api, db, Problem, now, uid, digest)
-    core = register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    core = register_core(api, db, Problem, now, uid, digest, core_model_runner, idea_model_runner)
     register_materials(api, db, Problem, now, uid, digest, materials_model_runner)
     register_recap(api, db, Problem, now, uid, digest, recap_model_runner)
     register_workbench(api, db, Problem, now, uid, digest, core, workbench_model_runner)

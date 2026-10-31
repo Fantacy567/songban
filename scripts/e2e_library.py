@@ -37,7 +37,7 @@ with sync_playwright() as p:
   login(a,phone_a);route(a,'team');a.locator('#team-name').fill('对话资料库验收队');a.locator('#create-team button').click();expect(a.locator('[data-share-conversation=discussion]')).to_be_visible();a.screenshot(path=str(OUT/'discussion.png'),full_page=True)
   token_a=a.evaluate('state.token');team=a.evaluate('state.team');code=a.evaluate('state.data.team.code');login(b,phone_b);route(b,'team');b.locator('#team-code').fill(code);b.locator('#join-team button').click();expect(b.locator('#confirmed-tasks')).to_be_visible();token_b=b.evaluate('state.token')
   a.locator('[data-share-conversation]').click();f=a.locator('#share-conversation');f.locator('[name=user_message]').fill('我是设计师');f.locator('[name=model_name]').fill('GPT-6.1sol');f.locator('[name=assistant_message]').fill('好的，您是设计师。我们先画一张首页草图。');f.locator('[name=consent]').check();f.locator('button[type=submit]').click();expect(a.locator('#share-conversation')).to_have_count(0)
-  route(a,'library');expect(a.locator('.conversation-user')).to_contain_text('孔：我是设计师');expect(a.locator('.conversation-model')).to_contain_text('GPT-6.1sol：好的，您是设计师。')
+  route(a,'idea-library');expect(a.locator('.conversation-user')).to_contain_text('孔：我是设计师');expect(a.locator('.conversation-model')).to_contain_text('GPT-6.1sol：好的，您是设计师。')
   native_token=api('/api/core/teams/'+team+'/connections',{'label':'native fixture'},token_b)['token'];portable_token=api('/api/core/teams/'+team+'/connections',{'label':'portable fixture'},token_a)['token']
   long_reply='我建议先保留一个主要操作。\n'*250+'完整回复末尾：水獭线索。';args={'selected':True,'event_id':'native-long','user_message':'请帮我检查选题。<img src=x onerror=alert(1)>','assistant_summary':'先只保留一个主操作','assistant_message':long_reply,'full_reply_authorized':True,'model_name':'协议测试模型','conversation_stage':'discussion'}
   receipt=mcp_call('plugins/songban-native/server.py','songban_sync_selected_turn',args,native_token,team,True)
@@ -51,11 +51,11 @@ with sync_playwright() as p:
   detail=mcp_call('plugins/songban-team/bridge.py','songban_read_library_record',{'record_id':receipt['note_id']},portable_token,team);assert detail['report']['assistant_message']==long_reply
   mcp_call('plugins/songban-team/bridge.py','songban_sync_selected_turn',{'selected':True,'event_id':'portable-summary','user_message':'我来做页面','assistant_summary':'先做可点击原型','model_name':'','conversation_stage':'development'},portable_token,team)
   note('PASS portable MCP scoped search, cited record read, and selected-turn archive')
-  a.locator('#library-filters [name=query]').fill('');a.locator('#library-filters button').click();expect(a.locator('.conversation-record')).to_have_count(3);expect(a.locator('.conversation-model').first).to_contain_text('模型名未获取');expect(a.locator('.conversation-record').first).to_contain_text('仅有回复要点')
-  for i in range(19):api('/api/core/teams/'+team+'/conversation-notes',{'selected':True,'event_id':'page-'+str(i),'user_message':'交接记录'+str(i),'assistant_summary':'真实记录保留','model_name':'fixture'},token_a)
+  route(a,'library');expect(a.locator('.conversation-record')).to_have_count(1);expect(a.locator('.conversation-model').first).to_contain_text('模型名未获取');expect(a.locator('.conversation-record').first).to_contain_text('仅有回复要点')
+  for i in range(21):api('/api/core/teams/'+team+'/conversation-notes',{'selected':True,'event_id':'page-'+str(i),'user_message':'交接记录'+str(i),'assistant_summary':'真实记录保留','model_name':'fixture','conversation_stage':'development'},token_a)
   a.locator('#library-refresh').click();expect(a.locator('.conversation-record')).to_have_count(20);a.locator('#library-more').click();expect(a.locator('.conversation-record')).to_have_count(22)
-  a.locator('#library-filters [name=author]').select_option(b.evaluate('state.me.person.id'));a.locator('#library-filters button').click();expect(a.locator('.conversation-record')).to_have_count(1)
-  a.locator('#library-filters [name=stage]').select_option('development');a.locator('#library-filters button').click();expect(a.locator('.library-empty')).to_be_visible()
+  a.locator('#library-filters [name=author]').select_option(b.evaluate('state.me.person.id'));a.locator('#library-filters button').click();expect(a.locator('.conversation-record')).to_have_count(0)
+  a.locator('#library-filters [name=stage]').select_option('recap');a.locator('#library-filters button').click();expect(a.locator('.library-empty')).to_be_visible()
   a.locator('#library-filters [name=author]').select_option('');a.locator('#library-filters [name=stage]').select_option('');a.locator('#library-filters button').click();expect(a.locator('.conversation-record')).to_have_count(20)
   for width in [390,768,1440]:
    a.set_viewport_size({'width':width,'height':950});a.wait_for_timeout(150);assert a.evaluate('document.documentElement.scrollWidth<=innerWidth+1');a.evaluate('scrollTo(0,0)');a.screenshot(path=str(OUT/f'library-{width}.png'),full_page=True)

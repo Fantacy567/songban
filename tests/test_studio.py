@@ -29,7 +29,9 @@ SOURCE = "主办方要求：可演示作品、宣传片、PPT、分工说明，�
 
 class ExtractTests(unittest.TestCase):
     def test_extracts_weixin_mp_links_from_chat_text(self):
-        urls = extract_urls("群里发了 https://mp.weixin.qq.com/s/AbCdEfGhIjKl 大家看一下")
+        # This checks extraction, not the availability of live WeChat DNS.
+        with patch('app.contest_intel.socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]):
+            urls = extract_urls("群里发了 https://mp.weixin.qq.com/s/AbCdEfGhIjKl 大家看一下")
         self.assertEqual(urls[0], "https://mp.weixin.qq.com/s/AbCdEfGhIjKl")
 
     def test_parses_weixin_article_html(self):

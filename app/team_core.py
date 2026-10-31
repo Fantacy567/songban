@@ -24,6 +24,7 @@ from .connector_skill import install_connector_skill
 from .connector_plugin import install_connector_plugin
 from .conversation_library import register_library, library_counts
 from .task_progress import member_task_progress
+from .idea_selection import register_ideas
 from .core_workflow import SCHEMA as WORKFLOW_SCHEMA, enrich_handoffs, build_workflow, handoff_markdown
 
 SCHEMA = """
@@ -116,7 +117,7 @@ def request_model(context):
         raise PlannerError('model_invalid_output','模型回复格式不正确，没有采用。',502) from None
 
 
-def register_core(api, db, problem, now, uid, digest, runner=None):
+def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=None):
     jobs, jobs_lock = {}, threading.Lock()
     model_gate = threading.BoundedSemaphore(2)
     api.state.core_jobs = jobs
@@ -415,7 +416,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         return {'saved':True}
 
     def report_body(body):
-        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized'}
+        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id'}
         if set(body)-allowed:raise problem(422,'unknown_fields','进展含未支持字段；成员身份由连接确定，不能自行指定。')
         event=txt(body.get('event_id'),'事件ID',120,True)
         status=body.get('status','discussion')
@@ -452,9 +453,15 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
                 if capture['conversation_stage'] not in ('discussion','development','recap'):raise problem(422,'invalid_stage','请选择选题讨论、任务执行或赛后复盘。')
                 payload['conversation_stage']=capture['conversation_stage']
             if body.get('full_reply_authorized') is True:payload['full_reply_authorized']=True
+            if body.get('idea_id'):payload['idea_id']=txt(body['idea_id'],'idea编号',120,True)
             payload['capture_only']=True
         fingerprint=digest(dump(payload));ident=uid();changed=False
         def archive_note(con,note_id,actor_id):
+            if payload.get('idea_id'):
+                idea=con.execute('SELECT 1 FROM team_ideas WHERE id=? AND squad_id=? AND user_id=?',(payload['idea_id'],sid,actor_id)).fetchone()
+                if not idea:raise problem(409,'idea_not_owned','只能将对话关联本人的本队idea。')
+                if payload.get('conversation_stage') not in (None,'discussion'):raise problem(422,'idea_stage_mismatch','可行性对话应归入选题讨论库。')
+                con.execute('INSERT OR IGNORE INTO idea_note_links VALUES(?,?,?,?)',(note_id,payload['idea_id'],sid,actor_id))
             body_text=('用户：'+payload['user_message']+'\n\n智能体：'+payload.get('assistant_summary',payload['summary'])+'\n\n模型：'+(payload.get('model_name') or '未获取')) if payload.get('user_message') else '关键内容：'+payload['summary']
             if payload['excerpt']:body_text+='\n\n本轮必要摘录：'+payload['excerpt']
             if payload['blocker']:body_text+='\n\n受阻：'+payload['blocker']
@@ -481,7 +488,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
                         raise problem(409,'task_outdated','任务不属于你或安排版本已更新，请先读取最新任务。')
                 recent=con.execute("SELECT COUNT(*) FROM core_reports WHERE connection_id=? AND created_at>=?",(actor['connection_id'],(datetime.fromisoformat(now())-timedelta(minutes=1)).isoformat(timespec='seconds'))).fetchone()[0]
                 if recent>=30:raise problem(429,'sync_rate_limited','同步过快，请合并重要进展，稍后重试。')
-                if archive:payload['recorded_stage']=payload.get('conversation_stage') or ('development' if s['plan_version'] else 'discussion')
+                if archive:payload['recorded_stage']=payload.get('conversation_stage') or ('discussion' if payload.get('idea_id') else ('development' if s['plan_version'] else 'discussion'))
                 con.execute('INSERT INTO core_reports(id,squad_id,user_id,connection_id,event_id,payload_hash,body,created_at) VALUES(?,?,?,?,?,?,?,?)',(ident,sid,actor['id'],actor['connection_id'],event,fingerprint,dump(payload),now()))
                 if archive:archive_note(con,ident,actor['id'])
                 changed=True
@@ -507,6 +514,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None):
         body.pop('views',None);body.pop('evidence',None);body.pop('blocker',None)
         return save_report(sid,body,authorization,archive=True)
 
+    register_ideas(api,db,access,problem,now,uid,digest,idea_runner)
     register_library(api,db,access,problem)
 
     @api.get('/api/core/teams/{sid}/context')

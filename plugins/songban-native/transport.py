@@ -63,7 +63,7 @@ def request(d,suffix,data=None):
 
 def payload(data):
  if not isinstance(data,dict):raise ConnectorError('本轮摘要必须是JSON对象。')
- allowed={'event_id','session_label','summary','status','views','evidence','excerpt','blocker','occurred_at','user_message','assistant_summary','assistant_message','model_name','conversation_stage','task_key','plan_version','full_reply_authorized'}
+ allowed={'event_id','session_label','summary','status','views','evidence','excerpt','blocker','occurred_at','user_message','assistant_summary','assistant_message','model_name','conversation_stage','task_key','plan_version','full_reply_authorized','idea_id'}
  if set(data)-allowed:raise ConnectorError('本轮摘要含不支持字段；不能自行指定成员或其他队伍。')
  def clean(v):
   if isinstance(v,str):return redact(v)

@@ -82,7 +82,7 @@ def call(path,body=None):
 
 def prepare(body):
     if not isinstance(body,dict):raise BridgeError('进展文件必须是JSON对象。')
-    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized'}
+    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id'}
     if set(body)-allowed:raise BridgeError('进展含不支持的字段，请按示例填写。')
     # Round trip redacts only string values; never interpolates JSON as code.
     def walk(v):
@@ -166,18 +166,21 @@ TOOLS=[
 
 
 CONVERSATION_SCHEMA={'type':'object','properties':{
- 'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
+ 'idea_id':{'type':'string'},'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
  'user_message':{'type':'string'},'assistant_message':{'type':'string'},'assistant_summary':{'type':'string'},'model_name':{'type':'string'},
  'conversation_stage':{'type':'string','enum':['discussion','development','recap']},'task_key':{'type':'string'},'plan_version':{'type':'integer'}
 },'required':['selected','event_id','user_message','assistant_summary'],'additionalProperties':False}
-TOOLS.extend([
+TOOLS.extend([{'name':'songban_get_topic_ideas','description':'读取本队公开idea及idea_id；选题可行性对话上传时填写idea_id和conversation_stage=discussion。','inputSchema':{'type':'object','properties':{},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
  {'name':'songban_sync_selected_turn','description':'将明确授权的本轮用户原话和AI可见回复归档到团队资料库。完整回复须full_reply_authorized=true；不修改任务状态。','inputSchema':CONVERSATION_SCHEMA},
- {'name':'songban_search_team_library','description':'从本队真实资料库检索线索，返回记录号和分页游标。只检索，不运行模型。','inputSchema':{'type':'object','properties':{'query':{'type':'string'},'author_id':{'type':'string'},'stage':{'type':'string'},'task_key':{'type':'string'},'cursor':{'type':'integer'},'limit':{'type':'integer','minimum':1,'maximum':50}},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
+ {'name':'songban_search_team_library','description':'从本队真实资料库检索线索，返回记录号和分页游标。只检索，不运行模型。','inputSchema':{'type':'object','properties':{'scope':{'type':'string','enum':['discussion','project','all']},'idea_id':{'type':'string'},'query':{'type':'string'},'author_id':{'type':'string'},'stage':{'type':'string'},'task_key':{'type':'string'},'cursor':{'type':'integer'},'limit':{'type':'integer','minimum':1,'maximum':50}},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
  {'name':'songban_read_library_record','description':'按资料记录号读取本队完整对话原文。','inputSchema':{'type':'object','properties':{'record_id':{'type':'string'}},'required':['record_id'],'additionalProperties':False},'annotations':{'readOnlyHint':True}}
 ])
 
 
 def library_tool(name,args):
+    if name=='songban_get_topic_ideas':
+        if args:raise BridgeError('读取idea不需要额外参数。')
+        return call('/ideas')
     if name=='songban_sync_selected_turn':
         if args.get('selected') is not True:raise BridgeError('本轮没有明确授权共享。')
         body=dict(args);body.pop('selected')
@@ -188,7 +191,7 @@ def library_tool(name,args):
         if not r.get('note_id'):raise BridgeError('未返回记录号，不能确认上传成功。')
         return r
     if name=='songban_search_team_library':
-        if set(args)-{'query','author_id','stage','task_key','cursor','limit'}:raise BridgeError('检索参数不正确。')
+        if set(args)-{'query','author_id','stage','task_key','cursor','limit','scope','idea_id'}:raise BridgeError('检索参数不正确。')
         data=dict(args)
         if 'query' in data:data['q']=data.pop('query')
         data.setdefault('limit',5);data['brief']='true'
@@ -217,7 +220,7 @@ def mcp():
                     if not isinstance(args,dict):raise BridgeError('工具参数必须是对象。')
                     if name=='songban_get_team_context' and not args:answer=call('/context')
                     elif name=='songban_get_my_tasks' and not args:answer=call('/my-tasks')
-                    elif name in ('songban_sync_selected_turn','songban_search_team_library','songban_read_library_record'):answer=library_tool(name,args)
+                    elif name in ('songban_get_topic_ideas','songban_sync_selected_turn','songban_search_team_library','songban_read_library_record'):answer=library_tool(name,args)
                     elif name=='songban_sync_progress':
                         data=prepare(args);enqueue(data);answer=flush()
                     else:raise BridgeError('未知工具或参数不正确。')
