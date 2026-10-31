@@ -81,3 +81,11 @@ class LibraryTests(unittest.TestCase):
     def test_filters_and_oversize_are_not_silently_accepted(self):
         for suffix in ['?limit=51','?cursor=0','?stage=unknown','?q='+'x'*201]:self.assertEqual(self.client.get(self.base+'/library'+suffix,headers=self.h('a')).status_code,422)
         self.assertEqual(self.put(assistant_message='x'*60001).status_code,422)
+
+    def test_tool_name_fallback_preserves_unknown_model(self):
+        r=self.put(model_name='',source_tool='Codex');self.assertEqual(r.status_code,200,r.text)
+        item=self.client.get(self.base+'/library/'+r.json()['note_id'],headers=self.h('a')).json()
+        self.assertEqual(item['speaker_name'],'Codex');self.assertEqual(item['report']['model_name'],'')
+        r=self.put(event='known-model',source_tool='Codex',model_name='actual-model')
+        item=self.client.get(self.base+'/library/'+r.json()['note_id'],headers=self.h('a')).json()
+        self.assertEqual(item['speaker_name'],'actual-model')

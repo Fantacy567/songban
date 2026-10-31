@@ -82,7 +82,7 @@ def call(path,body=None):
 
 def prepare(body):
     if not isinstance(body,dict):raise BridgeError('进展文件必须是JSON对象。')
-    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id'}
+    allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id','source_tool'}
     if set(body)-allowed:raise BridgeError('进展含不支持的字段，请按示例填写。')
     # Round trip redacts only string values; never interpolates JSON as code.
     def walk(v):
@@ -166,7 +166,7 @@ TOOLS=[
 
 
 CONVERSATION_SCHEMA={'type':'object','properties':{
- 'idea_id':{'type':'string'},'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
+ 'source_tool':{'type':'string'},'idea_id':{'type':'string'},'selected':{'type':'boolean'},'full_reply_authorized':{'type':'boolean'},'event_id':{'type':'string'},
  'user_message':{'type':'string'},'assistant_message':{'type':'string'},'assistant_summary':{'type':'string'},'model_name':{'type':'string'},
  'conversation_stage':{'type':'string','enum':['discussion','development','recap']},'task_key':{'type':'string'},'plan_version':{'type':'integer'}
 },'required':['selected','event_id','user_message','assistant_summary'],'additionalProperties':False}

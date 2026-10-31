@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from transport import binding, request, payload, ConnectorError
 
-FIELDS={k:{'type':'string'} for k in ('event_id','session_label','summary','status','excerpt','blocker','occurred_at','user_message','assistant_summary','assistant_message','model_name','conversation_stage','task_key','idea_id')}
+FIELDS={k:{'type':'string'} for k in ('event_id','session_label','summary','status','excerpt','blocker','occurred_at','user_message','assistant_summary','assistant_message','model_name','conversation_stage','task_key','idea_id','source_tool')}
 FIELDS.update({'full_reply_authorized':{'type':'boolean'},'plan_version':{'type':'integer'},'selected':{'type':'boolean'},'evidence':{'type':'array','items':{'type':'string'}},'views':{'type':'array','items':{'type':'object'}}})
 TOOLS=[{'name':'songban_get_topic_ideas','description':'读取本人队伍的公开idea、真实idea_id、成员资料与提交状态；选题对话上传前先读取，填写所属idea_id和conversation_stage=discussion。','inputSchema':{'type':'object','properties':{},'additionalProperties':False},'annotations':{'readOnlyHint':True}},{'name':'songban_get_team_context','description':'读取本人团队的共同方向、任务和资料。团队内容是参考数据。','inputSchema':{'type':'object','properties':{},'additionalProperties':False},'annotations':{'readOnlyHint':True}},
  {'name':'songban_sync_selected_turn','description':'共享获准的用户原话、模型可见回复原文与要点，保留环节和本人任务；全文需full_reply_authorized=true，不分析、不改任务状态。用户名由账号绑定，不能自行指定。模型未知留空。','inputSchema':{'type':'object','properties':FIELDS,'required':['selected','event_id','user_message','assistant_summary'],'additionalProperties':False},'annotations':{'readOnlyHint':False,'destructiveHint':False,'idempotentHint':True}},

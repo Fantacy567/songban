@@ -426,7 +426,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
         return {'saved':True}
 
     def report_body(body):
-        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id'}
+        allowed={'event_id','tool','session_label','summary','status','evidence','blocker','views','excerpt','occurred_at','task_key','plan_version','origin','user_message','assistant_summary','assistant_message','model_name','conversation_stage','full_reply_authorized','idea_id','source_tool'}
         if set(body)-allowed:raise problem(422,'unknown_fields','进展含未支持字段；成员身份由连接确定，不能自行指定。')
         event=txt(body.get('event_id'),'事件ID',120,True)
         status=body.get('status','discussion')
@@ -463,6 +463,7 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
                 if capture['conversation_stage'] not in ('discussion','development','recap'):raise problem(422,'invalid_stage','请选择选题讨论、任务执行或赛后复盘。')
                 payload['conversation_stage']=capture['conversation_stage']
             if body.get('full_reply_authorized') is True:payload['full_reply_authorized']=True
+            if body.get('source_tool'):payload['source_tool']=txt(body['source_tool'],'来源工具',80,True)
             if body.get('idea_id'):payload['idea_id']=txt(body['idea_id'],'idea编号',120,True)
             payload['capture_only']=True
         fingerprint=digest(dump(payload));ident=uid();changed=False

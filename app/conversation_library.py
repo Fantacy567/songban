@@ -27,7 +27,12 @@ def record(row, brief=False, query=''):
     if brief:
         payload.pop('assistant_message',None)
         if 'user_message' in payload:payload['user_message']=user[:1000]
-    return {'source_label':row['source_label'] or '网页手动补充','source_kind':'manual' if row['connection_id'].startswith('web:') else 'connector','user_preview':preview(user,query) if brief else user,'reply_preview':preview(reply,query) if brief else reply,'content_truncated':brief and (len(user)>1000 or len(reply)>1000),'reply_length':len(reply),'id':row['id'],'seq':row['seq'],'squad_id':row['squad_id'],'author_id':row['author_id'],
+    tool=payload.get('source_tool','')
+    if not tool:
+        label=(row['source_label'] or '')+' '+payload.get('tool','')
+        tool=next((name for name in ['Codex','Cursor','WorkBuddy','ChatGPT'] if name.lower() in label.lower()),'')
+    speaker=payload.get('model_name') or tool or 'AI工具（未注明）'
+    return {'speaker_name':speaker,'source_tool':tool,'source_label':row['source_label'] or '网页手动补充','source_kind':'manual' if row['connection_id'].startswith('web:') else 'connector','user_preview':preview(user,query) if brief else user,'reply_preview':preview(reply,query) if brief else reply,'content_truncated':brief and (len(user)>1000 or len(reply)>1000),'reply_length':len(reply),'id':row['id'],'seq':row['seq'],'squad_id':row['squad_id'],'author_id':row['author_id'],
             'author':row['author'],'created_at':row['created_at'],'body':row['body'][:1000] if brief else row['body'],
             'idea_id':row['linked_idea_id'] if 'linked_idea_id' in row.keys() else payload.get('idea_id'), 'stage':row['stage'],'reply_kind':'full' if full else 'summary',
             'report':{**payload,'user_name':row['author']}}
