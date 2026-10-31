@@ -83,3 +83,18 @@ class DemoModeTests(unittest.TestCase):
     receipt=transport.request(binding,'/conversation-notes',body);self.assertTrue(receipt['note_id'])
     with self.assertRaises(transport.ConnectorError):transport.request({**binding,'demo_session':str(uuid.uuid4())},'/context')
    self.assertEqual(client.get(base+'/context',headers={'Authorization':'Bearer '+connection['token']}).status_code,401)
+   # Seed a shared report to check public routing independently of journey gates.
+   demo_app,_=self.preview.demo.sessions[session]
+   with patch.object(demo_app.state,'enforce_journey',False):
+    saved=client.put('/demo'+base+'/recap',headers=headers,json={'expected_version':0,'feelings':'学会先做原型再试用。','ideas':'下次多请队友反馈。','result':'完成展示，结果未公布。'})
+    self.assertEqual(saved.status_code,200,saved.text)
+    report=call(base+'/recap/reports',{'request_id':uuid.uuid4().hex,'expected_version':1})
+    self.assertEqual(report['status'],'ready')
+    share=call(base+'/recap/reports/'+report['id']+'/share',{'confirmed':True})
+   self.assertTrue(share['qr_url'].startswith('/demo/family/reports/'))
+   self.assertEqual(client.get(urlsplit(share['url']).path).status_code,200)
+   qr=client.get(share['qr_url'])
+   self.assertEqual(qr.status_code,200,qr.text)
+   self.assertIn('image/svg+xml',qr.headers['content-type'])
+   self.assertIn('<svg',qr.text)
+   self.assertEqual(client.get(share['qr_url'].removeprefix('/demo')).status_code,404)

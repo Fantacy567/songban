@@ -116,7 +116,8 @@ def register_recap(api,db,problem,now,uid,digest,runner=None):
         row=con.execute('SELECT * FROM recap_shares WHERE report_id=?',(ident,)).fetchone()
         if not row or row['revoked'] or row['expires_at']<=now():return None
         base=(getattr(api.state,'demo_base_url','') or os.environ.get('PUBLIC_BASE_URL','')).strip().rstrip('/')
-        return {'url':base+'/family/reports/'+row['token'],'qr_url':'/family/reports/'+row['token']+'/qr.svg','expires_at':row['expires_at']}
+        prefix=getattr(api.state,'demo_base_path','').rstrip('/')
+        return {'url':base+'/family/reports/'+row['token'],'qr_url':prefix+'/family/reports/'+row['token']+'/qr.svg','expires_at':row['expires_at']}
     @api.get('/api/core/teams/{sid}/recap')
     def get_recap(sid:str,authorization:str=Header(default='')):
         with db() as con:
