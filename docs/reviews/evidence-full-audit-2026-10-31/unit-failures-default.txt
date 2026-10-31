@@ -1,0 +1,94 @@
+======================================================================
+ERROR: test_skill_is_global_explicit_only_and_has_chinese_title (test_connector_skill.SelectedSkillTests.test_skill_is_global_explicit_only_and_has_chinese_title)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_connector_skill.py", line 33, in test_skill_is_global_explicit_only_and_has_chinese_title
+    meta=(folder/'agents/openai.yaml').read_text()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1028, in read_text
+    return f.read()
+           ^^^^^^^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xa8 in position 43: illegal multibyte sequence
+
+======================================================================
+ERROR: test_backup_symlink_refused (test_team_install.InstallerTests.test_backup_symlink_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 71, in test_backup_symlink_refused
+    d=self.root/'.songban';d.mkdir();(d/'install-backups').symlink_to(elsewhere,target_is_directory=True)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1386, in symlink_to
+    os.symlink(target, self, target_is_directory)
+OSError: [WinError 1314] 客户端没有所需的特权。: 'C:\\Users\\27736\\AppData\\Local\\Temp\\tmpz82c77lv' -> 'C:\\Users\\27736\\AppData\\Local\\Temp\\tmpuabwv5ei\\.songban\\install-backups'
+
+======================================================================
+ERROR: test_codex_preserves_model_and_all_other_settings (test_team_install.InstallerTests.test_codex_preserves_model_and_all_other_settings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 27, in test_codex_preserves_model_and_all_other_settings
+    r=self.install();after=tomllib.loads(p.read_text())
+                                         ^^^^^^^^^^^^^
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1028, in read_text
+    return f.read()
+           ^^^^^^^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0x8a in position 22: illegal multibyte sequence
+
+======================================================================
+ERROR: test_json_tools_merge_existing_servers (test_team_install.InstallerTests.test_json_tools_merge_existing_servers) (tool='workbuddy')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 41, in test_json_tools_merge_existing_servers
+    r=self.install(tool,connection_id='id-'+tool)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 16, in install
+    return install_project(self.root,tool,'http://127.0.0.1:8888','team-test','user-test',kw.pop('connection_id','install-test'),token,probe=kw.pop('probe',lambda *a:{'bridge_verified':True,'plan_version':0}),**kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\松伴\songban-materials\app\team_install.py", line 135, in install_project
+    gitignore=target_path(root,'.gitignore');ignore_text=gitignore.read_text() if gitignore.exists() else ''
+                                                         ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1028, in read_text
+    return f.read()
+           ^^^^^^^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0xaa in position 12: illegal multibyte sequence
+
+======================================================================
+ERROR: test_reinstall_only_replaces_our_managed_block (test_team_install.InstallerTests.test_reinstall_only_replaces_our_managed_block)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 54, in test_reinstall_only_replaces_our_managed_block
+    self.install();r=self.install(token='sbconn_new-test-connection',connection_id='new-install')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 16, in install
+    return install_project(self.root,tool,'http://127.0.0.1:8888','team-test','user-test',kw.pop('connection_id','install-test'),token,probe=kw.pop('probe',lambda *a:{'bridge_verified':True,'plan_version':0}),**kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\松伴\songban-materials\app\team_install.py", line 132, in install_project
+    if skill.exists() and '松伴团队联络员' not in skill.read_text():raise InstallError('skill_conflict','已有同名技能，未覆盖。',409)
+                                                  ^^^^^^^^^^^^^^^^^
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1028, in read_text
+    return f.read()
+           ^^^^^^^^
+UnicodeDecodeError: 'gbk' codec can't decode byte 0x80 in position 70: illegal multibyte sequence
+
+======================================================================
+ERROR: test_symlink_cannot_redirect_to_global_config (test_team_install.InstallerTests.test_symlink_cannot_redirect_to_global_config)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_team_install.py", line 65, in test_symlink_cannot_redirect_to_global_config
+    (self.root/'.codex').symlink_to(elsewhere,target_is_directory=True)
+  File "C:\Users\27736\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\pathlib.py", line 1386, in symlink_to
+    os.symlink(target, self, target_is_directory)
+OSError: [WinError 1314] 客户端没有所需的特权。: 'C:\\Users\\27736\\AppData\\Local\\Temp\\tmp4pqkv9t3' -> 'C:\\Users\\27736\\AppData\\Local\\Temp\\tmpq4e9r7xq\\.codex'
+
+======================================================================
+FAIL: test_real_cli_register_preserves_other_settings_and_keeps_secrets_out_of_cache (test_connector_plugin.NativePluginTests.test_real_cli_register_preserves_other_settings_and_keeps_secrets_out_of_cache)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\松伴\songban-materials\tests\test_connector_plugin.py", line 35, in test_real_cli_register_preserves_other_settings_and_keeps_secrets_out_of_cache
+    host=check(home,home);self.assertTrue(host['upload_tool_loaded']);self.assertEqual(host['loader_errors'],[])
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 221 tests in 43.729s
+
+FAILED (failures=1, errors=6)

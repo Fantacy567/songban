@@ -1,0 +1,115 @@
+{
+  "before_confirmation": {
+    "plan_version": 0,
+    "tasks": []
+  },
+  "two_person_loop": {
+    "accepted": 2,
+    "total": 2,
+    "all_checked": true,
+    "next_action": {
+      "kind": "delivery",
+      "title": "核对本次交接与正式提交要求",
+      "reason": "当前任务已有同伴检查记录；代码版本、演示文件和主办方回执仍需分别核对。",
+      "page": "overview",
+      "task_key": ""
+    },
+    "official_receipt": {
+      "key": "submission",
+      "title": "主办方正式收件",
+      "state": "unknown",
+      "detail": "松伴没有读取主办方收件状态。请到正式入口提交并保存真实回执。",
+      "page": "direction"
+    }
+  },
+  "handoff_export": {
+    "contains_both_tasks": true,
+    "truthful_submission_notice": true
+  },
+  "reflection_is_shared_report": true,
+  "core_restart_persistence": {
+    "all_checked": true,
+    "reports": 4
+  },
+  "single_member_block": {
+    "members": 1,
+    "self_check_http": 403,
+    "error": {
+      "error": {
+        "code": "peer_required",
+        "message": "请让另一名队友检查，不能确认自己的成果。"
+      }
+    },
+    "next_action": {
+      "kind": "dependency",
+      "title": "先核对「接入页面并联调」的前置成果",
+      "reason": "仍在等待：T1。可并行准备的工作请按实际依赖判断。",
+      "page": "overview",
+      "task_key": "T2"
+    }
+  },
+  "no_model": {
+    "http": 503,
+    "error": {
+      "error": {
+        "code": "model_not_configured",
+        "message": "团队模型未配置；同步照常保存，尚未产生AI统筹建议。"
+      }
+    }
+  },
+  "old_draft_after_human_edit": {
+    "prepare_http": 200,
+    "draft_text": "材料表述：提交时间尚未确认。【样例】",
+    "current_text": "人工纠正：原条目不再可用，请勿使用旧草稿。"
+  },
+  "new_team_material_space": {
+    "saved_drafts": 1,
+    "has_model_result": false,
+    "sources": 1
+  },
+  "same_team_draft_after_human_edit": {
+    "prepare_http": 200,
+    "draft_text": "材料表述：提交时间尚未确认。【样例】",
+    "current_text": "同团队人工纠正：请勿使用旧条目",
+    "same_space": true
+  },
+  "route_inventory": {
+    "core": [
+      "/api/core/install-options",
+      "/api/core/join",
+      "/api/core/me",
+      "/api/core/plugin.zip",
+      "/api/core/teams",
+      "/api/core/teams/{sid}",
+      "/api/core/teams/{sid}/automation",
+      "/api/core/teams/{sid}/connections",
+      "/api/core/teams/{sid}/connections/{cid}",
+      "/api/core/teams/{sid}/context",
+      "/api/core/teams/{sid}/conversation-notes",
+      "/api/core/teams/{sid}/direction",
+      "/api/core/teams/{sid}/handoff.md",
+      "/api/core/teams/{sid}/history",
+      "/api/core/teams/{sid}/install",
+      "/api/core/teams/{sid}/library",
+      "/api/core/teams/{sid}/my-tasks",
+      "/api/core/teams/{sid}/profile",
+      "/api/core/teams/{sid}/proposals/{pid}/confirm",
+      "/api/core/teams/{sid}/reports",
+      "/api/core/teams/{sid}/review",
+      "/api/core/teams/{sid}/tasks/{task_key}/check"
+    ],
+    "materials": [
+      "/api/materials/space",
+      "/api/materials/spaces/{space}",
+      "/api/materials/spaces/{space}/drafts",
+      "/api/materials/spaces/{space}/drafts/{ident}/prepare",
+      "/api/materials/spaces/{space}/generate",
+      "/api/materials/spaces/{space}/items/{ident}",
+      "/api/materials/spaces/{space}/sources",
+      "/api/materials/spaces/{space}/sources/{ident}/original",
+      "/api/materials/spaces/{space}/sources/{ident}/parse",
+      "/api/materials/spaces/{space}/sources/{ident}/withdraw"
+    ],
+    "reports_modules_present": false
+  }
+}

@@ -1,5 +1,6 @@
 import importlib.util
 import json
+from tests.platform_files import assert_private, directory_link
 from pathlib import Path
 import tempfile
 import unittest
@@ -30,10 +31,10 @@ class SelectedSkillTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as tmp:
    r=install_connector_skill('team','me','id','sbconn_test-token','http://127.0.0.1:8888',home=tmp,probe=lambda _:True)
    folder=Path(tmp)/'.codex/skills/songban-connector'
-   meta=(folder/'agents/openai.yaml').read_text()
+   meta=(folder/'agents/openai.yaml').read_text(encoding='utf-8')
    self.assertIn('display_name: "松伴连接器"',meta);self.assertIn('allow_implicit_invocation: false',meta)
-   self.assertEqual((folder/'binding.json').stat().st_mode&0o777,0o600)
-   self.assertNotIn('sbconn_', (folder/'SKILL.md').read_text());self.assertEqual(r['kind'],'selected-turn-skill')
+   assert_private(self,folder/'binding.json')
+   self.assertNotIn('sbconn_', (folder/'SKILL.md').read_text(encoding='utf-8'));self.assertEqual(r['kind'],'selected-turn-skill')
 
  def test_failed_binding_check_rolls_back(self):
   with tempfile.TemporaryDirectory() as tmp:

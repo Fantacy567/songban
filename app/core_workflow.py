@@ -69,6 +69,8 @@ def build_workflow(snap, current_time):
             next_action = action('review', '把当前资料交给团队智能体统筹', '先同步重要进展，再点击综合当前信息。模型调用可能产生费用，需要你主动操作。')
         else:
             next_action = action('await_plan', '同步你的工作情况，等待队长确认安排', '可以先做技术验证或说明风险；个人建议不会自动发布成团队任务。', 'plugin')
+    elif len(snap['members']) < 2 and any(t['handoff_state'] == 'waiting_review' for t in mine):
+        next_action = action('invite_reviewer', '邀请一名队友核对你的成果', '个人进展已经保存；通过队伍码邀请另一名成员实际检查，才能完成同伴验收并解开后续依赖。', 'team')
     elif started:
         task = started[0]
         next_action = action('continue', '继续「' + task['title'] + '」', '完成后同步任务编号、当前计划版本和可核对的成果依据。', task_key=task['key'])
@@ -81,7 +83,7 @@ def build_workflow(snap, current_time):
     elif mine and any(t['handoff_state'] == 'waiting_review' for t in mine):
         next_action = action('await_check', '成果已报告，等待另一成员检查', '本人报告完成与同伴检查通过是两件事；新修改后请重新同步成果。')
     elif tasks and len(accepted) == len(tasks):
-        next_action = action('delivery', '核对本次交接与正式提交要求', '当前任务已有同伴检查记录；代码版本、演示文件和主办方回执仍需分别核对。')
+        next_action = action('delivery', '核对本次交接与正式提交要求', '当前任务已有同伴检查记录；代码版本、演示文件和主办方回执仍需分别核对。', 'delivery')
     elif not tasks:
         next_action = action('empty_plan', '核对当前安排里还缺哪些任务', '正式任务列表为空，不代表作品已经完成。队长需要时可重新统筹。')
     else:
