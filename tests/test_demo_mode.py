@@ -54,6 +54,7 @@ class DemoModeTests(unittest.TestCase):
    for answer in ['设计工具','会画草图','6小时']:iv=call('/api/core/interview/answer',{'version':iv['version'],'question_id':iv['current_question']['id'],'request_id':uuid.uuid4().hex,'text':answer})
    call('/api/core/interview/confirm',{'version':iv['version'],'request_id':uuid.uuid4().hex})
    call('/api/journey/contest',{'name':'演示赛','event_time':'两天','location':'线上','rubric':'完成度','requirements':'网页','source_text':'虚构公告','deadline':'2026-11-02T18:00:00+08:00'})
+   brief=client.get('/demo/api/journey/contest-materials',headers=headers).json();call('/api/journey/contest-materials/extract',{'request_id':uuid.uuid4().hex,'expected_revision':brief['revision']});call('/api/journey/contest-materials/confirm',{'confirmed':True,'expected_revision':brief['revision']})
    team=call('/api/core/teams',{'name':'虚构绑定队'});base='/api/core/teams/'+team['id']
    connection=call(base+'/connections',{'label':'原生演示验证'})
    with patch('app.team_core.install_connector_plugin',return_value={'installed':True}) as install:

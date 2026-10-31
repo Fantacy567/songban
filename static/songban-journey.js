@@ -1,10 +1,10 @@
 'use strict';
-const journeyRoutes={interview:'interview',contest:'contest',team:'team',ideas:'discussion',direction:'direction',division:'division',work:'myTasks',delivery:'delivery',review:'recap'};
-const journeyNames={interview:'认识自己',contest:'确认比赛',team:'组队',ideas:'讨论选题',direction:'确认方向',division:'协调分工',work:'执行任务',delivery:'正式提交',review:'赛后复盘'};
+const journeyRoutes={interview:'interview',contest:'contest',contest_materials:'contestMaterials',team:'team',ideas:'discussion',direction:'direction',division:'division',work:'myTasks',delivery:'delivery',review:'recap'};
+const journeyNames={interview:'认识自己',contest:'确认比赛',contest_materials:'导入赛事资料',team:'组队',ideas:'讨论选题',direction:'确认方向',division:'协调分工',work:'执行任务',delivery:'正式提交',review:'赛后复盘'};
 function gateJourney(){
  const flow=state.flow;if(!flow?.strict||!state.me)return;
  const stage=flow.stage,order=Object.keys(journeyRoutes),rank=order.indexOf(stage);
- const route={interview:0,contest:1,team:2,discussion:3,ideaLibrary:3,direction:4,division:5,myTasks:6,teamTasks:6,overview:6,delivery:7,recap:8,workbench:6,library:6};
+ const route={interview:0,contest:1,contestMaterials:2,team:3,discussion:4,ideaLibrary:4,direction:5,division:6,myTasks:7,teamTasks:7,overview:7,delivery:8,recap:9,workbench:7,library:7};
  if(rank<2){state.page=journeyRoutes[stage];return;}
  if(['login','events','event'].includes(state.page)){state.page=journeyRoutes[stage];return;}
  if(route[state.page]>rank)state.page=journeyRoutes[stage];
@@ -26,9 +26,9 @@ async function interviewPage(){
 }
 async function contestPage(){
  const sample=window.SONGBAN_DEMO?{name:'松伴周末创造营（虚构演示）',event_time:'两天，上午选题，次日下午展示',location:'线上参加（演示）',rubric:'用户价值40%，完成度35%，协作与表达25%',requirements:'可运行网页、项目说明、代码链接、3分钟展示',deadline:'2026-11-02T18:00',source_text:'比赛：松伴周末创造营（虚构演示）\n时间：两天，上午选题，次日下午展示\n地点：线上参加（演示）\n评分：用户价值40%，完成度35%，协作与表达25%\n材料：可运行网页、项目说明、代码链接、3分钟展示\n截止：2026-11-02T18:00'}:{};
- $('#content').innerHTML=head('选择比赛','先把这场比赛了解清楚。','粘贴公告并整理，核对时间、评分和提交要求后进入组队。')+`<form class="card" id="journey-contest"><label for="contest-source">比赛公告原文</label><textarea id="contest-source" name="source_text" required>${esc(sample.source_text||'')}</textarea><button id="contest-read" type="button">整理公告</button><p id="contest-note" role="status"></p>${[['name','比赛名称'],['event_time','比赛时间'],['location','地点或参赛方式'],['rubric','公开评分标准'],['requirements','必须提交材料'],['deadline','截止时间']].map(([key,label])=>`<label for="contest-${key}">${label}</label><input id="contest-${key}" name="${key}" ${key==='deadline'?'type="datetime-local"':''} required value="${esc(sample[key]||'')}">`).join('')}<button type="submit" class="primary">确认比赛，进入组队</button></form>`;
+ $('#content').innerHTML=head('选择比赛','先把这场比赛了解清楚。','粘贴公告并整理，确认本次比赛后，导入主办方补充资料并提取关键信息。')+`<form class="card" id="journey-contest"><label for="contest-source">比赛公告原文</label><textarea id="contest-source" name="source_text" required>${esc(sample.source_text||'')}</textarea><button id="contest-read" type="button">整理公告</button><p id="contest-note" role="status"></p>${[['name','比赛名称'],['event_time','比赛时间'],['location','地点或参赛方式'],['rubric','公开评分标准'],['requirements','必须提交材料'],['deadline','截止时间']].map(([key,label])=>`<label for="contest-${key}">${label}</label><input id="contest-${key}" name="${key}" ${key==='deadline'?'type="datetime-local"':''} required value="${esc(sample[key]||'')}">`).join('')}<button type="submit" class="primary">确认比赛，导入赛事资料</button></form>`;
  const form=$('#journey-contest');$('#contest-read').onclick=async()=>{const button=$('#contest-read');button.disabled=true;try{const result=await api('/api/journey/extract',{text:form.elements.source_text.value});for(const [key,value] of Object.entries(result.fields||{}))if(form.elements[key]&&value)form.elements[key].value=value;$('#contest-note').textContent=result.notice;}catch(e){$('#contest-note').textContent=e.message+' 公告仍保留，可核对后手动填写。';}finally{button.disabled=false;}};
- bindForm('#journey-contest',async(f,fd)=>{await api('/api/journey/contest',{...values(fd),deadline:new Date(fd.get('deadline')).toISOString()});f.dataset.dirty='false';state.drafts.delete(state.team+':journey-contest');state.personal=false;await load();go('team');});
+ bindForm('#journey-contest',async(f,fd)=>{await api('/api/journey/contest',{...values(fd),deadline:new Date(fd.get('deadline')).toISOString()});f.dataset.dirty='false';state.drafts.delete(state.team+':journey-contest');state.personal=false;await load();go('contest-materials');});
 }
 function journeySubmission(){
  const f=state.flow;if(!f?.strict)return;

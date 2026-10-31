@@ -1,3 +1,12 @@
+# 2026-10-31 · 新任务：确认比赛后导入赛事碎片资料
+
+- 新阶段contest_materials：确认比赛→本场资料导入→Agent逐项提取并核对→组队。旧队伍不回退。每场独立materials_space，沿用安全URL/文件读取与原件保存，不混入个人草稿。
+- app/contest_brief.py与static/songban-contest-materials.js新增时间/地点/赛道/奖金/办赛理念/评分/提交要求。输出展示由服务端验证过的逐字引文构成，未找到明确提示；读取失败另列。资料变化标过期，失败保留旧结果，幂等与10分钟中断恢复。
+- 多行URL、文字、PNG/JPEG/PDF/DOCX/TXT沿用原资料模块，新增intakeOnly与指定spaceId选项，不改变旧入口默认行为。
+- 298项全量通过；专用浏览器TXT/缺失奖金/补充通知/出处/过期/刷新/继续组队/390-768-1440通过；原完整完赛浏览器通过。真实模型合成提取通过，未提供的奖金/赛道/理念未编造。
+- 8890已备份SQLite并重启加载新流程；公网仍为https://nec-meditation-lion-tip.trycloudflare.com。专用公网浏览器已通过，日志contest-brief-public-browser.log。最终15项门槛/提取/演示定向也通过。提交推送沿用feat/connector-conversation-library，不提交work或运行数据库。
+- 文档docs/core-collaboration/赛事碎片资料与关键信息提取.md；真实模型证据audit父目录contest-brief-live.json。
+
 # 2026-10-31 · 最终验收补记
 
 - 公网已验证慢网导航回归、提交回执、复盘生成、分享二维码；public-final-verification.log成功。修复根因：hashchange在等待load期间，旧页重绘会改写hash；现在先捕获requestedHash，读取状态串行完成，导航目标不会丢失。

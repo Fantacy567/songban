@@ -16,6 +16,9 @@ assert call('/api/journey')['stage']=='contest'
 call('/api/core/teams',{'name':'越级'},expected=409)
 contest={'name':'虚构赛','event_time':'两天','location':'线上','rubric':'完成度40%，价值40%，协作20%','requirements':'代码与演示','source_text':'虚构公告','deadline':'2026-11-02T18:00:00+08:00'}
 call('/api/journey/contest',contest)
+brief=call('/api/journey/contest-materials')
+call('/api/journey/contest-materials/extract',{'request_id':uuid.uuid4().hex,'expected_revision':brief['revision']})
+call('/api/journey/contest-materials/confirm',{'confirmed':True,'expected_revision':brief['revision']})
 team=call('/api/core/teams',{'name':'演示团队'});base='/api/core/teams/'+team['id'];flow=lambda:call('/api/journey?team_id='+team['id'])
 call(base+'/recap',expected=409)
 call('/api/demo/peer',{})

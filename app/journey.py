@@ -9,10 +9,12 @@ SCHEMA=INTERVIEW_SCHEMA+'''
 CREATE TABLE IF NOT EXISTS journey_accounts(user_id TEXT PRIMARY KEY,contest_id TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS journey_submissions(squad_id TEXT PRIMARY KEY,receipt TEXT NOT NULL,materials TEXT NOT NULL,created_at TEXT NOT NULL);
 '''
-ORDER=['interview','contest','team','ideas','direction','division','work','delivery','review']
+ORDER=['interview','contest','contest_materials','team','ideas','direction','division','work','delivery','review']
 def install(api,db,problem,now,uid,core,interview_runner=None):
     with db(True) as con:con.executescript(SCHEMA)
     register_interview(api,db,problem,now,core['person'],interview_runner)
+    from .contest_brief import register as register_brief
+    register_brief(api,db,problem,now,uid,core['person'])
     def flow(con,user,sid=''):
         interview=con.execute('SELECT status FROM core_interviews WHERE user_id=?',(user,)).fetchone()
         stage='interview';contest=None;snap=None
@@ -27,6 +29,9 @@ def install(api,db,problem,now,uid,core,interview_runner=None):
             stage='contest'
             if contest or snap:
                 stage='team'
+                if contest and not snap:
+                    brief=con.execute('SELECT b.required,b.confirmed,b.result_revision,s.revision FROM contest_briefs b JOIN materials_spaces s ON s.id=b.space_id WHERE b.contest_id=?',(contest['id'],)).fetchone()
+                    if brief and brief['required'] and (not brief['confirmed'] or brief['result_revision']!=brief['revision']):stage='contest_materials'
                 if snap:
                     stage='ideas'
                     if snap['topic_confirmed']:
@@ -38,7 +43,7 @@ def install(api,db,problem,now,uid,core,interview_runner=None):
                         if stage=='work' and snap['workflow']['all_handoffs_checked']:stage='delivery'
                         receipt=con.execute('SELECT * FROM journey_submissions WHERE squad_id=?',(sid,)).fetchone()
                         if stage=='delivery' and receipt:stage='review'
-        return {'stage':stage,'route':stage,'contest':contest,'team_id':sid if snap else '', 'demo':bool(getattr(api.state,'demo',False)),'strict':api.state.enforce_journey}
+        return {'stage':stage,'route':'contest-materials' if stage=='contest_materials' else stage,'contest':contest,'team_id':sid if snap else '', 'demo':bool(getattr(api.state,'demo',False)),'strict':api.state.enforce_journey}
     api.state.journey_flow=flow
     @api.get('/api/journey')
     def get(team_id:str='',authorization:str=Header(default='')):
@@ -77,6 +82,13 @@ def install(api,db,problem,now,uid,core,interview_runner=None):
             cid=uid();facts={k:body[k].strip() for k in ['event_time','location','rubric','requirements']}
             con.execute('INSERT INTO contests(id,owner_id,name,deadline,source_text,submissions,facts,card_saved,created_at) VALUES(?,?,?,?,?,?,?,1,?)',(cid,user,body['name'],body['deadline'],body['source_text'],json.dumps([body['requirements']],ensure_ascii=False),json.dumps(facts,ensure_ascii=False),now()))
             con.execute('INSERT INTO journey_accounts VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET contest_id=excluded.contest_id',(user,cid))
+            space='contest:'+cid
+            con.execute('INSERT INTO materials_spaces(id,owner_id) VALUES(?,?)',(space,user))
+            con.execute('INSERT INTO contest_briefs(contest_id,owner_id,space_id,required) VALUES(?,?,?,1)',(cid,user,space))
+            metadata={'kind':'text','name':'已确认的比赛公告','nature':'sample' if getattr(api.state,'demo',False) else 'organizer_notice','author':'','occurred_at':''}
+            segments=[{'id':'announcement-1','text':body['source_text'],'location':'已确认公告原文','method':'text'}]
+            import hashlib
+            con.execute("INSERT INTO materials_sources(id,space_id,uploader_id,fingerprint,status,metadata,original,segments,created_at) VALUES(?,?,?,?,'ready',?,?,?,?)",(uid(),space,user,hashlib.sha256(body['source_text'].encode()).hexdigest(),json.dumps(metadata,ensure_ascii=False),body['source_text'].encode(),json.dumps(segments,ensure_ascii=False),now()))
         return {'id':cid,'confirmed':True}
     @api.post('/api/journey/teams/{sid}/submission')
     def submit(sid:str,body:dict,authorization:str=Header(default='')):
@@ -106,21 +118,22 @@ def install(api,db,problem,now,uid,core,interview_runner=None):
                 current=f['stage'];level=ORDER.index(current)
                 needed=0
                 if current=='interview':needed=1
-                elif path=='/api/core/teams' and request.method=='POST':needed=2
+                elif path=='/api/core/teams' and request.method=='POST':needed=ORDER.index('team')
+                elif path=='/api/core/join' and current=='contest_materials':needed=ORDER.index('team')
                 elif match:
-                    if suffix.startswith('/direction') or suffix=='/review':needed=4
-                    if suffix.startswith('/division'):needed=4
+                    if suffix.startswith('/direction') or suffix=='/review':needed=ORDER.index('direction')
+                    if suffix.startswith('/division'):needed=ORDER.index('direction')
                     if suffix.startswith('/proposals/') and suffix.endswith('/confirm') and request.method=='POST':raise problem(409,'division_required','请完成全员分工问答，由内部AI发布任务。')
-                    if suffix.startswith('/recap'):needed=8
-                    if suffix.startswith('/tasks') or suffix=='/my-tasks':needed=6
+                    if suffix.startswith('/recap'):needed=ORDER.index('review')
+                    if suffix.startswith('/tasks') or suffix=='/my-tasks':needed=ORDER.index('work')
                     if suffix=='/reports' and request.method=='POST':
                         body=await request.json()
-                        if body.get('task_key') or body.get('status') in ('in_progress','reported_done','blocked'):needed=6
+                        if body.get('task_key') or body.get('status') in ('in_progress','reported_done','blocked'):needed=ORDER.index('work')
                     if suffix=='/topic/confirm' and request.method=='POST':
                         ready=con.execute('SELECT COUNT(*) FROM idea_readiness WHERE squad_id=?',(sid,)).fetchone()[0]
                         members=con.execute('SELECT COUNT(*) FROM squad_members WHERE squad_id=?',(sid,)).fetchone()[0]
                         if ready<members:raise problem(409,'members_not_ready','请等所有队员确认想法提交完成。')
-                    if level>=6 and request.method!='GET' and (suffix.startswith('/ideas') or suffix.startswith('/topic') or suffix=='/direction'):raise problem(409,'stage_closed','当前已进入执行；选题与方向已归档。')
+                    if level>=ORDER.index('work') and request.method!='GET' and (suffix.startswith('/ideas') or suffix.startswith('/topic') or suffix=='/direction'):raise problem(409,'stage_closed','当前已进入执行；选题与方向已归档。')
                     if current=='review' and request.method!='GET' and (suffix.startswith('/tasks') or suffix=='/reports'):raise problem(409,'stage_closed','已记录提交，请在复盘中补充收获。')
                 if level<needed:raise problem(409,'stage_required','请先完成当前环节：'+current,{'next':current})
         except Exception as error:

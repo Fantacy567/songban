@@ -45,7 +45,21 @@ with tempfile.TemporaryDirectory(prefix='songban-live-validation-') as temp:
   d=call('/api/journey/extract',{'text':source});assert all(d['fields'].get(k) for k in ['name','event_time','location','rubric','requirements','deadline']);return {'fields':len(d['fields']),'source_quotes_validated':True}
  probe('announcement',extract_probe)
  call('/api/journey/contest',{'name':'虚构周末创造赛','event_time':'两天','location':'线上','rubric':'用户价值40%、完成度40%、协作20%','requirements':'代码链接、网页和展示说明','deadline':'2026-11-02T18:00:00+08:00','source_text':source})
+ brief=call('/api/journey/contest-materials')
+ from app.contest_brief import demo_extract
+ app.state.contest_brief_runner=lambda context:demo_extract(context['sources']) # Fixture setup only; this is not a real brief model test.
+ call('/api/journey/contest-materials/extract',{'request_id':uuid.uuid4().hex,'expected_revision':brief['revision']})
+ call('/api/journey/contest-materials/confirm',{'confirmed':True,'expected_revision':brief['revision']})
  team=call('/api/core/teams',{'name':'模拟模型验收队'});base='/api/core/teams/'+team['id']
+ def contest_brief_probe():
+  app.state.contest_brief_runner=None
+  brief=call('/api/journey/contest-materials');result=call('/api/journey/contest-materials/extract',{'request_id':uuid.uuid4().hex,'expected_revision':brief['revision']})
+  assert result['status']=='completed',result.get('error')
+  fields=result['result']['fields']
+  for key in ['prizes','tracks','philosophy']:assert fields[key]['status']=='not_found',key
+  assert fields['time']['citations'] and fields['location']['citations']
+  return {'original_quotes_validated':True,'missing_fields_not_fabricated':True}
+ probe('contest_brief',contest_brief_probe)
  user='b';call('/api/core/join',{'code':team['code']})
  for user in ['a','b']:
   call(base+'/profile',{'strengths':'界面草图' if user=='a' else '基础网页','hours':6,'willingness':'设计和展示' if user=='a' else '交互实现'},'PUT')

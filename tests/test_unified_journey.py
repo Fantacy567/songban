@@ -21,7 +21,11 @@ class UnifiedTests(unittest.TestCase):
   for text in ['做校园小工具','画草图，开发请队友帮助','6小时']:
    d=self.call('/api/core/interview/answer',{'version':d['version'],'question_id':d['current_question']['id'],'request_id':uuid.uuid4().hex,'text':text})
   self.call('/api/core/interview/confirm',{'version':d['version'],'request_id':uuid.uuid4().hex})
- def contest(self):return self.call('/api/journey/contest',{'name':'虚构赛','event_time':'两天','location':'线上','rubric':'价值与完成度','requirements':'代码和演示','deadline':'2026-11-02T18:00:00+08:00','source_text':'虚构公告'})
+ def contest(self):
+  self.call('/api/journey/contest',{'name':'虚构赛','event_time':'两天','location':'线上','rubric':'价值与完成度','requirements':'代码和演示','deadline':'2026-11-02T18:00:00+08:00','source_text':'虚构公告'})
+  from app.contest_brief import demo_extract
+  self.app.state.contest_brief_runner=lambda context:demo_extract(context['sources'])
+  brief=self.call('/api/journey/contest-materials');self.call('/api/journey/contest-materials/extract',{'request_id':uuid.uuid4().hex,'expected_revision':brief['revision']});self.call('/api/journey/contest-materials/confirm',{'confirmed':True,'expected_revision':brief['revision']})
  def test_real_mode_gate_and_no_demo_endpoint(self):
   self.call('/api/core/teams',{'name':'绕过访谈'},status=409);self.call('/api/core/join',{'code':'bad'},status=409)
   self.call('/api/demo/bootstrap',{},status=404)
