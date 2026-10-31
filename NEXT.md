@@ -1,3 +1,11 @@
+# 最终验收 · 2026-10-31 · 个人／团队任务页
+
+- 已合入main fc60502新项目工作台，保留其个人空间、会话与共享功能；按本次用户要求，work=个人任务、team-work=团队任务、workbench=AI工作台、collaboration/tasks=统筹与发布。
+- 最新全量260项通过；真实Chrome任务页双身份、跨标签、0→50→100、退回进度回调、完成保存失败与重试、刷新持久化、前置验收解锁、390/768/1440通过。原统一流程36项响应式检查和连接器资料库浏览器回归也通过，未发送真实短信或调用付费模型。
+- 8890已在线备份SQLite后重启，健康200和新任务脚本版本确认；现有数据库数据保留，未新增测试成员到预览库。
+- 验收证据：.browser-cache/task-board/results.json与截图；本机audit父目录task-board-tests.log、task-board-browser.log、task-board-unified-browser.log、task-board-library-browser.log。
+- 功能继续推送PR7，未自动合并。未来修改保持本人完成与同伴验收的区别，不把聊天记为任务完成。
+
 # 最新 · 2026-10-31 · 个人与团队任务页
 
 - 用户要求拆分任务页。work为个人任务，team-work为团队任务；collaboration保留任务草案/统筹发布，不另建写入系统。

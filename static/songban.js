@@ -158,7 +158,7 @@ function modal(title,body){
   root.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{dialog.remove();if(previous?.isConnected)previous.focus();});dialog.showModal();return dialog;
 }
-function showHelp(){modal('我们一步步来。','<p>先了解活动，创建或加入小队，再一起确认方向。</p><p>在「任务」里同步进展，由队长统筹安排。报告完成后，请另一位队友检查成果。</p><p>「个人工具」可以连接你已有的智能体；未连接时，也可以直接在网页补充进展。</p><p class="muted">活动样例不代表真实报名。任务检查通过也不等于主办方已经收到作品。</p>');}
+function showHelp(){modal('我们一步步来。','<p>先了解活动，创建或加入小队，再一起确认方向。</p><p>在「个人任务」里完成自己的任务，在「团队任务」里查看队友进度；任务安排由队长确认。报告完成后，请另一位队友检查成果。</p><p>「个人工具」可以连接你已有的智能体；未连接时，也可以直接在网页补充进展。</p><p class="muted">活动样例不代表真实报名。任务检查通过也不等于主办方已经收到作品。</p>');}
 function renderAuth(){state.page='login';landing();openAuth();}
 function openAuth(initial='password',prefill={}){
   const dialog=modal('欢迎来到松伴','<div id="auth-body"></div>');dialog.classList.add('auth-dialog');
