@@ -83,7 +83,7 @@ class LearningShellTests(unittest.TestCase):
         learning = self.client.get("/learning")
         self.assertIn("songban.css?v=20261031-unified-v1", home.text)
         self.assertIn("songban.js?v=20261031-cover-only-v2", home.text)
-        self.assertIn("songban-views.js?v=20261031-connector-demo-v2", learning.text)
+        self.assertIn("songban-views.js?v=20261031-remote-install-v1", learning.text)
         self.assertIn("songban-library.js?v=20261031-toolnames-v1", home.text)
         self.assertIn("songban-tasks.js?v=20261031-unified-v1", home.text)
         self.assertIn("songban-recap.js?v=20261031-recap-v1", home.text)

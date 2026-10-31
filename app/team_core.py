@@ -666,13 +666,34 @@ def register_core(api, db, problem, now, uid, digest, runner=None, idea_runner=N
                 if f.is_file():z.write(f,'songban-team/'+name)
         return Response(buffer.getvalue(),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="songban-team-plugin.zip"'})
 
+    @api.post('/api/core/teams/{sid}/installer.zip')
+    def download_installer(sid:str,body:dict,request:Request,authorization:str=Header(default='')):
+        if body.get('consent') is not True:raise problem(422,'install_consent','请确认下载本人当前队伍的私有安装包。')
+        tool=body.get('tool','connector-plugin')
+        if tool not in (*TOOLS,'connector-plugin'):raise problem(422,'unsupported_tool','请选择支持的安装方式。')
+        clear='sbconn_'+secrets.token_urlsafe(32);ident=uid();expiry=(datetime.fromisoformat(now())+timedelta(days=30)).isoformat(timespec='seconds')
+        with db(True) as con:
+            actor,_=access(con,sid,authorization,connector=False)
+            count=con.execute('SELECT COUNT(*) FROM core_connections WHERE squad_id=? AND user_id=? AND revoked=0 AND expires_at>?',(sid,actor['id'],now())).fetchone()[0]
+            if count>=10:raise problem(409,'connection_limit','请在我的连接中撤销不用的连接，再下载安装包。')
+            con.execute('INSERT INTO core_connections(id,squad_id,user_id,label,token_hash,prefix,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',(ident,sid,actor['id'],'松伴连接器 · 下载到本机安装',digest(clear),clear[:12],now(),expiry))
+        binding={'url':str(request.base_url).rstrip('/'),'team_id':sid,'user_id':actor['id'],'connection_id':ident,'token':clear,'tool':tool,'expires_at':expiry}
+        if getattr(api.state,'demo',False):binding.update(base_path=getattr(api.state,'demo_base_path',''),demo_session=request.headers.get('x-songban-demo',''))
+        try:
+            from .connector_bundle import build_bundle
+            package=build_bundle(binding)
+        except Exception:
+            with db(True) as con:con.execute('UPDATE core_connections SET revoked=1 WHERE id=?',(ident,))
+            raise problem(500,'package_failed','安装包生成失败，请重试。') from None
+        return Response(package,media_type='application/zip',headers={'Content-Disposition':'attachment; filename="songban-connector-install.zip"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+
     @api.get('/api/core/install-options')
     def install_options(request:Request,authorization:str=Header(default='')):
         with db() as con:person(con,authorization)
         local=is_local_request(request)
-        return {'available':local,'project_dir':str(Path(__file__).resolve().parent.parent) if local else '',
+        return {'available':local,'download_available':True,'project_dir':str(Path(__file__).resolve().parent.parent) if local else '',
                 'tools':[{'id':'connector-plugin','name':'松伴连接器 · 原生插件'}]+[{'id':k,'name':v[1]} for k,v in TOOLS.items()],
-                'notice':'默认注册原生松伴连接器；在Codex输入框的插件入口选择。项目MCP作为兼容方式。保留原配置，不修改模型和额度设置。' if local else '当前通过远程地址访问，网页不能改你电脑的文件。请在自己电脑运行松伴后打开本机地址，或下载通用插件。'}
+                'notice':'默认注册原生松伴连接器；在Codex输入框的插件入口选择。项目MCP作为兼容方式。保留原配置，不修改模型和额度设置。' if local else '当前使用公网网站，请下载已绑定当前队伍的安装包，解压后在使用个人工具的电脑上运行；不必在另一台电脑启动松伴网站。'}
 
     @api.post('/api/core/teams/{sid}/install')
     def one_click_install(sid:str,body:dict,request:Request,authorization:str=Header(default='')):

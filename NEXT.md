@@ -1,3 +1,12 @@
+# 2026-10-31 · 公网连接器安装入口修复
+
+- 用户截图灰色按钮根因：远程地址只能触发本机安装能力检查，原UI直接禁用，没有可用的公网绑定安装流程。
+- 新增POST /api/core/teams/{sid}/installer.zip：认证本人队伍、明确consent、生成受限连接令牌、内存打包，no-store；不执行服务器文件安装。保留原本远程/install的403。
+- 公网主按钮自动改为下载已绑定队伍的安装包；不再填写服务器路径。支持原生插件与Codex/Cursor/WorkBuddy项目方式。解压后在访问者电脑双击.command/.cmd或python3 install.py，项目目录由客户端询问。下载明确不是已安装。
+- app/connector_bundle.py + plugins/songban-installer/install.py，标准库、Python3.11+，复用原有配置保护、回退、CLI注册、实际宿主加载检查。演示带base_path/demo_session，不混入真实账号。
+- 302项全量通过；真实公网浏览器下载原生与Codex项目包，真实客户端进程连接/安装至隔离目录，model/provider保留，均通过。日志audit父目录remote-installer-browser.log及remote-installer-full-tests.log。用户真实私有绑定未改。
+- 8890已备份并重启加载新接口，当前公网https://nec-meditation-lion-tip.trycloudflare.com；新UI资源songban-views.js?v=20261031-remote-install-v1。继续沿原分支提交推送；不提交work、私有安装包、connection.json或SQLite。
+
 # 2026-10-31 · 新任务：确认比赛后导入赛事碎片资料
 
 - 新阶段contest_materials：确认比赛→本场资料导入→Agent逐项提取并核对→组队。旧队伍不回退。每场独立materials_space，沿用安全URL/文件读取与原件保存，不混入个人草稿。
