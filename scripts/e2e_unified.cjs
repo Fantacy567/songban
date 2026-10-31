@@ -32,31 +32,31 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   const code=await request('/api/studio/codes',{phone:phoneB});await request('/api/studio/register',{phone:phoneB,code:code.code,password:'test-password',name:'测试·开发同伴',skills:'接口开发',profile:'一起完成作品'});
   await route(b,'login');await b.getByRole('button',{name:/^登录/}).click();await b.locator('[data-mode=sms]').click();
   await b.locator('#auth-phone').fill(phoneB);await b.locator('#auth-code').fill(await codeFromUI(b));await b.locator('#auth-form button[type=submit]').click();
-  await b.locator('.event-row').first().waitFor();await b.getByRole('link',{name:'实践',exact:true}).click();
-  await b.locator('#team-code').fill(team.code);await b.locator('#join-team button[type=submit]').click();await b.locator('#confirmed-tasks').waitFor();
-  await route(a,'work');await a.locator('#review').click();await a.locator('#confirm-plan').waitFor();
+  await b.locator('.event-row').first().waitFor();await route(b,'team');
+  await b.locator('#team-code').fill(team.code);await b.locator('#join-team button[type=submit]').click();await b.waitForFunction(()=>state.team&&state.page==='workbench');await route(b,'tasks');await b.locator('#confirmed-tasks').waitFor();
+  await route(a,'tasks');await a.locator('#review').click();await a.locator('#confirm-plan').waitFor();
   a.once('dialog',d=>d.accept());await a.locator('#confirm-plan').click();await a.locator('[data-report-task=T1]').waitFor();
   await a.locator('[data-report-task=T1]').click();await a.locator('#manual-report [name=summary]').fill('已完成页面草图，并检查正常与空输入');
   await a.locator('#manual-report [name=status]').selectOption('reported_done');await a.locator('#manual-report [name=evidence_text]').fill('联调证据：正常请求返回200，空输入被拒绝');
   await a.locator('#manual-report button[type=submit]').click();await a.getByText('本人进展已保存。',{exact:true}).waitFor();
-  await route(b,'work');await b.locator('[data-check-task=T1]').click();await b.locator('#check-verdict').selectOption('accepted');await b.locator('#check-note').fill('测试成员按约定核对正常输入与错误输入。');
+  await route(b,'tasks');await b.locator('[data-check-task=T1]').click();await b.locator('#check-verdict').selectOption('accepted');await b.locator('#check-note').fill('测试成员按约定核对正常输入与错误输入。');
   await b.locator('#check-form button[type=submit]').click();await b.getByText('同伴检查已保存',{exact:false}).waitFor();
   await a.reload();await a.locator('#confirmed-tasks').waitFor();assert((await a.locator('#confirmed-tasks').innerText()).includes('同伴检查通过'));await screenshot(a,'unified-work');
   console.log('PASS real API flow: registration, SMS login, team join, direction, fixture plan, report, peer check, reload');
   await route(a,'members');await a.locator('#logout').click();await a.getByRole('button',{name:/^登录/}).click();
-  await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');await a.locator('#auth-form button[type=submit]').click();await a.locator('#confirmed-tasks').waitFor();
+  await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');await a.locator('#auth-form button[type=submit]').click();await a.waitForFunction(()=>state.me&&state.page==='workbench');await route(a,'tasks');await a.locator('#confirmed-tasks').waitFor();
   assert.equal((await request('/api/core/me',null,await a.evaluate(()=>localStorage.getItem('studio-token')))).teams[0].id,team.id);
   console.log('PASS password login preserves the same team');
   for(const width of [390,768,1440]){
     await a.setViewportSize({width,height:950});
-    for(const name of ['events','event','team','direction','work','tools','library','members','delivery','review']){
+    for(const name of ['events','event','team','direction','work','tasks','tools','library','members','delivery','review']){
       await route(a,name);await a.waitForTimeout(150);
       const overflow=await a.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
       assert(!overflow,`${name} overflows at ${width}`);
       if(['event','work','team'].includes(name))await screenshot(a,`unified-${name}-${width}`);
     }
   }
-  console.log('PASS 30 responsive route checks at 390/768/1440');
+  console.log('PASS 33 responsive route checks at 390/768/1440');
   await route(a,'direction');await a.locator('[name=goal]').fill('未保存的长中文草稿，离开页面也应保留');
   await a.getByRole('link',{name:'任务',exact:true}).click();await a.getByRole('link',{name:'方向',exact:true}).click();
   assert.equal(await a.locator('[name=goal]').inputValue(),'未保存的长中文草稿，离开页面也应保留');
@@ -71,12 +71,12 @@ async function route(page,path){await page.goto(base+'/#/'+path);await page.loca
   console.log('PASS saving a recovered draft clears the unsaved indicator');
   // Two tabs share one identity without bouncing storage events or reviving it.
   const tab=await ctxA.newPage();tab.on('pageerror',e=>errors.push(e.message));
-  await route(tab,'work');await tab.locator('#confirmed-tasks').waitFor();
+  await route(tab,'tasks');await tab.locator('#confirmed-tasks').waitFor();
   await a.locator('#logout').click();await tab.getByRole('button',{name:/^登录/}).waitFor();
   assert.equal(await tab.evaluate(()=>localStorage.getItem('studio-token')),null);
   await a.getByRole('button',{name:/^登录/}).click();
   await a.locator('#auth-phone').fill(phoneA);await a.locator('#auth-password').fill('test-password');
-  await a.locator('#auth-form button[type=submit]').click();await a.locator('#confirmed-tasks').waitFor();
+  await a.locator('#auth-form button[type=submit]').click();await a.waitForFunction(()=>state.me&&state.page==='workbench');await route(a,'tasks');await a.locator('#confirmed-tasks').waitFor();
   await tab.waitForFunction(()=>state.me?.teams.length>0);
   assert.equal(await a.evaluate(()=>state.token),await tab.evaluate(()=>state.token));
   await tab.close();console.log('PASS cross-tab login/logout synchronization');

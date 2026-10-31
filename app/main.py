@@ -18,30 +18,15 @@ from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
 
 from .advice import advice_markdown, rubric_coverage, scope_advice
+from .environment import load_env
 from .studio import ensure_schema, register_studio
 from .team_core import ensure_core_schema, register_core
 from .materials import register_materials
+from .workbench import register_workbench
 from .models import Draft, DraftUpdate, GenerateInput, ModelDiscovery, ModelSelection, ProjectInput, SourceInput, TaskAction, VersionInput
 from .planner import PlannerError, builtin_model, discover_models, local_plan, model_configured, model_plan
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def load_env():
-    path = ROOT / ".env"
-    if path.exists():
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                name, value = line.split("=", 1)
-                key = name.strip()
-                if key in {"DEEPSEEK_API_KEY", "MODEL_API_KEY", "MODEL_BASE_URL", "MODEL_NAME", "TEAM_MODEL_API_KEY", "TEAM_MODEL_BASE_URL", "TEAM_MODEL_NAME", "DASHSCOPE_API_KEY", "MODEL_ALLOWED_HOSTS", "ALLOWED_ORIGINS", "SONGBAN_CORE_ONLY", "DATABASE_PATH", "PUBLIC_BASE_URL", "WECHAT_APP_ID", "WECHAT_APP_SECRET", "SONGBAI_IMESSAGE", "SONGBAI_SMS", "SONGBAI_REQUIRE_SMS", "SONGBAI_ALLOW_TEST_CODES", "ALIYUN_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_SECRET", "ALIYUN_SMS_SIGN_NAME", "ALIYUN_SMS_TEMPLATE_CODE", "ALIYUN_SMS_MODE"}:
-                    cleaned = value.strip().strip("\"'")
-                    # Project .env wins so local DeepSeek / 短信配置不被外层环境顶掉。
-                    if cleaned:
-                        os.environ[key] = cleaned
-                    else:
-                        os.environ.setdefault(key, "")
 
 
 load_env()
@@ -124,7 +109,7 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -841,8 +826,9 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         return FileResponse(ROOT / "static" / "workflow.html")
 
     register_studio(api, db, Problem, now, uid, digest)
-    register_core(api, db, Problem, now, uid, digest, core_model_runner)
+    core = register_core(api, db, Problem, now, uid, digest, core_model_runner)
     register_materials(api, db, Problem, now, uid, digest, materials_model_runner)
+    register_workbench(api, db, Problem, now, uid, digest, core, workbench_model_runner)
 
     @api.get("/classic", include_in_schema=False)
     def classic():
