@@ -28,4 +28,5 @@ jobs:
       - name: Run tests without paid model calls
         env:
           SONGBAN_CORE_ONLY: '0'
+          SONGBAN_ENFORCE_JOURNEY: '0' # Legacy compatibility tests; strict journey tests enable it explicitly.
         run: python -m unittest discover -s tests -q

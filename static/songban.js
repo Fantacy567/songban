@@ -3,9 +3,10 @@ const root = document.querySelector('#app');
 const $ = selector => root.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels = {discussion:'讨论',in_progress:'进行中',blocked:'受阻',reported_done:'本人报告完成',todo:'尚无进展'};
-const routePages = {login:'login',events:'events',event:'event',team:'team',onboarding:'members',division:'division',ideas:'discussion','idea-library':'ideaLibrary',direction:'direction',workbench:'workbench',tasks:'myTasks',work:'myTasks','team-work':'teamTasks',collaboration:'division',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
+const routePages = {login:'login',interview:'interview',contest:'contest',events:'events',event:'event',team:'team',onboarding:'members',division:'division',ideas:'discussion','idea-library':'ideaLibrary',direction:'direction',workbench:'workbench',tasks:'myTasks',work:'myTasks','team-work':'teamTasks',collaboration:'division',tools:'plugin',library:'library',materials:'materials',members:'members',delivery:'delivery',review:'recap'};
 const pageRoutes = {discussion:'ideas',ideaLibrary:'idea-library',overview:'collaboration',myTasks:'work',teamTasks:'team-work',plugin:'tools',recap:'review'};
-const state = {token:localStorage.getItem('studio-token') || '',team:localStorage.getItem('studio-squad') || '',page:'login',personal:sessionStorage.getItem('songban-personal')==='1',me:null,data:null,busy:false,epoch:0,events:[],eventId:sessionStorage.getItem('songban-event') || '',selectedRules:'',drafts:new Map(),syncing:false};
+const identityStorage=window.SONGBAN_DEMO?sessionStorage:localStorage;
+const state = {token:identityStorage.getItem('studio-token') || '',team:identityStorage.getItem('studio-squad') || '',page:'login',personal:sessionStorage.getItem('songban-personal')==='1',me:null,data:null,busy:false,epoch:0,events:[],eventId:sessionStorage.getItem('songban-event') || '',selectedRules:'',drafts:new Map(),syncing:false};
 const endpoint = suffix => '/api/core/teams/' + encodeURIComponent(state.team) + suffix;
 const values = data => Object.fromEntries(data.entries());
 function toast(message) {
@@ -18,7 +19,7 @@ async function api(path, body, method) {
   let data; try { data=await response.json(); } catch { throw Error('服务返回异常，请稍后重试。'); }
   if(epoch!==state.epoch) throw Error('账号已切换，请在当前页面重试。');
   if(!response.ok) {
-    const error=Object.assign(Error(data.error?.message || '请求失败，请重试。'),{status:response.status,code:data.error?.code});
+    const error=Object.assign(Error(data.error?.message || (response.status===404?'页面与服务版本不一致，请刷新；若仍失败请重启当前服务。':'请求失败，请重试。')),{status:response.status,code:data.error?.code});
     if(response.status===401 && token && !path.startsWith('/api/studio/')) { clearIdentity(); renderAuth(); }
     throw error;
   }
@@ -32,7 +33,7 @@ function clearIdentity(persist=true) {
   for(const key of Object.keys(sessionStorage))if(key.startsWith('songban:workbench:'))sessionStorage.removeItem(key);
   if(typeof SongbanMaterials!=='undefined')SongbanMaterials.reset();
   state.epoch++; state.token=''; state.me=null; state.data=null; state.team=''; state.drafts.clear();
-  if(persist){localStorage.removeItem('studio-token');localStorage.removeItem('studio-squad');}
+  if(persist){identityStorage.removeItem('studio-token');identityStorage.removeItem('studio-squad');}
 }
 function formError(form,error) {
   let box=form.querySelector('.error');
@@ -78,7 +79,7 @@ function icon(kind) {
   const paths={events:'M5 5h14v15H5z M8 2v6 M16 2v6 M5 10h14',work:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',arrow:'M4 12h16 M14 6l6 6-6 6'};
   return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[kind]||paths.arrow}"/></svg>`;
 }
-function pine(small=false){return `<div class="pine ${small?'pine-small':''}" role="img" aria-label="松伴小松树"><div class="pine-shape"></div><div class="pine-eyes"><i></i><i></i></div></div>`;}
+function pine(small=false){return `<div class="pine ${small?'pine-small':''}" role="img" aria-label="松伴小松树"><img src="/static/design/pine-mascot.png" alt="" width="220" height="260"></div>`;}
 function brand(){return '<a class="wordmark" href="#/login" aria-label="松伴首页"><b>松伴</b><span>SONGBAN</span></a>';}
 function head(kicker,title,description){return `<div class="page-heading"><div><p class="eyebrow">${esc(kicker)}</p><h1>${esc(title)}</h1><p class="subtitle">${esc(description)}</p></div>${pine(true)}</div>`;}
 function go(page) {
@@ -87,30 +88,34 @@ function go(page) {
 function shell() {
   unmountWorkbench();
   const activity=['events','event'].includes(state.page);
-  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['ideas','选题'],['direction','方向'],['division','分工'],['work','任务'],['delivery','提交'],['review','复盘']].filter(([route])=>state.data?.topic_confirmed||route==='ideas').filter(([route])=>state.data?.division_status==='published'||(!state.data?.division_status&&state.data?.plan_version>0)||!['work','delivery','review'].includes(route)).map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队"><option value="__personal" ${state.personal?'selected':''}>我的个人空间</option>${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div>${!activity&&state.me?`<details class="stage-support"><summary>队伍、连接器与赛事资料</summary><div class="action-row"><a href="#/team">队伍与邀请码</a><a href="#/members">我的能力与时间</a><a href="#/tools">松伴连接器</a><a href="#/materials">赛事原件</a><a href="#/idea-library">选题原文</a><a href="#/library">开发资料</a></div></details>`:''}</main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
+  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}<div class="header-actions"><span class="status" id="sync-state">${state.me?'已连接团队服务':'活动预览'}</span>${state.me?`<button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}${!window.SONGBAN_DEMO?'<a class="text-link" href="/demo/">演示</a>':''}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="主导航"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['ideas','选题'],['direction','方向'],['division','分工'],['work','任务'],['delivery','提交'],['review','复盘']].filter(([route])=>state.data?.topic_confirmed||route==='ideas').filter(([route])=>state.data?.division_status==='published'||(!state.data?.division_status&&state.data?.plan_version>0)||!['work','delivery','review'].includes(route)).map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队"><option value="__personal" ${state.personal?'selected':''}>我的个人空间</option>${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div>${!activity&&state.me?`<details class="stage-support"><summary>队伍、连接器与赛事资料</summary><div class="action-row"><a href="#/team">队伍与邀请码</a><a href="#/members">我的能力与时间</a><a href="#/tools">松伴连接器</a><a href="#/materials">赛事原件</a><a href="#/idea-library">选题原文</a><a href="#/library">开发资料</a></div></details>`:''}</main><footer class="page-footer">${activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
   root.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>openAuth());
   $('[data-help]').onclick=()=>showHelp();
-  if($('#logout'))$('#logout').onclick=()=>{clearIdentity();go('login');toast('已退出当前浏览器。');};
+  if($('#logout'))$('#logout').onclick=()=>{if(window.SONGBAN_DEMO){location.href='/';return;}clearIdentity();go('login');toast('已退出当前浏览器。');};
   if($('#team-switch'))$('#team-switch').onchange=async e=>{
     captureDrafts();const team=e.target.value;
     if(team==='__new'){go('team');renderOnboarding();return;}
-    unmountWorkbench();state.epoch++;state.personal=team==='__personal';sessionStorage.setItem('songban-personal',state.personal?'1':'0');state.team=state.personal?'':team;state.data=null;localStorage.setItem('studio-squad',state.team);
+    unmountWorkbench();state.epoch++;state.personal=team==='__personal';sessionStorage.setItem('songban-personal',state.personal?'1':'0');state.team=state.personal?'':team;state.data=null;identityStorage.setItem('studio-squad',state.team);
     if(state.personal){go('workbench');return;}
     try{state.data=await api(endpoint(''));render();}catch(error){$('#content').innerHTML=`<p class="error">${esc(error.message)}</p>`;}
   };
 }
 function render() {
+  if(!window.SONGBAN_DEMO&&!state.token&&state.page!=='login'){location.replace('/demo/'+location.hash);return;}
+  gateJourney();
   if(state.data?.topic_confirmed&&(state.data.division_status?state.data.division_status!=='published':!state.data.plan_version)&&['myTasks','teamTasks','overview','delivery','recap','workbench'].includes(state.page))state.page=state.data.division_status?'division':'direction';
   if(state.data&&!state.data.topic_confirmed&&['division','direction','myTasks','teamTasks','overview','library','delivery','recap'].includes(state.page))state.page='discussion';
   if(state.page==='overview')state.page='myTasks';
   const route=pageRoutes[state.page]||state.page;history.replaceState(null,'','#/'+route);
   if(state.page==='login'){landing();return;}
-  shell();
+  shell();journeyChrome();
   if(state.page==='events'){eventsPage();return;}
   if(state.page==='event'){eventPage();return;}
   if(!state.me){$('#content').innerHTML=`${head('一起动手','让想法，有一个开始。','登录后创建或加入真实团队，和同伴一起保存进展。')}<section class="card empty"><p>使用手机号登录，接着完成你的作品。</p><button class="primary" data-auth-required>登录并继续 ${icon('arrow')}</button></section>`;$('[data-auth-required]').onclick=()=>openAuth();return;}
   if(state.page==='workbench'){workbenchPage();return;}
   if(state.page==='materials'){materialsPage();return;}
+  if(state.page==='interview'){interviewPage();return;}
+  if(state.page==='contest'){contestPage();return;}
   if(!state.data){renderOnboarding();return;}
   const pages={team:teamPage,division:divisionPage,discussion:discussionPage,ideaLibrary:()=>libraryView('discussion'),direction:direction,overview:myTasksPage,myTasks:myTasksPage,teamTasks:teamTasksPage,plugin:plugin,library:libraryView,materials:materialsPage,members:members,delivery:deliveryPage,recap:recapPage};
   (pages[state.page]||myTasksPage)();
@@ -152,7 +157,8 @@ function workbenchPage(){
 }
 function landing(){
   unmountWorkbench();
-  root.innerHTML=`<div class="landing" data-shell="songban-v1" data-route="login"><header class="landing-header">${brand()}<div class="header-actions"><a href="#/events" class="muted">探索活动</a><button class="ink-button" data-auth>${state.me?'回到实践':'登录'} ↗</button></div></header><main id="main-content" tabindex="-1"><section class="landing-hero"><div class="hero-copy"><p class="eyebrow">一个想法，一群同伴，一次开始</p><h1>第一次参加黑客松<br>松伴陪你一步步来</h1><p class="subtitle">找到合适的活动和队友，<br class="mobile-only">把想法变成可以展示的作品</p><a class="primary landing-cta" href="#/events">找到适合我的黑客松 ${icon('arrow')}</a><a class="scroll-cue" href="#possibilities">看看作品的可能 ↓</a></div>${pine()}<div class="project-deck" id="possibilities" aria-label="创作方向示意，非已完成作品">${[['01','校园的小问题','校园观察'],['02','让知识变好玩','互动学习'],['03','和同伴搭一个工具','日常工具'],['04','用作品讲个故事','创意表达'],['05','从一个想法开始','你的下一作']].map(([n,title,type],i)=>`<div class="project-card card-${i}"><span>${n}</span><strong>${title}</strong><small>${type} / 创作方向示意</small></div>`).join('')}</div></section></main><footer class="page-footer">从小而完整的作品开始，留下真实的进展。</footer></div>`;
+  const projects=[['question-workshop','问号工坊','Agent'],['dinner-agent','晚饭有谱','Agent'],['tiny-room','方寸小屋','3D'],['creator-shop','小摊计划','商业化产品 · 硬件'],['leaf-archive','叶脉档案','模型训练 · 硬件'],['cloud-post','云上邮局','游戏']];
+  root.innerHTML=`<div class="landing reference-design" data-shell="songban-v1" data-route="login"><header class="landing-header">${brand()}<div class="header-actions"><button class="ink-button" data-auth>${state.me?'回到实践':'登录'} ↗</button></div></header><main id="main-content" tabindex="-1"><section class="landing-hero"><div class="hero-copy"><h1>有松伴在场<br>每一步都有方向</h1><p class="subtitle">一场黑客松，一群同路人，让创作一步步发生。</p><a class="primary landing-cta" href="/demo/">找到适合我的黑客松 ${icon('arrow')}</a><p class="caption">免手机号体验 · 演示使用虚构资料</p></div>${pine()}<div class="project-deck" id="possibilities" aria-label="创作方向示意，非已完成作品">${projects.map(([slug,title,type],i)=>`<div class="project-card card-${i}"><img src="/static/design/${slug}.webp" alt="${title}创作方向示意" width="440" height="620"><div class="project-caption"><strong>${title}</strong><small>${type}</small></div></div>`).join('')}</div></section></main><footer class="page-footer">从小而完整的作品开始，留下真实的进展。</footer></div>`;
   $('[data-auth]').onclick=()=>state.me?go('work'):openAuth();
 }
 function modal(title,body){
@@ -191,7 +197,7 @@ function openAuth(initial='password',prefill={}){
       const data=values(fd);let auth;
       try{auth=await api('/api/studio/'+(register?'register':mode==='sms'?'login-code':'login'),register?data:mode==='sms'?{phone:data.phone,code:data.code}:{account:data.phone,password:data.password});}
       catch(error){if(error.code==='registration_required'){draft=data;mode='register';draw();formError(dialog.querySelector('form'),error);return;}throw error;}
-      unmountWorkbench();state.epoch++;state.personal=false;sessionStorage.removeItem('songban-personal');state.token=auth.token;state.team='';state.data=null;state.drafts.clear();localStorage.setItem('studio-token',auth.token);dialog.close();
+      unmountWorkbench();state.epoch++;state.personal=false;sessionStorage.removeItem('songban-personal');state.token=auth.token;state.team='';state.data=null;state.drafts.clear();identityStorage.setItem('studio-token',auth.token);dialog.close();
       try{await load();if(state.page==='login')state.page=state.me.teams.length?'myTasks':'events';render();toast('已登录，欢迎回来。');}
       catch(error){shell();$('#content').innerHTML='<p class="error">'+esc(error.message)+'</p><button id="retry-load">重新连接</button>';$('#retry-load').onclick=()=>load().then(render).catch(e=>toast(e.message));}
     });
@@ -203,7 +209,8 @@ async function load(){
   state.me=await api('/api/core/me');
   if(state.personal)state.team='';
   else if(!state.me.teams.some(t=>t.id===state.team))state.team=state.me.teams[0]?.id||'';
-  localStorage.setItem('studio-squad',state.team);state.data=state.team?await api(endpoint('')):null;
+  identityStorage.setItem('studio-squad',state.team);state.data=state.team?await api(endpoint('')):null;
+  state.flow=await api('/api/journey?team_id='+encodeURIComponent(state.team));
 }
 async function eventsPage(){
   const container=$('#content');container.innerHTML=head('给第一次出发的你','这几场，也许适合你。','先看看活动的方向，再决定这次想做什么。')+'<p class="empty" role="status">正在读取活动…</p>';
@@ -223,9 +230,9 @@ async function eventPage(){
 }
 function renderOnboarding(){
   const c=$('#content');if(!c)return;
-  c.innerHTML=head('朋友一起，或者先自己开始','这次，和谁一起做？','创建一个真实的小队，用队伍码邀请熟悉的同伴。')+`<div class="two"><form class="card" id="create-team"><span class="chip">我来发起</span><h2>给小队起个名字。</h2><label for="team-name">小队名称</label><input id="team-name" name="name" maxlength="80" placeholder="例如：周末造梦小队" required><p class="muted">创建后你负责确认共同方向；全员确认分工后，由内部 AI 发布任务。</p><button type="submit" class="primary">创建小队 ${icon('arrow')}</button></form><form class="card" id="join-team"><span class="chip">同伴在等我</span><h2>加入熟悉的队伍。</h2><label for="team-code">队伍码</label><input id="team-code" name="code" maxlength="80" placeholder="粘贴队友分享的队伍码" required><p class="muted">加入后，会读取这支队伍的真实方向和进展。</p><button type="submit" class="secondary">加入小队 ${icon('arrow')}</button></form></div>`;
+  c.innerHTML=head('朋友一起，或者先自己开始','这次，和谁一起做？','创建一个真实的小队，用队伍码邀请熟悉的同伴。')+`<div class="two"><form class="card" id="create-team"><span class="chip">我来发起</span><h2>给小队起个名字。</h2><label for="team-name">小队名称</label><input id="team-name" name="name" maxlength="80" placeholder="例如：周末造梦小队" value="${window.SONGBAN_DEMO?'松伴演示小队':''}" required><p class="muted">创建后你负责确认共同方向；全员确认分工后，由内部 AI 发布任务。</p><button type="submit" class="primary">创建小队 ${icon('arrow')}</button></form><form class="card" id="join-team"><span class="chip">同伴在等我</span><h2>加入熟悉的队伍。</h2><label for="team-code">队伍码</label><input id="team-code" name="code" maxlength="80" placeholder="粘贴队友分享的队伍码" required><p class="muted">加入后，会读取这支队伍的真实方向和进展。</p><button type="submit" class="secondary">加入小队 ${icon('arrow')}</button></form></div>`;
   for(const [id,path] of [['#create-team','/api/core/teams'],['#join-team','/api/core/join']])bindForm(id,async(form,fd)=>{
-    const created=await api(path,values(fd));state.personal=false;sessionStorage.removeItem('songban-personal');state.team=created.id;localStorage.setItem('studio-squad',state.team);await load();go(id==='#create-team'?'discussion':'work');toast('小队已连接。');
+    const created=await api(path,values(fd));state.personal=false;sessionStorage.removeItem('songban-personal');state.team=created.id;identityStorage.setItem('studio-squad',state.team);await load();go(id==='#create-team'?'discussion':'work');toast('小队已连接。');
   });
 }
 function teamPage(){
@@ -233,6 +240,7 @@ function teamPage(){
   $('#new-team').onclick=renderOnboarding;$('#copy-code').onclick=async()=>{try{await navigator.clipboard.writeText(d.team.code);toast('队伍码已复制。');}catch{toast('请选中页面上的队伍码手动复制。');}};
 }
 function deliveryPage(){
+  if(state.flow?.strict){journeySubmission();return;}
   const d=state.data;$('#content').innerHTML=head('先核对，再交付','让作品，完整地出发。','依据团队当前记录检查成果，正式提交请前往主办方指定入口。')+workflowCard()+deliveryCard()+`<section class="card"><h2>逐项核对成果</h2>${tasks(d.active_plan.tasks||[],true)}</section>`;
   $('#content details.delivery-check').open=true;bindWorkflow();
   root.querySelectorAll('[data-report-task]').forEach(b=>b.onclick=()=>{const key=b.dataset.reportTask;go('tasks');root.querySelector(`[data-report-task="${CSS.escape(key)}"]`)?.click();});
@@ -242,8 +250,9 @@ async function refresh(force=false){
   if(state.syncing){if(force)state.pendingRefresh=true;return;}
   state.syncing=true;const team=state.team;
   try{
-    const data=await api(endpoint(''));if(team!==state.team)return;
-    const changed=!state.data||data.division_status!==state.data.division_status||data.division_round_id!==state.data.division_round_id||data.revision!==state.data.revision||data.proposal?.id!==state.data.proposal?.id||data.review_running!==state.data.review_running||data.last_error!==state.data.last_error;
+    const data=await api(endpoint(''));const flow=await api('/api/journey?team_id='+encodeURIComponent(team));if(team!==state.team)return;
+    const stageChanged=state.flow?.stage!==flow.stage;state.flow=flow;
+    const changed=stageChanged||!state.data||data.division_status!==state.data.division_status||data.division_round_id!==state.data.division_round_id||data.revision!==state.data.revision||data.proposal?.id!==state.data.proposal?.id||data.review_running!==state.data.review_running||data.last_error!==state.data.last_error;
     const editing=!!root.querySelector('form[data-dirty="true"],dialog[open]')||state.busy;
     if(state.page==='workbench'){state.data=data;}
     else if(force){captureDrafts();state.data=data;render();}
@@ -259,13 +268,14 @@ function routeFromHash(){
   state.page=routePages[route]||'events';
 }
 document.addEventListener('DOMContentLoaded',async()=>{
+  if(window.SONGBAN_DEMO){const demo=await api('/api/demo/bootstrap',{});state.token=demo.token;state.team='';identityStorage.setItem('studio-token',demo.token);}
   routeFromHash();
   if(state.token){try{await load();if(state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
   render();
   const markDirty=e=>{if(e.target.form){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);
   root.addEventListener('change',markDirty);
-  window.addEventListener('hashchange',async()=>{if(location.hash==='#possibilities')return;captureDrafts();routeFromHash();const target=state.page;if(state.data?.division_status&&state.data.division_status!=='published'&&['myTasks','teamTasks','delivery','recap','workbench'].includes(target)){try{await load();}catch(error){toast(error.message);}if(state.page!==target)return;}render();window.scrollTo(0,0);});
+  let routeVersion=0;window.addEventListener('hashchange',async()=>{if(location.hash==='#possibilities')return;const version=++routeVersion;captureDrafts();if(state.token){try{await load();}catch(e){toast(e.message);}}if(version!==routeVersion)return;routeFromHash();render();window.scrollTo(0,0);});
   setInterval(()=>{if(!document.hidden&&!['login','events','event'].includes(state.page))refresh();},2000);
-  window.addEventListener('storage',e=>{if(e.key==='songban-task-update'&&e.newValue){try{if(JSON.parse(e.newValue).team===state.team)refresh();}catch{}}if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
+  window.addEventListener('storage',e=>{if(window.SONGBAN_DEMO)return;if(e.key==='songban-task-update'&&e.newValue){try{if(JSON.parse(e.newValue).team===state.team)refresh();}catch{}}if(e.key==='studio-token'&&e.newValue!==state.token){clearIdentity(false);state.token=e.newValue||'';if(state.token){load().then(render).catch(error=>toast(error.message));}else go('login');}});
 });

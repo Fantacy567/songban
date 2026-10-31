@@ -13,6 +13,7 @@ from fastapi import Header
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from .planner import PlannerError, check_model_base, team_model_config
+from .model_transport import post_chat_completion
 from .workbench_model import clean_data
 
 SCHEMA='''
@@ -49,8 +50,7 @@ def run_model(context,system=SYSTEM):
     try:
         payload={'model':cfg['model_id'],'messages':[{'role':'system','content':system},{'role':'user','content':dump(context)}],'max_tokens':4500,'stream':False}
         if cfg['model_id'].lower().startswith(('doubao','deepseek')):payload['thinking']={'type':'disabled'}
-        with httpx.Client(timeout=httpx.Timeout(90,connect=10),follow_redirects=False,trust_env=True) as client:
-            response=client.post(base+'/chat/completions',headers={'Authorization':'Bearer '+cfg['api_key']},json=payload)
+        response=post_chat_completion(base,cfg['api_key'],payload,timeout=httpx.Timeout(90,connect=10),trust_env=False)
         if response.status_code!=200:raise PlannerError('report_model_failed','模型暂未生成报告，感悟和工作记录已保留。',502)
         if len(response.content)>200000:raise ValueError()
         choice=response.json()['choices'][0]
@@ -115,7 +115,7 @@ def register_recap(api,db,problem,now,uid,digest,runner=None):
     def share_info(con,ident):
         row=con.execute('SELECT * FROM recap_shares WHERE report_id=?',(ident,)).fetchone()
         if not row or row['revoked'] or row['expires_at']<=now():return None
-        base=os.environ.get('PUBLIC_BASE_URL','').strip().rstrip('/')
+        base=(getattr(api.state,'demo_base_url','') or os.environ.get('PUBLIC_BASE_URL','')).strip().rstrip('/')
         return {'url':base+'/family/reports/'+row['token'],'qr_url':'/family/reports/'+row['token']+'/qr.svg','expires_at':row['expires_at']}
     @api.get('/api/core/teams/{sid}/recap')
     def get_recap(sid:str,authorization:str=Header(default='')):
@@ -162,14 +162,14 @@ def register_recap(api,db,problem,now,uid,digest,runner=None):
     @api.post('/api/core/teams/{sid}/recap/reports/{ident}/share')
     def publish(sid:str,ident:str,body:Publish,authorization:str=Header(default='')):
         if not body.confirmed:raise problem(422,'share_confirmation_required','请先预览并确认只向持码者分享这份报告。')
-        base=os.environ.get('PUBLIC_BASE_URL','').strip().rstrip('/');parsed=urlsplit(base)
+        base=(getattr(api.state,'demo_base_url','') or os.environ.get('PUBLIC_BASE_URL','')).strip().rstrip('/');parsed=urlsplit(base)
         with db(True) as con:
             user,report=owner_report(con,sid,ident,authorization)
             try:
                 address=ipaddress.ip_address(parsed.hostname or '')
                 local_only=address.is_loopback or address.is_unspecified or address.is_link_local
             except ValueError:local_only=parsed.hostname=='localhost'
-            if parsed.scheme not in ('http','https') or not parsed.hostname or local_only or parsed.username or parsed.password:raise problem(409,'share_address_required','报告已保存，请先配置手机可访问的站点地址；本机127.0.0.1二维码无法在家长手机打开。')
+            if parsed.scheme not in ('http','https') or not parsed.hostname or (local_only and not getattr(api.state,'demo',False)) or parsed.username or parsed.password:raise problem(409,'share_address_required','报告已保存，请先配置手机可访问的站点地址；本机127.0.0.1二维码无法在家长手机打开。')
             if report['status']!='ready':raise problem(409,'report_not_ready','先生成并预览可用报告。')
             reflection,data,fp=context(con,sid,user['id'])
             if fp!=report['fingerprint'] or reflection['version']!=report['reflection_version']:raise problem(409,'report_stale','感悟或工作记录已更新，请生成新报告再分享。')
@@ -199,6 +199,6 @@ def register_recap(api,db,problem,now,uid,digest,runner=None):
         with db() as con:shared(con,token)
         import qrcode
         from qrcode.image.svg import SvgPathImage
-        url=os.environ.get('PUBLIC_BASE_URL','').strip().rstrip('/')+'/family/reports/'+token
+        url=(getattr(api.state,'demo_base_url','') or os.environ.get('PUBLIC_BASE_URL','')).strip().rstrip('/')+'/family/reports/'+token
         image=qrcode.make(url,image_factory=SvgPathImage);buffer=io.BytesIO();image.save(buffer)
         return Response(buffer.getvalue(),media_type='image/svg+xml',headers=headers)

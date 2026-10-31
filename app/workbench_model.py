@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from .planner import PlannerError, check_model_base, team_model_config
+from .model_transport import post_chat_completion
 from .team_core import scrub
 
 ROLES = [
@@ -135,19 +136,16 @@ def request_workbench_model(context):
         raise PlannerError('model_not_configured', '工作台模型尚未配置；输入已保存，没有生成测试回复。', 503)
     base = check_model_base(cfg.get('base_url', ''))
     body = {'model': cfg['model_id'], 'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': dump(context)}], 'stream': False, 'max_tokens': 4000, 'response_format': {'type': 'json_object'}}
-    if urlsplit(base).hostname == 'api.deepseek.com':
+    if urlsplit(base).hostname == 'api.deepseek.com' or cfg['model_id'].lower().startswith('doubao'):
         body['thinking'] = {'type': 'disabled'}
     try:
-        with httpx.Client(timeout=45, follow_redirects=False, trust_env=False) as client:
-            with client.stream('POST', base + '/chat/completions', headers={'Authorization': 'Bearer ' + cfg['api_key']}, json=body) as response:
-                if response.status_code != 200:
-                    code = {401: 'model_auth_failed', 403: 'model_auth_failed', 402: 'model_insufficient_balance', 429: 'model_rate_limited'}.get(response.status_code, 'model_unavailable')
-                    raise PlannerError(code, '模型服务未成功回答；输入已保留。', 503)
-                raw = bytearray()
-                for chunk in response.iter_bytes():
-                    raw.extend(chunk)
-                    if len(raw) > 160000:
-                        raise ValueError('oversized response')
+        response = post_chat_completion(base, cfg['api_key'], body, timeout=45, trust_env=False, attempts=1)
+        if response.status_code != 200:
+            code = {401: 'model_auth_failed', 403: 'model_auth_failed', 402: 'model_insufficient_balance', 429: 'model_rate_limited'}.get(response.status_code, 'model_unavailable')
+            raise PlannerError(code, '模型服务未成功回答；输入已保留。', 503)
+        raw = response.content
+        if len(raw) > 160000:
+            raise ValueError('oversized response')
         payload = json.loads(raw)
         choice = payload['choices'][0]
         if choice.get('finish_reason') != 'stop' or choice['message'].get('refusal'):

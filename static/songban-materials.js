@@ -75,7 +75,7 @@ const SongbanMaterials = (() => {
     }
     function showDraft(){q('#material-share').innerHTML=`<section class="card accent"><h2>${draft.kind==='direction'?'方向':'行动建议'}草稿已保存</h2><pre class="material-source">${esc(draft.text)}</pre><p>${esc(draft.notice)}</p><button id="material-use-draft" class="primary">${draft.kind==='direction'?'带入方向编辑页，核对后再保存':'作为讨论送入团队统筹，等待队长确认'}</button></section>`;q('#material-use-draft').onclick=()=>action(async()=>{
       const prepared=await api(path('/drafts/'+draft.id+'/prepare'),{expected_revision:data.revision});draft={...prepared.body,id:prepared.id,team_id:prepared.team_id};
-      state.personal=false;sessionStorage.removeItem('songban-personal');state.team=draft.team_id;localStorage.setItem('studio-squad',state.team);await load();
+      state.personal=false;sessionStorage.removeItem('songban-personal');state.team=draft.team_id;identityStorage.setItem('studio-squad',state.team);await load();
       if(draft.kind==='direction'){go('direction');const f=$('#direction-form');if(f&&!f.elements.rules.disabled){f.elements.rules.value=[f.elements.rules.value,draft.text].filter(Boolean).join('\n\n');f.dataset.dirty='true';toast('草稿已带入，请核对来源和长度后保存共同方向。');}else toast('草稿已留在团队资料入口，由队长核对方向。');}
       else{await api(endpoint('/reports'),{event_id:'materials-draft:'+draft.canonical_id,summary:draft.text,evidence:['资料入口草稿：'+draft.canonical_id],tool:'资料入口行动草稿',origin:'human',status:'discussion'});await refresh(true);go('tasks');toast('已保存为讨论。仍需生成统筹草案并由队长确认。');}
     });}

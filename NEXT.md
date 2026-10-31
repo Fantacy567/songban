@@ -1,3 +1,22 @@
+# 2026-10-31 · 用户追加：接入指定设计、公网演示、上传GitHub
+
+- 视觉参考：https://songban-hackathon-preview-20261030.social-cat-4573.chatgpt.site/#/login 。已接入暖白首页、大标题、六张扇形作品卡片、原设计松树、登录弹窗和紫色流程视觉。仅展示层调整，不改变现有阶段判断与数据接口。
+- static/songban-reference.css独立覆盖样式，static/design为用户参考素材；手机/桌面图片加载、登录弹窗、无溢出、无pageerror通过。完整demo浏览器闭环通过。
+- 用户明确选择“先开临时公网演示链接（依赖本机在线）”。cloudflared当前域名https://nec-meditation-lion-tip.trycloudflare.com，health已200。运行服务仍为8890，SQLite先备份，PUBLIC_BASE_URL配置为公网域名。
+- GitHub目标origin Fantacy567/songban，当前分支feat/connector-conversation-library；用户已明确授权上传，本轮结束前需提交推送并验证远端SHA。
+- 上一阶段真实模型合成数据：访谈/公告/排名/分工/家长报告/资料整理通过；工作台有格式失败，单独复验曾成功，但再次请求仍可失败，不能声称所有调用稳定。保留错误，不塞入样例。前一完整回归289项通过。
+- 最终设计回归日志在父目录design-tests.log、design-browser.log。部署说明docs/deployment/preview.md。不要提交work目录、.env、SQLite、个人数据或真实会话。
+
+# 2026-10-31 · 跨会话接续：真实模型验收收尾（进行中）
+
+- 已分页读取来源会话01a18cec-e0eb-7b91-8649-84bc86c3e4ed的40轮记录；最后任务为整合演示与真实流程并核验全部内部Agent。
+- 浏览器scripts/browser_unified_flow.py再次通过访谈→公告→选题→分工→任务检查→回执→复盘二维码，390/768/1440无溢出且无pageerror；接口scripts/check_unified_flow.py全部阶段门槛通过。仅使用独立演示账号。
+- 资料检查误报根因：scripts/check_live_agents.py把成功状态completed当成ready，已修正并增加非空和引用断言；失败时退出码改为1。
+- app/model_transport.py不再向默认Client显式传transport=None，保持自定义/测试传输注入兼容；workbench明确attempts=1，遵守结果未知不自动重放的原有承诺。
+- 真实模型合成数据检查运行中，证据父目录continuation-live-agents.json；已通过访谈、公告、排名、分工。其余以最终JSON为准。
+- 全量测试须按现有CI环境运行：SONGBAN_ENFORCE_JOURNEY=0 SONGBAN_CORE_ONLY=0 python -m unittest discover -s tests -q。严格流程测试自己显式开启门槛，生产默认仍开启。初次未设置此兼容环境的失败不是产品门槛应关闭的理由。
+- 下一步：等待continuation-tests-final.log与模型检查完成；如通过，备份SQLite并重启8890加载工作台传输修复，落盘最终结果。不要再次初始化真实账号或清空数据。
+
 # 2026-10-31 · 分工问答与内部AI发布
 
 - 已实现：保存方向→每位队员差异化问答→各自确认→内部AI发布→领取任务。新增app/division.py，SQLite保存轮次/逐题回答/本人确认；发布复用同一active_plan与历史。新轮次禁止旧队长发布接口，关闭旧自动草案。
@@ -357,3 +376,12 @@
 - Node=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node；NODE_PATH=/Users/ben/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules；PLAYWRIGHT_BROWSERS_PATH=.browser-cache；系统Chrome。
 - 首版正式方案仅确认一次，未实现公网账号、录音、代码托管、GitHub自动验收或科学最优分工保证。
 - 下一步：可用模型额度后完成真实生成验收；用户与胡进行真人接口联调，按需求选择下一版范围。
+
+
+## 2026-10-31 15:34 当前整合进展（未完成，继续验证）
+- 已统一阶段服务/访谈/独立演示样例。真实 Chrome 全流程已在8895通过一次；正在验证正式8890/demo入口。
+- 用户登录失败根因：静态文件已更新，而8890旧进程没有/api/journey，登录200后流程404。已重启为app.preview_server:app，浏览器确认回到访谈。
+- 用户明确要求初始化159开头账号：159****6913已备份，移除当前队伍关联、撤销该用户7个旧连接器，保留手机/密码/姓名/登录凭证；旧团队原始记录保留在库和runtime备份。没有改其他账号。
+- 真实入口 http://127.0.0.1:8890/；免登录独立演示 http://127.0.0.1:8890/demo/；演示使用sessionStorage隔离，虚构数据/预置Agent结果明确标识。
+- 8886尚待改为新演示兼容入口。真实模型探针进行中，不能宣称通过。
+- 未提交改动位于本checkout。完成后更新本段及验收报告。

@@ -153,6 +153,9 @@ def register_ideas(api,db,access,problem,now,uid,digest,runner=None):
         if set(body)!={'idea_id','confirmed'} or body['confirmed'] is not True:raise problem(422,'confirmation_required','请队伍讨论后明确确认这个选题。')
         with db(True) as con:
             user,_=access(con,sid,authorization,captain=True,connector=False)
+            if api.state.enforce_journey:
+                current,_=board(con,sid)
+                if any(not item['confirmed'] for item in current['readiness']):raise problem(409,'members_not_ready','请等所有队员确认本轮提交完成。')
             idea=con.execute('SELECT * FROM team_ideas WHERE id=? AND squad_id=?',(body['idea_id'],sid)).fetchone()
             if not idea:raise problem(404,'idea_not_found','请选择本队已公示的idea。')
             if con.execute('SELECT 1 FROM topic_selections WHERE squad_id=?',(sid,)).fetchone():raise problem(409,'topic_confirmed','本队已确认过选题，不能在此重复覆盖。')
