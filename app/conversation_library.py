@@ -11,7 +11,15 @@ def library_counts(con, sid):
     return {'total':row['total'],'latest_seq':row['latest_seq'] or 0,'contributors':row['contributors']}
 
 
-def record(row, brief=False):
+def preview(text, query):
+    start=text.lower().find(query.lower()) if query else -1
+    if start>200 and len(text)>1000:
+        start=max(0,start-100)
+        return '…'+text[start:start+998]
+    return text[:1000]
+
+
+def record(row, brief=False, query=''):
     payload=json.loads(row['report_body'])
     reply=payload.get('assistant_message') or payload.get('assistant_summary') or payload.get('summary') or ''
     full=bool(payload.get('assistant_message'))
@@ -19,7 +27,7 @@ def record(row, brief=False):
     if brief:
         payload.pop('assistant_message',None)
         if 'user_message' in payload:payload['user_message']=user[:1000]
-    return {'source_label':row['source_label'] or '网页手动补充','source_kind':'manual' if row['connection_id'].startswith('web:') else 'connector','user_preview':user[:1000] if brief else user,'reply_preview':reply[:1000] if brief else reply,'content_truncated':brief and (len(user)>1000 or len(reply)>1000),'reply_length':len(reply),'id':row['id'],'seq':row['seq'],'squad_id':row['squad_id'],'author_id':row['author_id'],
+    return {'source_label':row['source_label'] or '网页手动补充','source_kind':'manual' if row['connection_id'].startswith('web:') else 'connector','user_preview':preview(user,query) if brief else user,'reply_preview':preview(reply,query) if brief else reply,'content_truncated':brief and (len(user)>1000 or len(reply)>1000),'reply_length':len(reply),'id':row['id'],'seq':row['seq'],'squad_id':row['squad_id'],'author_id':row['author_id'],
             'author':row['author'],'created_at':row['created_at'],'body':row['body'][:1000] if brief else row['body'],
             'stage':row['stage'],'reply_kind':'full' if full else 'summary',
             'report':{**payload,'user_name':row['author']}}
@@ -50,7 +58,7 @@ def register_library(api, db, access, problem):
             paging=where+(' AND r.seq<?' if cursor is not None else '')
             paged=args+([cursor] if cursor is not None else [])+[limit+1]
             rows=con.execute(f'SELECT l.*,r.seq,r.connection_id,r.body AS report_body,c.label AS source_label,p.name AS author,{STAGE_SQL} AS stage {JOIN_SQL} WHERE {paging} ORDER BY r.seq DESC LIMIT ?',paged).fetchall()
-            more=len(rows)>limit;items=[record(r,brief) for r in rows[:limit]]
+            more=len(rows)>limit;items=[record(r,brief,q.strip()) for r in rows[:limit]]
             counts=library_counts(con,sid)
         return {'items':items,'total':total,'stats':counts,'next_cursor':items[-1]['seq'] if more else None,
                 'notice':'只检索本队获准共享的记录。原文与历史摘要分别标注；记录不等于成果已经验收。'}

@@ -1,11 +1,11 @@
-# 2026-10-31 · 连接器与对话资料库已实现，待推送与PR冲突处理
+# 2026-10-31 · 连接器与对话资料库开发验收完成
 
 - feat/connector-conversation-library，已合入此前短信与宪法提交；当前变更在connector-planning，原8890尚未切换。
 - 已实现选题讨论页、方向/任务连接器入口、两段原文、本人稳定配色、按关键词/成员/环节/任务检索、分页、长文展开与来源。原生和通用MCP均可共享原文、检索与按记录号读取。
 - 后端同SQLite JSON留档，全文明确授权，旧摘要不冒充全文，task_key关联聊天不会更新任务进展；跨阶段重试稳定，不再限制只能查看120条。源码与说明见docs/core-collaboration/对话资料库与连接器接入.md。
-- 179项全量通过；真实Chrome原统一流程与新资料库MCP/HTTP/SQLite完整验收通过；无真实短信或付费模型调用，未安装到用户真实宿主。
-- 用户最新要求：先完成本轮，再解决截图中PR #4 NEXT.md/README.md与main冲突；需要fetch最新main并推送到docs/connector-growth-constitution，保留两边有效内容。不要只在功能分支解决而漏掉PR4。
-- 下一步：提交本轮功能；解决并推送PR4；把最新main合入功能分支，再跑受影响检查；更新本机8890预览（保留runtime数据库，先备份）并提交完整功能PR。
+- 229项合并后全量通过；真实Chrome原统一流程与新资料库MCP/HTTP/SQLite完整验收通过；无真实短信或付费模型调用，未安装到用户真实宿主。
+- 用户要求完成后解决PR #4冲突：已合入main并在docs分支推送5de6b9c，GitHub确认MERGEABLE；功能分支也保留main f4bb0f1资料入口，解决HTML/路由/脚本/测试冲突。
+- CI发现新资料入口测试缺docx/reportlab，requirements-test.txt已补齐；本机229项通过。下一步推送CI修复至PR4、更新8890预览（备份并保留runtime数据库）、推送完整功能PR。Python3.14不支持原OCR锁定依赖，未宣称本机OCR已重验。
 
 # 2026-10-31 · 连接器与成长报告功能意图
 

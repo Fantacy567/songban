@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS core_reports (
  UNIQUE(connection_id,event_id)
 );
 CREATE INDEX IF NOT EXISTS core_reports_team ON core_reports(squad_id,seq);
+CREATE INDEX IF NOT EXISTS core_library_team ON library_notes(squad_id,id);
 CREATE TABLE IF NOT EXISTS core_proposals (
  id TEXT PRIMARY KEY, squad_id TEXT NOT NULL, base_revision INTEGER NOT NULL, body TEXT NOT NULL,
  provenance TEXT NOT NULL, model_id TEXT NOT NULL, created_at TEXT NOT NULL, confirmed_at TEXT

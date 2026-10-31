@@ -69,8 +69,8 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(self.client.get(self.base+'/library?author_id=a&stage=development&task_key=T1',headers=self.h('a')).json()['total'],72)
         self.assertEqual(self.client.get(self.base+'/library?q=%25',headers=self.h('a')).json()['total'],0)
     def test_full_text_search_and_team_boundaries(self):
-        r=self.put(assistant_message='只有完整回复中才有的线索：水獭');ident=r.json()['note_id']
-        self.assertEqual(self.client.get(self.base+'/library?q=水獭',headers=self.h('b')).json()['total'],1)
+        r=self.put(assistant_message='长回复内容。'*800+'只有完整回复中才有的线索：水獭');ident=r.json()['note_id']
+        found=self.client.get(self.base+'/library?q=水獭&brief=true',headers=self.h('b')).json();self.assertEqual(found['total'],1);self.assertIn('水獭',found['items'][0]['reply_preview'])
         self.assertEqual(self.client.get(self.base+'/library',headers=self.h('c')).status_code,403)
         other=self.client.post('/api/core/teams',json={'name':'另一队'},headers=self.h('c')).json()['id']
         self.assertEqual(self.client.get('/api/core/teams/'+other+'/library/'+ident,headers=self.h('c')).status_code,404)
