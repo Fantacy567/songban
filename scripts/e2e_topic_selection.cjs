@@ -80,6 +80,10 @@ function callMcp(who,args){
   await a.getByRole('link',{name:'去生成任务清单',exact:true}).click();
   await a.locator('#review').click();await a.locator('#confirm-plan').waitFor();
   await a.locator('#confirm-plan').click();await a.locator('[data-claim-task=T1]').waitFor();
+  await a.getByRole('link',{name:'选题',exact:true}).click();
+  await a.getByRole('heading',{name:'主方向已确认',exact:true}).waitFor();
+  await a.getByRole('link',{name:'任务',exact:true}).click();await a.locator('[data-claim-task=T1]').waitFor();
+  await a.reload();await a.locator('[data-claim-task=T1]').waitFor();
   await b.goto(base+'/#/tasks');await b.locator('[data-claim-task=T1]').click();
   await b.waitForFunction(()=>state.data?.active_plan.tasks[0]?.owner_id==='b');
   assert.equal(await b.locator('[data-claim-task=T1]').count(),0);
