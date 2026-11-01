@@ -4,23 +4,33 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const base=process.env.SONGBAN_QA_URL||'http://127.0.0.1:8893';
-const out=path.resolve('.browser-cache/materials');
+const out=path.resolve(process.env.SONGBAN_E2E_OUTPUT||'.browser-cache/materials');
 const errors=[];
 async function api(url,token,body,method){const r=await fetch(base+url,{method:method||(body?'POST':'GET'),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();assert(r.ok,JSON.stringify(d));return d;}
 async function idle(page){await page.waitForFunction(()=>!document.querySelector('#materials-host[aria-busy]'));}
 async function snap(page,name){await page.screenshot({path:path.join(out,name+'.png'),fullPage:true});}
-async function login(page){await page.locator('#auth-phone').fill('18800008893');await page.locator('#auth-password').fill('materials-test-password');await page.locator('#auth-form button[type=submit]').click();await page.locator('#material-generate').waitFor();}
+async function login(page){await page.goto(base+'/#/login');await page.locator('[data-auth]').click();await page.locator('#auth-account').fill('18800008893');await page.locator('#auth-password').fill('materials-test-password');await page.locator('#auth-form button[type=submit]').click();await page.waitForFunction(()=>state.me?.person.id==='qa-materials');await page.goto(base+'/#/event');await page.locator('#material-generate').waitFor();}
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
  try{
- const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
- const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ let context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+ let page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base+'/#/event');await page.locator('#material-text').waitFor();
  await page.locator('#material-text').fill('活动日期：2026年11月7日至8日。\n支持1至3人组队。\n小李愿意做设计，分工尚未确认。');
  await page.locator('#material-nature').selectOption('sample');
- await page.locator('#material-input button[type=submit]').click();await login(page);
- assert((await page.locator('#material-text').inputValue()).includes('小李'));
- assert.equal(await page.locator('#material-nature').inputValue(),'sample');
+ await page.locator('#material-input button[type=submit]').click();await idle(page);
+ await page.locator('.material-source-row').first().waitFor();
+ const guestToken=await page.evaluate(()=>localStorage.getItem('studio-token'));
+ assert((await api('/api/core/me',guestToken)).guest);
+ assert.equal((await api('/api/materials/space',guestToken)).sources.length,1);
+ await page.reload();await page.locator('.material-source-row').first().waitFor();
+ await snap(page,'materials-guest-saved');await context.close();
+ context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+ page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await login(page);
+ const accountToken=await page.evaluate(()=>localStorage.getItem('studio-token'));
+ assert.equal((await api('/api/materials/space',accountToken)).sources.length,0);
+ await page.locator('#material-text').fill('活动日期：2026年11月7日至8日。\n支持1至3人组队。\n小李愿意做设计，分工尚未确认。');
+ await page.locator('#material-nature').selectOption('sample');
  await page.locator('#material-input button[type=submit]').click();await idle(page);
  await page.locator('#material-files').setInputFiles(['screenshot.png','photo.jpg','scan.pdf','rules.pdf','chat.docx','notes.txt','unreadable.pdf'].map(x=>path.join(out,x)));
  await page.locator('#material-input button[type=submit]').click();await idle(page);
@@ -59,7 +69,7 @@ await page.locator('#material-preview-share').click();await page.locator('[data-
  await page.goto(base+'/#/materials');await page.locator('#material-generate').waitFor();await snap(page,'materials-team-1440');
  await page.goto(base+'/#/library');await page.locator('#library-notes').waitFor();
  assert.equal(errors.length,0,errors.join('\n'));
- const results={passed:true,widths:[390,768,1440],sources:8,realParsers:['PNG OCR','JPEG OCR','scanned PDF OCR','text PDF','DOCX','TXT'],model:'protocol fixture; no live model validation',checks:['password login and guest draft','partial failure','compact competition facts','missing deadline stays unknown','conflicting team sizes','simulated model failure preserves results','draft sharing','material draft starts collective topic discussion','task discussion without publish','existing library'],browserErrors:errors};
+ const results={passed:true,widths:[390,768,1440],sources:8,realParsers:['PNG OCR','JPEG OCR','scanned PDF OCR','text PDF','DOCX','TXT'],model:'protocol fixture; no live model validation',checks:['guest save and reload','password login and guest/account isolation','partial failure','compact competition facts','missing deadline stays unknown','conflicting team sizes','simulated model failure preserves results','draft sharing','material draft starts collective topic discussion','task discussion without publish','existing library'],browserErrors:errors};
  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

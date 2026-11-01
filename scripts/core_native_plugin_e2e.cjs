@@ -20,7 +20,11 @@ const credential=JSON.parse(fs.readFileSync(temp+'/private-fixture.json','utf8')
  const run=call({...round,selected:true});assert.equal(run.isError,false);const receipt=JSON.parse(run.content[0].text);assert(receipt.synced&&receipt.note_id);
  const again=JSON.parse(call({...round,selected:true}).content[0].text);assert.equal(again.note_id,receipt.note_id);assert.equal(again.duplicate,true);
  await new Promise(r=>setTimeout(r,300));snap=await context.request.get(base+'/api/core/teams/'+sid,{headers}).then(r=>r.json());assert.equal(snap.proposal,null);
- await context.request.post(base+'/api/core/teams/'+sid+'/review',{headers,data:{}});
+ const blocked=await context.request.post(base+'/api/core/teams/'+sid+'/review',{headers,data:{}});
+ assert.equal(blocked.status(),409);assert.equal((await blocked.json()).error.code,'topic_required');
+ const board=await context.request.get(base+'/api/core/teams/'+sid+'/ideas',{headers}).then(r=>r.json());assert.equal(board.ideas.length,1);
+ const selected=await context.request.post(base+'/api/core/teams/'+sid+'/topic/confirm',{headers,data:{idea_id:board.ideas[0].id,confirmed:true}});assert.equal(selected.status(),200,await selected.text());
+ const reviewed=await context.request.post(base+'/api/core/teams/'+sid+'/review',{headers,data:{}});assert.equal(reviewed.status(),200,await reviewed.text());
  for(let i=0;i<16;i++){await new Promise(r=>setTimeout(r,300));snap=await context.request.get(base+'/api/core/teams/'+sid,{headers}).then(r=>r.json());if(snap.proposal)break;}
  await page.getByText(round.model_name+'：'+round.assistant_summary,{exact:true}).waitFor({timeout:12000});
  assert(snap.proposal);assert.equal(snap.team_library.length,1);assert.equal(snap.team_library[0].id,receipt.note_id);assert(snap.proposal.body.findings[0].source_ids.includes(receipt.note_id));

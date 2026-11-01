@@ -41,7 +41,7 @@ const confirmed=$('#confirmed-tasks'),mainColumn=$('.grid > section');if(confirm
 bindWorkflow();}
 function direction(){
   const d=state.data,cap=d.me.captain;
-  if(!d.topic_selection && (state.flow?.strict || d.legacy_topic_selection))return guidedDirection();
+  if(usesIdeaWorkflow())return guidedDirection();
   if(typeof SongbanTopics!=='undefined'&&(!d.plan_version||d.topic_selection)){
     $('#content').innerHTML='<div id="topic-selection-host"></div>';
     void SongbanTopics.mount($('#topic-selection-host'),d);return;

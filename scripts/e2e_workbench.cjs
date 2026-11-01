@@ -49,8 +49,8 @@ async function openUser(user, teamId) {
   const page = await context.newPage();
   page.on('pageerror', error => browserErrors.push(error.message));
   page.setDefaultTimeout(10000);
-  await page.goto(base + '/#/work');
-  await page.locator('[data-route=work]').waitFor();
+  await page.goto(base + '/#/workbench');
+  await page.locator('.sbw').waitFor();
   return { context, page };
 }
 async function shot(page, name) { await page.screenshot({ path: path.join(folder, name + '.png'), fullPage: true }); }
@@ -61,7 +61,7 @@ async function logoutDifferentAccount() {
   await page.locator('#logout').click();
   assert.equal(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('songban:workbench:')).length), 0);
   await page.getByRole('button', { name: /^登录/ }).click();
-  await page.locator('#auth-phone').fill(users.member.phone); await page.locator('#auth-password').fill('workbench-test-password');
+  await page.locator('#auth-account').fill(users.member.phone); await page.locator('#auth-password').fill('workbench-test-password');
   await page.locator('#auth-form button[type=submit]').click();
   await page.waitForFunction(() => state.me?.person.id === 'qa-workbench-member');
   await page.locator('.sbw').waitFor();
@@ -75,6 +75,7 @@ async function logoutDifferentAccount() {
 
 (async () => {
   if (process.env.SONGBAN_QA_IDENTITY_ONLY) {
+    await create('personal', null, '身份隔离检查');
     browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
     await test('UI: logout clears private caches; different account never sees old draft/history', logoutDifferentAccount);
     return;
@@ -270,29 +271,48 @@ async function logoutDifferentAccount() {
       assert(await b.locator('.sbw-aiBubble').count() >= 2);
     } finally { await b.unroute('**/api/workbench/sessions'); }
   });
-  await test('UI: original tasks, direction and captain confirmation remain reachable', async () => {
-    await b.getByRole('link', { name: '任务', exact: true }).click();
-    await b.locator('#confirmed-tasks').waitFor(); await b.locator('#review').waitFor();
-    await b.getByRole('link', { name: '方向', exact: true }).click(); await b.locator('#direction-form').waitFor();
-    await b.getByRole('link', { name: '工作台', exact: true }).click();
-    await b.getByLabel('本人会话历史').selectOption(teamSession.id);
+  await test('UI: shared ideas -> next step -> reload -> confirm topic -> division -> published tasks', async () => {
     const before = await core();
-    await b.getByRole('button', { name: '核对方向草稿', exact: true }).first().click();
-    await b.locator('#direction-form').waitFor();
-    assert.equal(await b.locator('[name=goal]').inputValue(), '夹具建议：校园失物招领助手');
+    assert(before.guided_workflow && !before.topic_confirmed);
+    await b.goto(base + '/#/workbench');
+    await b.getByRole('button', { name: '继续当前下一步 ↗', exact: true }).click();
+    await b.locator('#new-idea').waitFor();
+    assert.equal(new URL(b.url()).hash, '#/ideas');
+    await b.reload(); await b.locator('#new-idea').waitFor();
+    assert.equal(await b.locator('#topic-start').count(), 0);
     assert.deepEqual((await core()).direction, before.direction);
+    await b.goto(base + '/#/workbench');
+    await b.getByRole('link', { name: '选题', exact: true }).click();
+    await b.locator('#new-idea').waitFor();
+    await shot(b, 'shared-ideas-next-step');
+    b.once('dialog', dialog => dialog.accept());
+    await b.locator('[data-confirm-topic]').first().click();
+    await b.locator('#direction-form').waitFor();
+    assert((await core()).topic_confirmed);
+    await b.locator('[name=goal]').fill('夹具建议：校园失物招领助手');
     await b.locator('#direction-form button[type=submit]').click();
-    await b.getByText('共同方向已保存。', { exact: false }).waitFor();
+    await b.locator('#division-answer').waitFor();
     assert.equal((await core()).direction.goal, '夹具建议：校园失物招领助手');
-    await shot(b, 'direction-confirmed');
-    await b.getByRole('link', { name: '任务', exact: true }).click(); await b.locator('#review').click();
-    await b.locator('#confirm-plan').waitFor();
     assert.equal((await core()).plan_version, 0);
-    b.once('dialog', dialog => dialog.accept()); await b.locator('#confirm-plan').click();
-    await b.locator('[data-report-task=T1]').waitFor(); assert.equal((await core()).plan_version, 1);
+    const divisionBase = '/api/core/teams/' + team.id + '/division';
+    for (const answer of ['实现页面交互', '基础网页开发，需要队友复核', '4', '提交页面与检查步骤']) {
+      const d = await api(divisionBase, null, 'member');
+      await api(divisionBase + '/answers', { round_id: d.round_id, step: d.me.step, answer }, 'member');
+    }
+    const memberDivision = await api(divisionBase, null, 'member');
+    await api(divisionBase + '/confirm', { round_id: memberDivision.round_id, confirmed: true }, 'member');
+    for (const [step, answer] of ['核对需求和接口', '独立设计基础接口', '4', '提交可运行接口和正常、错误输入检查结果'].entries()) {
+      await b.locator('#division-text').fill(answer);
+      await b.locator('#division-answer button[type=submit]').click();
+      if (step < 3) await b.waitForFunction(n => document.querySelector('#division-answer .eyebrow')?.textContent.includes((n + 2) + ' / 4'), step);
+    }
+    await b.locator('#division-confirm').click();
+    await b.locator('#confirmed-tasks').waitFor();
+    assert.equal((await core()).plan_version, 1);
+    await shot(b, 'division-published-tasks');
   });
   await test('UI: late turn cannot render into another scope; returning restores persisted reply', async () => {
-    await b.goto(base + '/#/work'); await b.getByLabel('本人会话历史').selectOption(teamSession.id);
+    await b.goto(base + '/#/workbench'); await b.getByLabel('本人会话历史').selectOption(teamSession.id);
     await b.getByLabel('这次想一起想清楚什么？').fill('[QA_SLOW] 队长私有迟到标记');
     const sent = b.waitForRequest(r => r.url().endsWith('/turns') && r.method() === 'POST');
     await b.getByRole('button', { name: '发送', exact: true }).click(); await sent;
@@ -334,11 +354,12 @@ async function logoutDifferentAccount() {
     await a.locator('#logout').click();
     assert.equal(await a.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('songban:workbench:')).length), 0);
     await a.getByRole('button', { name: /^登录/ }).click();
-    await a.locator('#auth-phone').fill(users.personal.phone); await a.locator('#auth-password').fill('workbench-test-password');
-    await a.locator('#auth-form button[type=submit]').click(); await a.locator('.event-row').first().waitFor();
+    await a.locator('#auth-account').fill(users.personal.phone); await a.locator('#auth-password').fill('workbench-test-password');
+    await a.locator('#auth-form button[type=submit]').click();
+    await a.waitForFunction(id => state.me?.person.id === id, users.personal.id);
     users.personal.token = await a.evaluate(() => localStorage.getItem('studio-token'));
     fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
-    await a.getByRole('link', { name: '实践', exact: true }).click();
+    await a.goto(base + '/#/workbench');
     await a.getByLabel('本人会话历史').selectOption(personalSession.id);
     await a.locator('[aria-label="会话消息"][aria-busy="false"]').waitFor();
     await a.getByLabel('这次想一起想清楚什么？').fill('真实登录后刷新必须保留的草稿');
@@ -362,7 +383,7 @@ async function logoutDifferentAccount() {
   });
   await test('UI: 390/768/1440 workspace layout has no horizontal overflow', async () => {
     for (const width of [390, 768, 1440]) {
-      await b.setViewportSize({ width, height: 950 }); await b.goto(base + '/#/work');
+      await b.setViewportSize({ width, height: 950 }); await b.goto(base + '/#/workbench');
       await b.getByLabel('本人会话历史').selectOption(teamSession.id);
       await b.waitForTimeout(150);
       const dimensions = await b.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: innerWidth }));
@@ -370,8 +391,8 @@ async function logoutDifferentAccount() {
       await shot(b, 'workbench-' + width);
     }
   });
-  await test('UI: compatibility collaboration route mounts workbench', async () => {
-    await b.goto(base + '/#/collaboration'); await b.getByLabel('本人会话历史').waitFor();
+  await test('UI: canonical workbench route preserves history after tasks publish', async () => {
+    await b.goto(base + '/#/workbench'); await b.getByLabel('本人会话历史').waitFor();
   });
   await test('UI: logout clears private caches; different account never sees old draft/history', logoutDifferentAccount);
   await test('UI: no browser runtime exceptions', async () => assert.deepEqual(browserErrors, []));

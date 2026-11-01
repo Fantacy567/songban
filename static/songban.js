@@ -91,8 +91,12 @@ function go(page) {
   refreshOnEntry();
 }
 function refreshOnEntry(){if(state.me&&state.team&&!['login','events','event','onboarding'].includes(state.page)){const s=$('#sync-state');if(s)s.textContent='正在同步最新进展…';void refresh();}}
+function usesIdeaWorkflow(){
+  return !state.data?.topic_selection&&!!(state.flow?.strict||state.data?.guided_workflow||state.data?.legacy_topic_selection||state.data?.division_status);
+}
 async function navigateWorkspace(page,target){
-  if(!['work','direction','materials','library','team','members','tools','delivery','review','tasks'].includes(page))return;
+  page=pageRoutes[page]||page;
+  if(!['work','workbench','ideas','idea-library','division','team-work','direction','materials','library','team','members','tools','delivery','review','tasks'].includes(page))return;
   if(target){
     const team=target.teamId;
     if(team!==null&&!state.me?.teams.some(t=>t.id===team)){toast('请先加入目标团队，再查看记录。');return;}
@@ -127,7 +131,7 @@ function shell() {
 }
 function render() {
   gateJourney();
-  const guided=!!(state.flow?.strict || state.data?.legacy_topic_selection || state.data?.division_status);
+  const guided=usesIdeaWorkflow();
   if(guided&&state.data?.topic_confirmed&&(state.data.division_status?state.data.division_status!=='published':!state.data.plan_version)&&['myTasks','teamTasks','overview','delivery','recap','workbench'].includes(state.page))state.page=state.data.division_status?'division':'direction';
   if(guided&&state.data&&!state.data.topic_confirmed&&['division','direction','myTasks','teamTasks','overview','library','delivery','recap'].includes(state.page))state.page='discussion';
   if(state.page==='overview'&&guided)state.page='myTasks';
@@ -384,8 +388,8 @@ function routeFromHash(hash=location.hash){
   const [route,query]=(hash.replace(/^#\/?/,'')||'login').split('?');
   const eventId=new URLSearchParams(query||'').get('id');if(eventId)state.eventId=eventId;
   state.page=routePages[route]||'events';
-  if(!state.flow?.strict&&!state.data?.legacy_topic_selection&&!state.data?.division_status){
-    if(route==='work')state.page='workbench';
+  if(!usesIdeaWorkflow()){
+    if(route==='work')state.page=state.data?.topic_selection?'overview':'workbench';
     if(route==='tasks')state.page='overview';
     if(route==='ideas')state.page='direction';
   }
@@ -393,7 +397,7 @@ function routeFromHash(hash=location.hash){
 document.addEventListener('DOMContentLoaded',async()=>{
   if(window.SONGBAN_DEMO){const demo=await api('/api/demo/bootstrap',{});state.token=demo.token;state.team='';identityStorage.setItem('studio-token',demo.token);}
   routeFromHash();
-  if(state.token){try{await load();if(state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
+  if(state.token){try{await load();routeFromHash();if(state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
   render();
   const markDirty=e=>{if(e.target.form&&e.target.form.id!=='starting-form'){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);

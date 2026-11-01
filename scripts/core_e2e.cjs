@@ -42,7 +42,8 @@ function agent(token,sid,suffix){
   }
   const aa=agent(connections[0].token,sid,'a'),bb=agent(connections[1].token,sid,'b');
   await aa.rpc('initialize',{protocolVersion:'2024-11-05',capabilities:{},clientInfo:{name:'acceptance-a',version:'1'}});await bb.rpc('initialize',{protocolVersion:'2024-11-05',capabilities:{},clientInfo:{name:'acceptance-b',version:'1'}});
-  assert.equal((await aa.rpc('tools/list')).tools.length,3);
+  const toolNames=(await aa.rpc('tools/list')).tools.map(tool=>tool.name);
+  for(const required of ['songban_get_team_context','songban_get_my_tasks','songban_sync_progress'])assert(toolNames.includes(required),`Missing MCP tool: ${required}`);
   const ca=await aa.tool('songban_get_team_context');assert.equal(ca.data.direction.goal,'做通个人智能体同步、团队统筹、确认与任务回传');
   await pa.locator('[data-tab=members]').click();await pa.locator('#auto-review').check();await pa.locator('#auto-notice').filter({hasText:'自动生成草案'}).waitFor();
   const reportA={event_id:'mcp-a-'+Date.now(),tool:'MCP客户端A（协议验收）',summary:'登录接口代码已经写好，但还没有实际请求验证。',status:'in_progress',views:[{topic:'登录接口是否可用',position:'代码已写好，待实际验证'}],evidence:['验收场景的个人报告，非真实项目运行证据'],excerpt:'成员：先确认接口输入字段。个人智能体：代码已写好，尚未验证。'};
