@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "松伴 Learning v2 — P0 提案（未注册）",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "description": "仅规格；权限、条件与事务以接口与迁移规格.md为准。schema 通过不等于业务校验通过。"
   },
   "source_sha256": "64eeb934e9c2509ad61b163aa37e87f3678b5ad4456135ad0c448da37fce3b0c",
@@ -4637,6 +4637,12 @@
           },
           "reports_readable": {
             "type": "boolean"
+          },
+          "studio_enabled": {
+            "type": "boolean"
+          },
+          "catalog_enabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7552,6 +7558,26 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

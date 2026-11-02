@@ -3,6 +3,7 @@ import { errorText, type LearningApi } from './api';
 import type { Config, Consent, Consents, ConsentText, Family, Scope } from './types';
 import { Dialog, Notice, useGuard, useMutation, type SetGuard } from './ui';
 import { ParentReports } from './ReportsPanel';
+import { EntryTransfer } from './EntrySummary';
 
 const relationshipLabels = { pending: '关系已声明，待按试点流程确认', verified: '关系已按项目流程确认', rejected: '关系声明未获确认', revoked: '关系授权已撤回' };
 const scopeLabels: Record<Scope, string> = { learning: '学习记录', live_model: '真实模型', parent_summary: '家长摘要', report_publication: '报告发布' };
@@ -12,6 +13,7 @@ export function FamilyPage({ api, config, setGuard, enter }: { api: LearningApi;
   const [name, setName] = useState(''), [relationship, setRelationship] = useState(''), [scopes, setScopes] = useState<Scope[]>([]), [ack, setAck] = useState(false);
   const [entering, setEntering] = useState(false), [revoke, setRevoke] = useState<Consent | null>(null), [reason, setReason] = useState('');
   const [reportDirty, setReportDirty] = useState(false);
+  const [entryDirty, setEntryDirty] = useState(false);
   const alive = useRef(true);
   const readGeneration = useRef(0);
   const reload = useCallback(async () => {
@@ -49,7 +51,7 @@ export function FamilyPage({ api, config, setGuard, enter }: { api: LearningApi;
     return () => { alive.current = false; ++readGeneration.current; };
   }, [reload]);
   const task = useMutation(api, reload);
-  useGuard(setGuard, !!name || !!relationship || !!scopes.length || ack || !!reason || reportDirty || !!task.pending || task.busy);
+  useGuard(setGuard, !!name || !!relationship || !!scopes.length || ack || !!reason || reportDirty || entryDirty || !!task.pending || task.busy);
   const learner = family?.learners[0], text = texts[config.consent_version];
   const verified = learner?.guardian_link.status === 'verified' && consents?.relationship_status === 'verified';
   const textApproved = text?.approval_status === 'approved_for_pilot' && text.acceptance_enabled && !!text.approved_at;
@@ -83,7 +85,8 @@ export function FamilyPage({ api, config, setGuard, enter }: { api: LearningApi;
         <details><summary>查看当时的授权原文（{c.consent_version}）</summary><p className="lp-pre">{texts[c.consent_version]?.text}</p>{texts[c.consent_version]?.scope_purposes.map(p => <p key={p.scope}>{p.purpose}</p>)}</details>
         {c.status === 'active' && <button disabled={disabled} onClick={() => { setRevoke(c); setReason(''); }}>撤回这条授权</button>}</div>)}
       <div className="lp-notice"><p>进入后，这个浏览器的家长管理会退出；回来管理需要重新登录。</p><p>这个账号在其他设备上的旧版登录也可能需要重新登录。</p></div>
-      {verified && effective.includes('learning') && config.learning_enabled && <button className="lp-primary" disabled={disabled || reportDirty || ack || scopes.length > 0} onClick={() => setEntering(true)}>进入孩子学习模式</button>}
+      {config.studio_enabled && verified && effective.includes('learning') && <EntryTransfer api={api} learnerId={learner.id} learnerName={learner.display_name} onDirty={setEntryDirty} />}
+      {verified && effective.includes('learning') && config.learning_enabled && <button className="lp-primary" disabled={disabled || reportDirty || entryDirty || ack || scopes.length > 0} onClick={() => setEntering(true)}>进入孩子学习模式</button>}
       {verified && !effective.includes('learning') && <p>尚缺有效的学习授权，确认开放的授权内容后再进入。</p>}
     </>}
     {entering && learner && <Dialog title="进入孩子学习模式" close={() => setEntering(false)}><p>管理内容将收起。返回管理时，需要家长再次输入账号密码。</p><div className="lp-actions"><button onClick={() => setEntering(false)}>取消</button><button className="lp-primary" onClick={() => { setEntering(false); void enter(learner.id); }}>确认进入</button></div></Dialog>}

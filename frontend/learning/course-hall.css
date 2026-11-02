@@ -1,0 +1,32 @@
+[data-learning-root] .lp-course-hall { max-width: 1060px; margin: 32px auto; }
+[data-learning-root] .lp-course-hall-heading { max-width: 700px; }
+[data-learning-root] .lp-course-hall-heading h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.4; margin: 8px 0 12px; }
+[data-learning-root] .lp-course-hall-heading > p:last-child { color: #5d625c; }
+[data-learning-root] .lp-course-resume { display: flex; gap: 24px; justify-content: space-between; align-items: center; border: 1px solid #dbd0fb; border-radius: 17px; background: var(--sb-lavender); padding: 22px 24px; margin: 24px 0; }
+[data-learning-root] .lp-course-resume p { margin: 6px 0 0; font-size: 15px; }
+[data-learning-root] .lp-course-resume button { flex: 0 0 auto; }
+[data-learning-root] .lp-course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 480px)); gap: 24px; align-items: start; margin-top: 28px; }
+[data-learning-root] .lp-course-card { min-width: 0; overflow: hidden; background: var(--sb-surface); border: 1px solid var(--sb-border); border-radius: 20px; box-shadow: 0 5px 18px #22201404; }
+[data-learning-root] .lp-course-cover { position: relative; margin: 0; aspect-ratio: 3 / 2; background: var(--sb-lavender); overflow: hidden; }
+[data-learning-root] .lp-course-cover > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+[data-learning-root] .lp-course-cover figcaption { position: absolute; bottom: 12px; left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); padding: 4px 10px; background: #fffdf5ee; border-radius: 6px; color: #564e63; font-size: 12px; }
+[data-learning-root] .lp-course-cover-fallback { display: grid; place-content: center; text-align: center; gap: 10px; height: 100%; padding: 24px 24px 44px; }
+[data-learning-root] .lp-course-cover-fallback > span { display: grid; place-items: center; margin: auto; width: 44px; height: 44px; border-radius: 50%; background: var(--sb-purple-deep); color: white; font-size: 22px; }
+[data-learning-root] .lp-course-cover-fallback strong { overflow-wrap: anywhere; }
+[data-learning-root] .lp-course-cover-fallback p { font-size: 14px; margin: 0; }
+[data-learning-root] .lp-course-body { padding: 26px; }
+[data-learning-root] .lp-course-body h3 { margin: 12px 0 10px; font-size: 23px; line-height: 1.5; }
+[data-learning-root] .lp-course-status { display: inline-block; border-radius: 6px; padding: 3px 9px; background: var(--sb-lavender); color: #6442bf; font-size: 13px; }
+[data-learning-root] .lp-course-body .lp-course-goal { margin: 0 0 10px; }
+[data-learning-root] .lp-course-body > .lp-caption { color: #62655f; }
+[data-learning-root] .lp-course-body details { border-top: 1px solid var(--sb-line); padding-top: 8px; margin: 20px 0; }
+[data-learning-root] .lp-course-body details ol { padding-left: 22px; }
+[data-learning-root] .lp-course-body > button { width: 100%; }
+[data-learning-root] .lp-course-empty { padding: 32px; border: 1px dashed var(--sb-border); border-radius: 17px; margin: 24px 0; }
+@media (max-width: 600px) {
+  [data-learning-root] .lp-course-hall { margin: 24px auto; }
+  [data-learning-root] .lp-course-resume { display: block; padding: 20px; }
+  [data-learning-root] .lp-course-resume button { margin-top: 18px; width: 100%; }
+  [data-learning-root] .lp-course-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  [data-learning-root] .lp-course-body { padding: 22px; }
+}

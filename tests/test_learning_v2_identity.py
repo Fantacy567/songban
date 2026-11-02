@@ -405,16 +405,21 @@ print('isolated import boundary passed')
         self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), frozen["source_sha256"])
         document = json.loads(source.read_text(encoding="utf-8"))
         for name, schema in frozen["components"]["schemas"].items():
-            if name == 'Config':
+            if name in ('Config', 'Help'):
                 original = document['components']['schemas'][name]
                 self.assertEqual(schema['required'], original['required'])
+                additions = ({'live_model_config_version', 'mock_enabled', 'reports_enabled', 'reports_readable', 'studio_enabled', 'catalog_enabled'}
+                             if name == 'Config' else {'question', 'created_at'})
                 self.assertEqual(set(schema['properties']) - set(original['properties']),
-                                 {'live_model_config_version', 'mock_enabled', 'reports_enabled', 'reports_readable'})
+                                 additions)
                 for field, shape in original['properties'].items():
                     self.assertEqual(schema['properties'][field], shape)
                 projected = copy.deepcopy(schema)
                 projected['properties'] = original['properties']
                 self.assertEqual(projected, original)
+            elif name in ('LearningEntry', 'EntryCandidate', 'SaveLearningEntry', 'ConfirmLearningEntry'):
+                from app.learning_v2.entry_contract import ENTRY_SCHEMAS
+                self.assertEqual(schema, ENTRY_SCHEMAS[name])
             else:
                 self.assertEqual(schema, document["components"]["schemas"][name])
         openapi = self.app.openapi()

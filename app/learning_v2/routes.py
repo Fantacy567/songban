@@ -43,7 +43,8 @@ def register_learning_v2(api, service):
             with service.store.transaction() as con:
                 if op == "config":
                     available = getattr(service, 'model_configuration_available', lambda _con: False)(con)
-                    result = {"contract_version": "0.2.3", "learning_enabled": service.settings.enabled, "live_enabled": available, "publication_enabled": service.settings.publication_enabled and service.settings.reports_enabled,
+                    result = {"contract_version": service.contract.document['info']['version'], "learning_enabled": service.settings.enabled, "live_enabled": available, "publication_enabled": service.settings.publication_enabled and service.settings.reports_enabled,
+                              "studio_enabled": service.settings.studio_enabled, "catalog_enabled": service.settings.catalog_enabled,
                               "live_model_config_version": service.settings.model_settings.config_version if available else None,
                               "mock_enabled": service.settings.course_enabled and service.settings.mock_enabled,
                               "reports_enabled": service.settings.course_enabled and service.settings.reports_enabled,

@@ -72,6 +72,11 @@ class CourseDomain:
     def meta(self, con, oid):
         return json.loads(con.execute('SELECT private FROM learn_course_objects WHERE id=?', (oid,)).fetchone()[0])
 
+    def help_projection(self, con, value):
+        # Only call after owning the run; never expose arbitrary private metadata.
+        private = self.meta(con, value['id'])
+        return dict(value, question=private.get('question'), created_at=private.get('created_at'))
+
     def put(self, con, kind, value, lid=None, run=None, private=None):
         old = con.execute('SELECT * FROM learn_course_objects WHERE id=?', (value['id'],)).fetchone()
         if old:
@@ -285,7 +290,7 @@ class CourseDomain:
             run = self.owned(con, session, params['run_id'], 'run')
             if op == 'helps':
                 rows, cursor = self.page(con, session, run['id']+':helps', self.objects(con, 'help', run=run['id']), query)
-                return {'items': rows, 'next_cursor': cursor}
+                return {'items': [self.help_projection(con, item) for item in rows], 'next_cursor': cursor}
             if run['current_requirements_ref']:
                 return self.obj(con, run['current_requirements_ref']['id'], 'requirements')
             fail(404, 'resource_not_found', '还没有保存要求草稿。')
@@ -476,9 +481,9 @@ class CourseDomain:
             self.stage(run,card['stage'])
             self.sources(con,run,b['source_ids'])
             value=dict(id=ident(),revision=1,run_id=run['id'],role_id=b['role_id'],prompt_version='invitation-static@0.1.0',help_level=b['help_level'],mode='static',text=card['help_levels'][b['help_level']-1],sources=[{'source_id':card['id'],'source_version':card['version'],'source_domain':'learning_v2','nature':'system_record'}],actions=['open_tool_card','request_human_help'],model_run_id=None,parent_revision=run['revision']+1,task_id=card['id'],task_card_version=card['version'])
-            self.put(con,'help',value,run['learner_id'],run['id'],{'question':b['question'],'source_ids':b['source_ids']})
+            self.put(con,'help',value,run['learner_id'],run['id'],{'question':b['question'],'source_ids':b['source_ids'],'created_at':self.stamp()})
             self.update_run(con,run,invalidate=True)
-            return value
+            return self.help_projection(con, value)
         if op in ('createArtifact','versionArtifact'):
             self.stage(run,'create')
             self.active_material(con,run['course_version_id'],MAT_A)

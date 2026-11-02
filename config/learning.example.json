@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "enabled": false,
+    "navigation_enabled": true,
+    "studio_enabled": true,
+    "catalog_enabled": true,
+    "course_enabled": false,
+    "mock_enabled": false,
+    "models_enabled": false,
+    "reports_enabled": false,
+    "publication_enabled": false,
+    "session_seconds": 1800,
+    "browser_seconds": 28800,
+    "consent_version": "unconfigured",
+    "age_band_options": ["6–8岁", "9–12岁", "13–17岁"],
+    "recommendation_rule_version": "unconfigured-conservative-v1",
+    "relationship_queue": null,
+    "learning_queue": null,
+    "support_queue": null,
+    "report_queue": null,
+    "model_settings": null
+  }
+}

@@ -4,10 +4,18 @@ import type { Help, ModelRun, Run, TaskCard } from './contracts';
 import type { Config } from './types';
 import { Notice, useGuard, type SetGuard } from './ui';
 import { encode, lessonError, TextField, type Mutation } from './workspace';
+import { CompanionPanel } from './CompanionPanel';
 
 const roles = { guide: '小松 · 主向导', tool_guide: '工具向导', creation_coach: '创作教练', review_coach: '检查复盘教练' };
 const modes = { static: '准备好的提示', mock: '模拟帮助', live: '真实 AI 帮助', replay: '历史帮助回放' };
 export function RolesPanel({ api, run, task, helps, config, mutation: m, setGuard, sourceIds }: {
+  api: LearningApi; run: Run; task: TaskCard; helps: Help[]; config: Config; mutation: Mutation; setGuard: SetGuard; sourceIds: Record<Help['role_id'], string[]>;
+}) {
+  return config.studio_enabled
+    ? <CompanionPanel api={api} run={run} task={task} helps={helps} config={config} mutation={m} setGuard={setGuard} sourceIds={sourceIds} />
+    : <LegacyRolesPanel api={api} run={run} task={task} helps={helps} config={config} mutation={m} setGuard={setGuard} sourceIds={sourceIds} />;
+}
+function LegacyRolesPanel({ api, run, task, helps, config, mutation: m, setGuard, sourceIds }: {
   api: LearningApi; run: Run; task: TaskCard; helps: Help[]; config: Config; mutation: Mutation; setGuard: SetGuard; sourceIds: Record<Help['role_id'], string[]>;
 }) {
   const [role, setRole] = useState<Help['role_id']>('guide'), [level, setLevel] = useState(1);

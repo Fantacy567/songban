@@ -7,6 +7,7 @@
     "build:learning": "node scripts/build_learning.mjs",
     "typecheck:learning": "tsc --project tsconfig.learning.json",
     "test:learning": "node scripts/test_learning.mjs",
+    "test:learning:http": "node frontend/learning/tests/studio-http.cjs",
     "test:learning:p2": "node frontend/learning/tests/p2-browser.cjs",
     "build:workbench": "node scripts/build_workbench.mjs",
     "typecheck:workbench": "tsc --project tsconfig.workbench.json",

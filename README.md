@@ -1,5 +1,9 @@
 # 松伴 · 当前仓库导航
 
+> **最新体验交付（2026-11-02）**：[AI学习／黑客松双入口与儿童创作工作台](docs/planning/learning-roadmap/experience/README.md)。[项目宪法1.1.0](docs/planning/learning-roadmap/01-项目宪法.md)和[儿童UI规划](docs/planning/learning-roadmap/experience/02-儿童工作台UI.md)明确：访谈确认后开始或继续小作品，四个职责通过一个松伴提供帮助，后续再加入带图课程大厅。E0–E4本地工程实现及验证已完成，见[实施报告](docs/planning/learning-roadmap/experience/handoffs/W00-实施与验收.md)。新功能在8897合成预览开启，8894/8895未部署；真实儿童与公网条件另验。P1–P4底座复用，P5仍暂不开售。
+
+> **余项接续**：[受控启动、可访问性及6次真实模型联调](docs/planning/learning-roadmap/experience/handoffs/W00-余项补齐与真实联调.md)；真人教研和公网待验范围见报告。
+
 > 2026-11-02 新规划：[AI工具学习 → 黑客松进阶](docs/planning/learning-roadmap/README.md)。P1–P4工程验收完成，P4全仓548项通过，见[P4报告](docs/planning/learning-roadmap/handoffs/S00-P4联调.md)。当前推进[P5-A服务方案与原型](docs/planning/learning-roadmap/p5/README.md)：服务范围已确认用于准备，用户明确暂不开售；价格、日期、人员及退款/保留等规则仍待定，未接真实订单或支付。原型15组检查是P5-A既有结果，不能作为服务端收费验收。新导航默认关闭，真实家庭试点、公网发布及P6/P7未启动；P3的3次真实模型预算已用完，本期没有新增真实调用。
 
 核对日期：2026-10-31；代码基线：`b08c04e`。本节按当前路由和实现整理；下方旧版本记录只用于追溯。

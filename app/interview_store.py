@@ -231,17 +231,35 @@ def register_interview(api, db, problem, now, person, runner=None, scrub=lambda 
 
     @api.post("/api/core/interview/finish")
     def interview_finish(body: dict, authorization: str = Header(default="")):
-        fields(body, {"version", "request_id"}, ("version", "request_id"))
+        fields(body, {"version", "request_id", "question_id", "text"}, ("version", "request_id"))
         version, request_id = version_of(body), request_id_of(body)
-        fp = fingerprint("finish", {"version": version})
+        # Optional current answer and summary commit together, without generating
+        # another question. The original empty-answer finish request stays valid.
+        answer = None
+        fp_body = {"version": version}
+        if "text" in body or "question_id" in body:
+            text, question_id = body.get("text"), body.get("question_id")
+            if not isinstance(text, str) or not isinstance(question_id, str) or CONTROL.search(text):
+                raise problem(422, "invalid_input", "question_id和回答必须是文字，且不能含控制字符。")
+            text = text.strip()
+            if not text or len(text) > MAX_USER_TEXT:
+                raise problem(422, "invalid_input", f"回答需为1到{MAX_USER_TEXT}字；不填写也可以直接结束。")
+            fp_body.update(question_id=question_id, text=text)
+            answer = scrub(text)
+        fp = fingerprint("finish", fp_body)
         with db() as con:
             user = owner(con, authorization)
             row, msgs = load(con, user)
             if row and replayed(con, user, request_id, fp):
                 return view(row, msgs, True)
             require(row, version)
-        result = model_turn(user, {**history(row, msgs), "finish": True}, version)
-        return commit_turn(user, "finish", request_id, fp, version, row["current_question_id"], None, result)
+            if answer is not None and row["current_question_id"] != question_id:
+                raise problem(409, "stale_question", "这个问题已经回答过或不是当前问题，请刷新。", details(row))
+        request = {**history(row, msgs), "finish": True}
+        if answer is not None:
+            request["messages"].append({"id": f"u{len(msgs) + 1}", "role": "user", "text": answer})
+        result = model_turn(user, request, version)
+        return commit_turn(user, "finish", request_id, fp, version, row["current_question_id"], answer, result)
 
     @api.post("/api/core/interview/confirm")
     def interview_confirm(body: dict, authorization: str = Header(default="")):
