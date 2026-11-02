@@ -1,0 +1,429 @@
+{
+  "notice": "全部虚构，仅校验协议结构，不证明实现/业务状态有效",
+  "examples": [
+    {
+      "name": "清空本地缓存并新鲜认证后，GET发现本人唯一家庭（全部虚构）",
+      "operation_id": "listFamilies",
+      "response": {
+        "items": [
+          {
+            "id": "family-fixture",
+            "revision": 2,
+            "learners": [
+              {
+                "id": "learner-fixture",
+                "revision": 1,
+                "family_id": "family-fixture",
+                "display_name": "虚构学习者",
+                "age_band": null,
+                "guardian_link": {
+                  "id": "link-fixture",
+                  "revision": 1,
+                  "learner_id": "learner-fixture",
+                  "status": "verified",
+                  "declared_relationship": "协议测试声明",
+                  "verification_method": "fixture_only"
+                }
+              }
+            ]
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    {
+      "name": "从家庭里的learner_id读取授权ID/revision/范围；测试草案记录不生效",
+      "operation_id": "listConsents",
+      "response": {
+        "learner_id": "learner-fixture",
+        "relationship_status": "verified",
+        "visibility": "linked_learner",
+        "items": [
+          {
+            "id": "consent-fixture",
+            "revision": 1,
+            "learner_id": "learner-fixture",
+            "consent_version": "fixture-consent-draft@0.2.1",
+            "scopes": [
+              "learning"
+            ],
+            "status": "active",
+            "recorded_at": "2026-11-02T08:00:00Z",
+            "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+            "effective_scopes": []
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    {
+      "name": "按授权记录的consent_version读取确切文本，不把研发草案当获批文件",
+      "operation_id": "consentText",
+      "response": {
+        "consent_version": "fixture-consent-draft@0.2.1",
+        "locale": "zh-CN",
+        "title": "学习用途授权文本（研发草案，未获真实试点批准）",
+        "text": "此文本仅供研发审阅。拟议用途包括保存本人的学习过程、按明确选择使用受控模型，以及向获准家长展示整理摘要与经复核报告。具体数据范围、保留期限、撤回处理和责任方仍须由产品与实际负责人确认；当前文本不可用于真实家庭授权。",
+        "scope_purposes": [
+          {
+            "scope": "learning",
+            "purpose": "拟保存该学习者的任务、尝试和作品，以支持学习恢复。"
+          },
+          {
+            "scope": "live_model",
+            "purpose": "拟将本次必要输入交给已配置的受控模型；供应商和预算尚待批准。"
+          },
+          {
+            "scope": "parent_summary",
+            "purpose": "拟向有效关联家长展示本人学习摘要，不开放其他孩子或完整私聊。"
+          },
+          {
+            "scope": "report_publication",
+            "purpose": "拟在人工复核后向有效关联家长发布指定报告快照。"
+          }
+        ],
+        "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+        "approval_status": "draft",
+        "approved_at": null,
+        "acceptance_enabled": false,
+        "notice": "研发草案，未获真实试点批准；只展示文本，不提供正式授权确认。"
+      }
+    },
+    {
+      "name": "pending关系仅查询本人曾提交记录，没有则返回空列表",
+      "operation_id": "listConsents",
+      "response": {
+        "learner_id": "learner-fixture",
+        "relationship_status": "pending",
+        "visibility": "own_submissions",
+        "items": [],
+        "next_cursor": null
+      }
+    },
+    {
+      "name": "第三关先预检，迁移未完成也可获取规则反馈且不派单",
+      "operation_id": "checkArtifact",
+      "request": {
+        "request_id": "fixture-preflight-01",
+        "expected_revision": 8,
+        "purpose": "preflight",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        }
+      },
+      "response": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "incomplete",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      }
+    },
+    {
+      "name": "首步只选择暂不填年龄，其他主题未答；响应也是后续GET恢复快照",
+      "operation_id": "saveStart",
+      "request": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          }
+        }
+      },
+      "response": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      }
+    },
+    {
+      "name": "明确选择系统推荐与系统兜底分开",
+      "operation_id": "saveStart",
+      "request": {
+        "request_id": "fixture-start-default",
+        "expected_revision": 1,
+        "answers": {
+          "chosen_start": {
+            "state": "accepted_default",
+            "value": "guided",
+            "recommendation_revision": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "静态小尝试明确跳过，不伪造答案",
+      "operation_id": "saveStart",
+      "request": {
+        "request_id": "fixture-start-skip",
+        "expected_revision": 1,
+        "answers": {
+          "mini_attempt_text": {
+            "state": "skipped",
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "name": "第一关正式推进不伪造作品ID",
+      "operation_id": "checkArtifact",
+      "request": {
+        "request_id": "fixture-gate1-001",
+        "expected_revision": 2,
+        "purpose": "advance",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": null,
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "stage": "clarify",
+        "requirements_ref": {
+          "id": "requirements-fixture",
+          "revision": 1
+        },
+        "self_check_ref": null,
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": null
+      }
+    },
+    {
+      "name": "保存邀请卡输入，未知帮助不当无人帮助",
+      "operation_id": "saveAttempt",
+      "request": {
+        "request_id": "fixture-save-0001",
+        "expected_revision": 1,
+        "input_text": "请依据MAT_A为故事交换会写邀请。",
+        "help_disclosure": {
+          "kind": "unknown",
+          "note": "暂时不确定之前是否有人提供内容。",
+          "child_confirmed": true,
+          "example_source_ids": []
+        },
+        "task_id": "S2.1",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "transfer_response": null
+      }
+    },
+    {
+      "name": "受控生成协议样例，不调用供应商",
+      "operation_id": "createModelRun",
+      "request": {
+        "request_id": "fixture-model-001",
+        "expected_revision": 2,
+        "mode": "mock",
+        "config_version": "fixture-text-v1",
+        "replay_of": null
+      }
+    },
+    {
+      "name": "作品显式保存，日期地点为虚构教学资料",
+      "operation_id": "createArtifact",
+      "request": {
+        "request_id": "fixture-artifact-1",
+        "expected_revision": 4,
+        "attempt_id": "attempt-fixture",
+        "attempt_revision": 2,
+        "template_version_id": "invitation-fixed@0.1.0",
+        "model_run_id": "model-fixture",
+        "help_event_ids": [],
+        "help_disclosure": {
+          "kind": "none_reported",
+          "note": "本人当前未报告帮助；不证明线下无人帮助。",
+          "child_confirmed": true,
+          "example_source_ids": []
+        },
+        "authorship": "ai_candidate_unedited",
+        "content": {
+          "title": "一起分享故事",
+          "audience": "松果班同学",
+          "date": "2030-05-18",
+          "start_time": "14:00",
+          "end_time": "15:00",
+          "place": "松果活动室",
+          "preparation": "带一本愿意分享的故事书",
+          "invitation_line": "带上你的故事书，一起分享吧。"
+        }
+      }
+    },
+    {
+      "name": "结果未知不自动重试",
+      "schema": "ModelRun",
+      "response": {
+        "id": "model-unknown",
+        "revision": 3,
+        "attempt_id": "attempt-fixture",
+        "report_id": null,
+        "help_event_id": null,
+        "mode": "live",
+        "status": "unknown",
+        "requested_model": null,
+        "actual_model": null,
+        "config_version": "unconfigured-example",
+        "input_revision": 2,
+        "output_text": null,
+        "reservation_id": "reserve-fixture",
+        "usage": {
+          "status": "held_for_review",
+          "notice": "这次结果还在核对，你写的内容已保存。"
+        },
+        "reconciliation_case_id": "case-fixture",
+        "visibility": "normal",
+        "parent_revision": 3
+      }
+    },
+    {
+      "name": "版本冲突保留本地输入",
+      "schema": "Error",
+      "response": {
+        "error": {
+          "code": "revision_conflict",
+          "message": "内容已在另一个窗口更新，请先核对新版。",
+          "retryable": false,
+          "recovery": "merge",
+          "current_revision": 4
+        }
+      }
+    },
+    {
+      "name": "人工报告审核不等于发布",
+      "operation_id": "reviewReport",
+      "request": {
+        "request_id": "fixture-review-001",
+        "expected_revision": 2,
+        "decision": "approved",
+        "source_hash": "fixture-source-hash",
+        "corrected_observations": [
+          {
+            "text": "孩子把邀请里的地点补充完整；此观察只针对本次作品。",
+            "source_ids": [
+              "artifact-version-2"
+            ],
+            "nature": "system_record"
+          }
+        ],
+        "note": "已核对修改与帮助记录。",
+        "resolved_dispute_ids": []
+      }
+    },
+    {
+      "name": "无计费证据不能按零元结案",
+      "operation_id": "resolveReconciliation",
+      "request": {
+        "request_id": "fixture-adjust-01",
+        "expected_revision": 2,
+        "resolution": "administrative_adjustment",
+        "evidence_ids": [
+          "manual-review-record"
+        ],
+        "settled_units": null,
+        "adjustment_units": 1,
+        "reason": "仅示意授权调整，实际费用仍未知。"
+      }
+    }
+  ]
+}

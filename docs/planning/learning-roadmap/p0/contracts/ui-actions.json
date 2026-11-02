@@ -1,0 +1,190 @@
+[
+  {
+    "ui_action": "UIA-01",
+    "operation_ids": [
+      "session",
+      "home",
+      "getProfile",
+      "courses",
+      "artifacts"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-02",
+    "operation_ids": [
+      "home",
+      "createRun",
+      "run"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-03",
+    "operation_ids": [
+      "getStart",
+      "saveStart"
+    ],
+    "status": "proposed_not_implemented",
+    "semantics": "PATCH逐主题保存；未答/跳过/明确采纳推荐分开；PUT不再是0.2.0拟议入口"
+  },
+  {
+    "ui_action": "UIA-04",
+    "operation_ids": [
+      "requirements",
+      "saveRequirements",
+      "createAttempt",
+      "saveAttempt"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-05",
+    "operation_ids": [
+      "createModelRun",
+      "modelRun"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-06",
+    "operation_ids": [
+      "help",
+      "helps",
+      "course",
+      "material"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-07",
+    "operation_ids": [
+      "createArtifact",
+      "versionArtifact",
+      "readVersion",
+      "readback"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-08",
+    "operation_ids": [
+      "selfCheck",
+      "getSelfCheck",
+      "checkArtifact",
+      "check",
+      "run"
+    ],
+    "status": "proposed_not_implemented",
+    "semantics": "preflight只反馈；clarify/create用advance；review用submit_review且证据完整/值班可用才派单"
+  },
+  {
+    "ui_action": "UIA-09",
+    "operation_ids": [
+      "createAttempt",
+      "saveAttempt",
+      "reflect",
+      "getReflection"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-10",
+    "operation_ids": [
+      "run",
+      "artifact",
+      "check"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-11",
+    "operation_ids": [
+      "askHuman",
+      "cases",
+      "case",
+      "appendCase"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-12",
+    "operation_ids": [
+      "enterLearner",
+      "session"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-13",
+    "operation_ids": [
+      "bootstrap",
+      "authenticate",
+      "listFamilies",
+      "getFamily",
+      "listConsents",
+      "home",
+      "reports"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-14",
+    "operation_ids": [
+      "config",
+      "listFamilies",
+      "createFamily",
+      "createLearner",
+      "getFamily",
+      "listConsents",
+      "consentText",
+      "createConsent",
+      "revokeConsent"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-15",
+    "operation_ids": [
+      "artifacts",
+      "readVersion",
+      "reports",
+      "report"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-16",
+    "operation_ids": [
+      "cases",
+      "case",
+      "caseEvidence",
+      "claimCase",
+      "transferCase",
+      "extendCase",
+      "resolveCase"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-17",
+    "operation_ids": [
+      "createReport",
+      "disputeReport",
+      "submitReport",
+      "reviewReport",
+      "publishReport",
+      "revokeReport"
+    ],
+    "status": "proposed_not_implemented"
+  },
+  {
+    "ui_action": "UIA-18",
+    "operation_ids": [
+      "home",
+      "enroll",
+      "usage"
+    ],
+    "status": "entitlement_read_and_existing_grant_only_payment_writes_deferred_to_P5"
+  }
+]

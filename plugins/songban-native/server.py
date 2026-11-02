@@ -60,7 +60,7 @@ def main():
    if not isinstance(req,dict):raise ValueError()
    if 'id' not in req:continue
    m=req.get('method');params=req.get('params') or {}
-   if m=='initialize':r={'protocolVersion':params.get('protocolVersion') if params.get('protocolVersion') in ('2024-11-05','2025-03-26','2025-06-18') else '2024-11-05','capabilities':{'tools':{}},'serverInfo':{'name':'songban-connector','version':'1.3.0'}}
+   if m=='initialize':r={'protocolVersion':params.get('protocolVersion') if params.get('protocolVersion') in ('2024-11-05','2025-03-26','2025-06-18') else '2024-11-05','capabilities':{'tools':{}},'serverInfo':{'name':'songban-connector','version':'1.3.2'}}
    elif m=='ping':r={}
    elif m=='tools/list':r={'tools':TOOLS}
    elif m=='resources/list':r={'resources':[]}

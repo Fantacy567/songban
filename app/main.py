@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.cors import CORSMiddleware
@@ -112,11 +112,13 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None, interview_runner=None, enforce_journey=None, topic_model_runner=None, parent_report_options=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None, interview_runner=None, enforce_journey=None, topic_model_runner=None, parent_report_options=None, learning_settings=None):
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    learning_boundary = None
 
     @contextmanager
     def db(write=False):
@@ -129,7 +131,11 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
                 con.execute("BEGIN IMMEDIATE")
             else:
                 con.execute("BEGIN")
+            if learning_boundary is not None:
+                learning_boundary.check_db(con, write)
             yield con
+            if learning_boundary is not None:
+                learning_boundary.check_db(con, write)
             if write:
                 con.commit()
         except Exception:
@@ -140,6 +146,8 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
 
     initial = sqlite3.connect(path)
     try:
+        if learning_settings is None and initial.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='learn_migrations'").fetchone():
+            raise ValueError('This database has learning identities; provide explicit learning Settings (enabled=False to pause) so legacy identity fences remain active.')
         initial.execute("PRAGMA journal_mode=WAL")
         initial.executescript(SCHEMA)
         ensure_schema(initial)
@@ -817,22 +825,54 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             con.execute("UPDATE learning_sessions SET state=?,revision=?,updated_at=? WHERE id=?", (encode(state), session["revision"], session["updated_at"], session_id))
             return learning_session_snapshot(session)
 
+    def page_file(name):
+        if learning_settings is None:
+            return FileResponse(ROOT / 'static' / name)
+        html = (ROOT / 'static' / name).read_text(encoding='utf-8')
+        extra = '<meta name="songban-learning-v2" content="1"><style id="learning-identity-pending">html{visibility:hidden}</style>'
+        if learning_settings.navigation_enabled:
+            extra += '<meta name="songban-learning-navigation" content="1"><link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-p4-v1">'
+        if name != 'songban.html':
+            extra += '<script defer src="/static/legacy-learning-boundary.js?v=20261102-p1-v1"></script>'
+        return HTMLResponse(html.replace('<head>', '<head>\n'+extra, 1))
+
     @api.get("/", include_in_schema=False)
     def homepage():
-        return FileResponse(ROOT / "static" / ("songban.html" if api.state.core_only else "studio.html"))
+        return page_file('songban.html' if api.state.core_only else 'studio.html')
+
+    @api.get('/learning-prep', include_in_schema=False)
+    def learning_preparation():
+        if learning_settings is None:
+            raise Problem(404, 'learning_not_enabled', '学习准备入口尚未启用。')
+        html = (ROOT / 'static/learning-prep.html').read_text(encoding='utf-8')
+        if learning_settings.navigation_enabled:
+            html = html.replace('</head>', '<link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-p4-v1"></head>', 1)
+            html = html.replace('<a class="text-link" href="/#/events" data-learning-exit>返回活动与比赛</a>',
+                '<nav data-stage-nav aria-label="主导航"><a href="#/learn" aria-current="page">AI 学习</a><a href="/#/events" data-learning-exit>黑客松</a></nav>', 1)
+        return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
+
+    @api.get('/static/{page_name}.html', include_in_schema=False)
+    def static_page(page_name: str):
+        # Direct bookmarks receive the same identity boundary as canonical pages.
+        if page_name in {'songban', 'studio', 'core', 'workflow', 'index'}:
+            return page_file(page_name + '.html')
+        target = (ROOT / 'static' / (page_name + '.html')).resolve()
+        if target.parent != (ROOT / 'static').resolve() or not target.is_file():
+            raise Problem(404, 'not_found', '页面不存在。')
+        return FileResponse(target)
 
     @api.get("/core", include_in_schema=False)
     def core_homepage():
-        return FileResponse(ROOT / "static" / "core.html")
+        return page_file('core.html')
 
     @api.get("/learning", include_in_schema=False)
     @api.get("/learning/", include_in_schema=False)
     def learning_homepage():
-        return FileResponse(ROOT / "static" / "songban.html")
+        return page_file('songban.html')
 
     @api.get("/workflow", include_in_schema=False)
     def workflow():
-        return FileResponse(ROOT / "static" / "workflow.html")
+        return page_file('workflow.html')
 
     api.state.enforce_journey = (os.environ.get("SONGBAN_ENFORCE_JOURNEY", "1") == "1") if enforce_journey is None else enforce_journey
     register_studio(api, db, Problem, now, uid, digest)
@@ -848,9 +888,21 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         from .parent_report import register_parent_report
         register_parent_report(api, db, Problem, now, digest, core, parent_report_options)
 
+    if learning_settings is not None:
+        from .learning_v2 import LearningV2, register_learning_v2
+        from .learning_v2.integration import LegacyBoundary
+        learning_service = LearningV2(path, learning_settings)
+        learning_service.migrate()
+        register_learning_v2(api, learning_service)
+        if learning_settings.models_enabled:
+            from .learning_v2.worker import install_model_worker
+            install_model_worker(api, learning_service)
+        learning_boundary = LegacyBoundary(learning_service)
+        learning_boundary.install(api)
+
     @api.get("/classic", include_in_schema=False)
     def classic():
-        return FileResponse(ROOT / "static" / "index.html")
+        return page_file('index.html')
 
     api.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
     return api

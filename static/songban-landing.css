@@ -55,9 +55,10 @@
   z-index: 2;
 }
 .showcase-copy h1 { font-size: clamp(44px, 4.6vw, 88px); font-weight: 650; line-height: 1.45; letter-spacing: .02em; }
-.showcase-copy h1 span { display: block; }
-.showcase-copy h1 span + span { margin-top: .06em; }
-.showcase-copy > p { font-size: clamp(15px, 1.2vw, 20px); color: var(--sb-muted); line-height: 1.9; margin-top: 32px; letter-spacing: .02em; }
+.showcase-copy h1 > span { display: block; overflow: hidden; }
+.showcase-copy h1 .showcase-letter { display: inline-block; }
+.showcase-copy h1 > span + span { margin-top: .06em; }
+.showcase-support > p { font-size: clamp(15px, 1.2vw, 20px); color: var(--sb-muted); line-height: 1.9; margin-top: 32px; letter-spacing: .02em; }
 .showcase-cta {
   position: relative;
   isolation: isolate;
@@ -100,6 +101,7 @@
   transform: translate(calc(var(--slot) * var(--fan-step)), var(--lift)) rotate(var(--angle));
 }
 .showcase-card:hover, .showcase-card:focus-visible { background: transparent; z-index: 10; }
+.showcase-card-reveal { display: block; width: 100%; height: 100%; border-radius: inherit; }
 .showcase-card-inner { display: block; width: 100%; height: 100%; position: relative; overflow: hidden; border-radius: inherit; background: var(--card-color); color: var(--card-ink); box-shadow: var(--sb-concept-shadow); }
 .showcase-card:hover .showcase-card-inner, .showcase-card:focus-visible .showcase-card-inner { transform: translateY(-22px) scale(1.025); }
 .showcase-card-inner > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 78% center; }
@@ -131,7 +133,7 @@ html:has(.concept-dialog[open]) { overflow: hidden; }
   .landing-wordmark img:last-child { width: 86px; }
   .landing-showcase .landing-login { min-width: 100px; min-height: 44px; gap: 18px; }
   .showcase-copy h1 { font-size: clamp(38px, 6vw, 54px); }
-  .showcase-copy > p { font-size: 15px; }
+  .showcase-support > p { font-size: 15px; }
   .showcase-deck { --fan-step: 11.5vw; top: 80%; }
   .showcase-card { width: 165px; height: 245px; margin-left: -82px; }
   .showcase-card-label { padding: 18px 14px 28px; }
@@ -147,7 +149,7 @@ html:has(.concept-dialog[open]) { overflow: hidden; }
   .landing-stage { min-height: 720px; }
   .showcase-copy { top: 37%; width: calc(100% - 36px); }
   .showcase-copy h1 { font-size: clamp(29px, 7.7vw, 43px); line-height: 1.5; letter-spacing: 0; }
-  .showcase-copy > p { font-size: 13px; margin-top: 20px; }
+  .showcase-support > p { font-size: 13px; margin-top: 20px; }
   .showcase-cta { min-width: 236px; min-height: 48px; font-size: 13px; padding: 12px 18px; margin-top: 24px; }
   .showcase-companion { top: 12%; right: 13%; width: 54px; height: 68px; }
   .showcase-deck { top: auto; bottom: 20px; left: 0; width: 100%; height: 260px; display: flex; gap: 14px; padding: 22px 24px 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 24px; }
@@ -158,8 +160,31 @@ html:has(.concept-dialog[open]) { overflow: hidden; }
   .concept-description { font-size: 13px; text-align: left; }
   .concept-actions { gap: 4px; }
 }
+/* Match the reference entrance: brand reveal, rising cards, then title and support.
+   Defaults remain fully visible when reduced motion is requested. */
+.showcase-intro { display: none; position: absolute; top: 35%; left: 50%; width: clamp(210px, 24vw, 340px); transform: translate(-50%, -50%); flex-direction: column; align-items: center; gap: 18px; pointer-events: none; z-index: 4; }
+.showcase-intro img { display: block; height: auto; }
+.showcase-intro-cn { width: 100%; }
+.showcase-intro-en { width: 82%; }
+@media (max-width: 600px) {
+  .showcase-intro { width: 190px; top: 32%; gap: 13px; }
+}
 @media (prefers-reduced-motion: no-preference) {
+  .landing-showcase { --entrance-ease: cubic-bezier(.16, 1, .3, 1); }
   .showcase-card-inner, .showcase-cta::before, .showcase-cta svg { transition: transform .35s ease; }
-  .showcase-copy { animation: showcase-arrive .6s ease-out; }
-  @keyframes showcase-arrive { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+  .showcase-intro { display: flex; animation: showcase-brand-out .55s var(--entrance-ease) 1.2s both; }
+  .showcase-intro-cn { animation: showcase-brand-reveal .8s var(--entrance-ease) .15s both; }
+  .showcase-intro-en { animation: showcase-support-in .6s var(--entrance-ease) .55s both; }
+  .showcase-letter { animation: showcase-letter-in .55s var(--entrance-ease) both; animation-delay: calc(1.48s + var(--letter-index) * .045s); }
+  .showcase-support { animation: showcase-support-in .65s var(--entrance-ease) 2.1s both; }
+  .showcase-companion { animation: showcase-support-in .6s var(--entrance-ease) 2.1s both; }
+  .showcase-card-reveal { animation: showcase-card-in 1.15s var(--entrance-ease) both; animation-delay: calc(.6s + var(--card-index) * .065s); }
+  /* Keyboard navigation can reach the primary action before the entrance finishes. */
+  .showcase-support:focus-within { animation: none; }
+  .showcase-card:focus-visible .showcase-card-reveal { animation: none; }
+  @keyframes showcase-brand-reveal { from { clip-path: inset(0 100% 0 0); translate: 0 12px; } to { clip-path: inset(0 0% 0 0); translate: 0 0; } }
+  @keyframes showcase-brand-out { from { opacity: 1; translate: 0 0; scale: 1; visibility: visible; } to { opacity: 0; translate: 0 -35px; scale: .94; visibility: hidden; } }
+  @keyframes showcase-letter-in { from { opacity: 0; transform: translateY(105%); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes showcase-support-in { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: 0 0; } }
+  @keyframes showcase-card-in { from { transform: translateY(110%); } to { transform: translateY(0); } }
 }

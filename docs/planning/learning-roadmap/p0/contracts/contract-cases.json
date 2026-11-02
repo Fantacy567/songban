@@ -1,0 +1,1828 @@
+{
+  "version": "0.2.1",
+  "notice": "离线契约条件正反例，校验提案一致性；不执行后端/数据库/派单",
+  "cases": [
+    {
+      "id": "START-first-topic",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          }
+        }
+      },
+      "expect_valid": true,
+      "semantics": "start_patch"
+    },
+    {
+      "id": "START-unanswered-reset",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          }
+        }
+      },
+      "expect_valid": true,
+      "semantics": "start_patch"
+    },
+    {
+      "id": "START-empty-patch",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {}
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-answered-null",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "mini_attempt_text": {
+            "state": "answered",
+            "value": null
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-answered-empty",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "mini_attempt_text": {
+            "state": "answered",
+            "value": ""
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-answered-whitespace",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "mini_attempt_text": {
+            "state": "answered",
+            "value": "  \n "
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-skipped-with-value",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "help_preference": {
+            "state": "skipped",
+            "value": "guided"
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-client-completion",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-start-first",
+        "expected_revision": 0,
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          }
+        },
+        "completion_status": "completed"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-restored-draft",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": true,
+      "semantics": "start_projection"
+    },
+    {
+      "id": "START-fake-completion",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "completed",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": false,
+      "semantics": "start_projection"
+    },
+    {
+      "id": "START-hidden-unanswered",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": false,
+      "semantics": "start_projection"
+    },
+    {
+      "id": "START-fake-learner-choice",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "learner_choice",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": false,
+      "semantics": "start_projection"
+    },
+    {
+      "id": "START-default-explicit",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-default-02",
+        "expected_revision": 1,
+        "answers": {
+          "chosen_start": {
+            "state": "accepted_default",
+            "value": "guided",
+            "recommendation_revision": 1
+          }
+        }
+      },
+      "expect_valid": true,
+      "semantics": "start_patch"
+    },
+    {
+      "id": "START-default-stale",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-default-02",
+        "expected_revision": 2,
+        "answers": {
+          "chosen_start": {
+            "state": "accepted_default",
+            "value": "guided",
+            "recommendation_revision": 1
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "start_patch"
+    },
+    {
+      "id": "START-default-mixed-edit",
+      "schema": "SaveStart",
+      "payload": {
+        "request_id": "fixture-default-02",
+        "expected_revision": 1,
+        "answers": {
+          "chosen_start": {
+            "state": "accepted_default",
+            "value": "guided",
+            "recommendation_revision": 1
+          },
+          "experience": {
+            "state": "answered",
+            "value": "some"
+          }
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "HELP-unknown",
+      "schema": "HelpDisclosure",
+      "payload": {
+        "kind": "unknown",
+        "note": "暂时不确定之前是否有人提供内容。",
+        "child_confirmed": true,
+        "example_source_ids": []
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "HELP-example-without-source",
+      "schema": "HelpDisclosure",
+      "payload": {
+        "kind": "example_reference",
+        "note": "暂时不确定之前是否有人提供内容。",
+        "child_confirmed": true,
+        "example_source_ids": []
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "HELP-example-with-source",
+      "schema": "HelpDisclosure",
+      "payload": {
+        "kind": "example_reference",
+        "note": "暂时不确定之前是否有人提供内容。",
+        "child_confirmed": true,
+        "example_source_ids": [
+          "example-fixture"
+        ]
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "HELP-adult-content",
+      "schema": "HelpDisclosure",
+      "payload": {
+        "kind": "adult_content",
+        "note": "暂时不确定之前是否有人提供内容。",
+        "child_confirmed": true,
+        "example_source_ids": []
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-preflight-input",
+      "schema": "NewCheck",
+      "payload": {
+        "request_id": "fixture-preflight-01",
+        "expected_revision": 8,
+        "purpose": "preflight",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        }
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-submit-incomplete-input",
+      "schema": "NewCheck",
+      "payload": {
+        "request_id": "fixture-preflight-01",
+        "expected_revision": 8,
+        "purpose": "submit_review",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-advance-forbidden",
+      "schema": "NewCheck",
+      "payload": {
+        "request_id": "fixture-preflight-01",
+        "expected_revision": 8,
+        "purpose": "advance",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        }
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-preflight-no-dispatch",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "incomplete",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-preflight-illegal-case",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "incomplete",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": "case-illegal",
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-preflight-illegal-pass",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "incomplete",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "passed_and_unlocked",
+        "outcome": "advanced"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-preflight-fake-human-result",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "incomplete",
+        "human_result": "passed",
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-preflight-complete-no-staff",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": true,
+        "model_state": "succeeded",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-submitted",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": "case-fixture",
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": {
+          "id": "reflection-fixture",
+          "revision": 1
+        },
+        "transfer_attempt_ref": {
+          "id": "transfer-fixture",
+          "revision": 2
+        },
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "case"
+        ],
+        "purpose": "submit_review",
+        "evidence_complete": true,
+        "model_state": "succeeded",
+        "reviewer_available": true,
+        "progress_effect": "pending_review",
+        "outcome": "awaiting_review"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-no-staff-dispatch",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": "case-fixture",
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": {
+          "id": "reflection-fixture",
+          "revision": 1
+        },
+        "transfer_attempt_ref": {
+          "id": "transfer-fixture",
+          "revision": 2
+        },
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "case"
+        ],
+        "purpose": "submit_review",
+        "evidence_complete": true,
+        "model_state": "succeeded",
+        "reviewer_available": false,
+        "progress_effect": "pending_review",
+        "outcome": "awaiting_review"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-incomplete-dispatch",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": "case-fixture",
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": {
+          "id": "reflection-fixture",
+          "revision": 1
+        },
+        "transfer_attempt_ref": {
+          "id": "transfer-fixture",
+          "revision": 2
+        },
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "case"
+        ],
+        "purpose": "submit_review",
+        "evidence_complete": false,
+        "model_state": "succeeded",
+        "reviewer_available": true,
+        "progress_effect": "pending_review",
+        "outcome": "awaiting_review"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-review-no-staff-blocked",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": {
+          "id": "reflection-fixture",
+          "revision": 1
+        },
+        "transfer_attempt_ref": {
+          "id": "transfer-fixture",
+          "revision": 2
+        },
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "case"
+        ],
+        "purpose": "submit_review",
+        "evidence_complete": true,
+        "model_state": "succeeded",
+        "reviewer_available": false,
+        "progress_effect": "none",
+        "outcome": "blocked_support"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-unknown-waits",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "unknown",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "unknown",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-unknown-fake-failure",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "needs_practice",
+        "human_result": null,
+        "missing_evidence": [
+          "reflection_ref",
+          "transfer_attempt_ref"
+        ],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": null,
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": null,
+        "transfer_attempt_ref": null,
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "reflect"
+        ],
+        "purpose": "preflight",
+        "evidence_complete": false,
+        "model_state": "unknown",
+        "reviewer_available": null,
+        "progress_effect": "none",
+        "outcome": "feedback_only"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "CHECK-unknown-dispatch",
+      "schema": "Check",
+      "payload": {
+        "id": "check-preflight-fixture",
+        "revision": 1,
+        "run_id": "run-fixture",
+        "learner_id": "learner-fixture",
+        "lesson_version_id": "class-activity-invitation@0.1.0",
+        "artifact_version_id": "artifact-version-2",
+        "rubric_version_id": "invitation-rubric@0.1.0",
+        "rule_result": "pass",
+        "human_result": null,
+        "missing_evidence": [],
+        "feedback": [
+          "自查已保存，完成小迁移后可再提交老师。"
+        ],
+        "case_id": "case-fixture",
+        "evidence_hash": "fixture-evidence-hash",
+        "stale": false,
+        "parent_revision": 9,
+        "stage": "review",
+        "requirements_ref": {
+          "id": "req-fixture",
+          "revision": 1
+        },
+        "self_check_ref": {
+          "id": "self-fixture",
+          "revision": 1
+        },
+        "reflection_ref": {
+          "id": "reflection-fixture",
+          "revision": 1
+        },
+        "transfer_attempt_ref": {
+          "id": "transfer-fixture",
+          "revision": 2
+        },
+        "readback_ref": {
+          "id": "readback-fixture",
+          "revision": 1
+        },
+        "allowed_actions": [
+          "case"
+        ],
+        "purpose": "submit_review",
+        "evidence_complete": true,
+        "model_state": "unknown",
+        "reviewer_available": true,
+        "progress_effect": "pending_review",
+        "outcome": "awaiting_review"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "REVIEW-persist-unclear",
+      "schema": "ResolveCase",
+      "payload": {
+        "request_id": "fixture-manual-01",
+        "expected_revision": 2,
+        "decision": "needs_information",
+        "evidence_ids": [
+          "evidence-fixture"
+        ],
+        "target_revision": 9,
+        "note": "需要孩子解释修改原因。",
+        "manual_findings": [
+          {
+            "rubric_id": "M3",
+            "verdict": "unclear",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          }
+        ]
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "REVIEW-unclear-cannot-pass",
+      "schema": "ResolveCase",
+      "payload": {
+        "request_id": "fixture-manual-01",
+        "expected_revision": 2,
+        "decision": "passed",
+        "evidence_ids": [
+          "evidence-fixture"
+        ],
+        "target_revision": 9,
+        "note": "需要孩子解释修改原因。",
+        "manual_findings": [
+          {
+            "rubric_id": "M3",
+            "verdict": "unclear",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          }
+        ]
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "REVIEW-four-supported",
+      "schema": "ResolveCase",
+      "payload": {
+        "request_id": "fixture-manual-01",
+        "expected_revision": 2,
+        "decision": "passed",
+        "evidence_ids": [
+          "evidence-fixture"
+        ],
+        "target_revision": 9,
+        "note": "需要孩子解释修改原因。",
+        "manual_findings": [
+          {
+            "rubric_id": "M1",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M2",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M3",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M4",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          }
+        ]
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "REVIEW-duplicate-criterion",
+      "schema": "ResolveCase",
+      "payload": {
+        "request_id": "fixture-manual-01",
+        "expected_revision": 2,
+        "decision": "passed",
+        "evidence_ids": [
+          "evidence-fixture"
+        ],
+        "target_revision": 9,
+        "note": "需要孩子解释修改原因。",
+        "manual_findings": [
+          {
+            "rubric_id": "M1",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M1",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M3",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          },
+          {
+            "rubric_id": "M4",
+            "verdict": "supported",
+            "source_ids": [
+              "evidence-fixture"
+            ],
+            "note": "仅结构测试，不是实际审核。"
+          }
+        ]
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "START-patch-preserves-omitted",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 2,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "answered",
+            "value": "some"
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 2,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": true,
+      "semantics": "start_transition",
+      "before": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "patch": {
+        "request_id": "fixture-next-topic",
+        "expected_revision": 1,
+        "answers": {
+          "experience": {
+            "state": "answered",
+            "value": "some"
+          }
+        }
+      }
+    },
+    {
+      "id": "START-patch-cannot-wipe-omitted",
+      "schema": "Start",
+      "payload": {
+        "id": "start-fixture",
+        "revision": 2,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "unanswered",
+            "value": null
+          },
+          "experience": {
+            "state": "answered",
+            "value": "some"
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 2,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "age_band",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "expect_valid": false,
+      "semantics": "start_transition",
+      "before": {
+        "id": "start-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "answers": {
+          "age_band": {
+            "state": "skipped",
+            "value": null
+          },
+          "experience": {
+            "state": "unanswered",
+            "value": null
+          },
+          "interests": {
+            "state": "unanswered",
+            "value": null
+          },
+          "help_preference": {
+            "state": "unanswered",
+            "value": null
+          },
+          "mini_attempt_text": {
+            "state": "unanswered",
+            "value": null
+          },
+          "chosen_start": {
+            "state": "unanswered",
+            "value": null
+          }
+        },
+        "completion_status": "draft",
+        "mini_attempt_status": "not_attempted",
+        "recommendation": "guided",
+        "recommendation_basis": "insufficient_evidence",
+        "recommendation_revision": 1,
+        "recommendation_rule_version": "fixture-start-rules@0.2.0",
+        "recommendation_source_fields": [],
+        "missing_fields": [
+          "experience",
+          "interests",
+          "help_preference",
+          "mini_attempt_text",
+          "chosen_start"
+        ],
+        "skipped_fields": [
+          "age_band"
+        ],
+        "effective_start": "guided",
+        "effective_start_source": "conservative_fallback",
+        "saved_at": "2026-11-02T08:00:00Z"
+      },
+      "patch": {
+        "request_id": "fixture-next-topic",
+        "expected_revision": 1,
+        "answers": {
+          "experience": {
+            "state": "answered",
+            "value": "some"
+          }
+        }
+      }
+    },
+    {
+      "id": "RECOVERY-family-discovery",
+      "schema": "Families",
+      "payload": {
+        "items": [
+          {
+            "id": "family-fixture",
+            "revision": 2,
+            "learners": [
+              {
+                "id": "learner-fixture",
+                "revision": 1,
+                "family_id": "family-fixture",
+                "display_name": "虚构学习者",
+                "age_band": null,
+                "guardian_link": {
+                  "id": "link-fixture",
+                  "revision": 1,
+                  "learner_id": "learner-fixture",
+                  "status": "verified",
+                  "declared_relationship": "协议测试声明",
+                  "verification_method": "fixture_only"
+                }
+              }
+            ]
+          }
+        ],
+        "next_cursor": null
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-family-limit-one",
+      "schema": "Families",
+      "payload": {
+        "items": [
+          {
+            "id": "family-fixture",
+            "revision": 2,
+            "learners": [
+              {
+                "id": "learner-fixture",
+                "revision": 1,
+                "family_id": "family-fixture",
+                "display_name": "虚构学习者",
+                "age_band": null,
+                "guardian_link": {
+                  "id": "link-fixture",
+                  "revision": 1,
+                  "learner_id": "learner-fixture",
+                  "status": "verified",
+                  "declared_relationship": "协议测试声明",
+                  "verification_method": "fixture_only"
+                }
+              }
+            ]
+          },
+          {
+            "id": "family-second",
+            "revision": 2,
+            "learners": [
+              {
+                "id": "learner-fixture",
+                "revision": 1,
+                "family_id": "family-fixture",
+                "display_name": "虚构学习者",
+                "age_band": null,
+                "guardian_link": {
+                  "id": "link-fixture",
+                  "revision": 1,
+                  "learner_id": "learner-fixture",
+                  "status": "verified",
+                  "declared_relationship": "协议测试声明",
+                  "verification_method": "fixture_only"
+                }
+              }
+            ]
+          }
+        ],
+        "next_cursor": null
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-consent-minimal",
+      "schema": "Consents",
+      "payload": {
+        "learner_id": "learner-fixture",
+        "relationship_status": "verified",
+        "visibility": "linked_learner",
+        "items": [
+          {
+            "id": "consent-fixture",
+            "revision": 1,
+            "learner_id": "learner-fixture",
+            "consent_version": "fixture-consent-draft@0.2.1",
+            "scopes": [
+              "learning"
+            ],
+            "status": "active",
+            "recorded_at": "2026-11-02T08:00:00Z",
+            "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+            "effective_scopes": []
+          }
+        ],
+        "next_cursor": null
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-consent-no-adult-details",
+      "schema": "Consents",
+      "payload": {
+        "learner_id": "learner-fixture",
+        "relationship_status": "verified",
+        "visibility": "linked_learner",
+        "items": [
+          {
+            "id": "consent-fixture",
+            "revision": 1,
+            "learner_id": "learner-fixture",
+            "consent_version": "fixture-consent-draft@0.2.1",
+            "scopes": [
+              "learning"
+            ],
+            "status": "active",
+            "recorded_at": "2026-11-02T08:00:00Z",
+            "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+            "effective_scopes": [],
+            "guardian_phone": "fixture-not-real"
+          }
+        ],
+        "next_cursor": null
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-revoked-no-effective-scope",
+      "schema": "ConsentSummary",
+      "payload": {
+        "id": "consent-fixture",
+        "revision": 1,
+        "learner_id": "learner-fixture",
+        "consent_version": "fixture-consent-draft@0.2.1",
+        "scopes": [
+          "learning"
+        ],
+        "status": "revoked",
+        "recorded_at": "2026-11-02T08:00:00Z",
+        "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+        "effective_scopes": [
+          "learning"
+        ]
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-pending-no-effective-scope",
+      "schema": "Consents",
+      "payload": {
+        "learner_id": "learner-fixture",
+        "relationship_status": "pending",
+        "visibility": "own_submissions",
+        "items": [
+          {
+            "id": "consent-fixture",
+            "revision": 1,
+            "learner_id": "learner-fixture",
+            "consent_version": "fixture-consent-draft@0.2.1",
+            "scopes": [
+              "learning"
+            ],
+            "status": "active",
+            "recorded_at": "2026-11-02T08:00:00Z",
+            "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+            "effective_scopes": [
+              "learning"
+            ]
+          }
+        ],
+        "next_cursor": null
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-draft-text-disabled",
+      "schema": "ConsentText",
+      "payload": {
+        "consent_version": "fixture-consent-draft@0.2.1",
+        "locale": "zh-CN",
+        "title": "学习用途授权文本（研发草案，未获真实试点批准）",
+        "text": "此文本仅供研发审阅。拟议用途包括保存本人的学习过程、按明确选择使用受控模型，以及向获准家长展示整理摘要与经复核报告。具体数据范围、保留期限、撤回处理和责任方仍须由产品与实际负责人确认；当前文本不可用于真实家庭授权。",
+        "scope_purposes": [
+          {
+            "scope": "learning",
+            "purpose": "拟保存该学习者的任务、尝试和作品，以支持学习恢复。"
+          },
+          {
+            "scope": "live_model",
+            "purpose": "拟将本次必要输入交给已配置的受控模型；供应商和预算尚待批准。"
+          },
+          {
+            "scope": "parent_summary",
+            "purpose": "拟向有效关联家长展示本人学习摘要，不开放其他孩子或完整私聊。"
+          },
+          {
+            "scope": "report_publication",
+            "purpose": "拟在人工复核后向有效关联家长发布指定报告快照。"
+          }
+        ],
+        "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+        "approval_status": "draft",
+        "approved_at": null,
+        "acceptance_enabled": false,
+        "notice": "研发草案，未获真实试点批准；只展示文本，不提供正式授权确认。"
+      },
+      "expect_valid": true,
+      "semantics": "schema"
+    },
+    {
+      "id": "RECOVERY-draft-cannot-enable",
+      "schema": "ConsentText",
+      "payload": {
+        "consent_version": "fixture-consent-draft@0.2.1",
+        "locale": "zh-CN",
+        "title": "学习用途授权文本（研发草案，未获真实试点批准）",
+        "text": "此文本仅供研发审阅。拟议用途包括保存本人的学习过程、按明确选择使用受控模型，以及向获准家长展示整理摘要与经复核报告。具体数据范围、保留期限、撤回处理和责任方仍须由产品与实际负责人确认；当前文本不可用于真实家庭授权。",
+        "scope_purposes": [
+          {
+            "scope": "learning",
+            "purpose": "拟保存该学习者的任务、尝试和作品，以支持学习恢复。"
+          },
+          {
+            "scope": "live_model",
+            "purpose": "拟将本次必要输入交给已配置的受控模型；供应商和预算尚待批准。"
+          },
+          {
+            "scope": "parent_summary",
+            "purpose": "拟向有效关联家长展示本人学习摘要，不开放其他孩子或完整私聊。"
+          },
+          {
+            "scope": "report_publication",
+            "purpose": "拟在人工复核后向有效关联家长发布指定报告快照。"
+          }
+        ],
+        "text_sha256": "2d7a6404af8c6ba885e88c1501881aa3733696199f681078de4a16bfca0ae197",
+        "approval_status": "draft",
+        "approved_at": null,
+        "acceptance_enabled": true,
+        "notice": "研发草案，未获真实试点批准；只展示文本，不提供正式授权确认。"
+      },
+      "expect_valid": false,
+      "semantics": "schema"
+    }
+  ]
+}

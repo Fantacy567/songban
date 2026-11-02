@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>松伴 · 课程与服务原型</title><link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <header><a class="brand" href="#main"><span class="tree" aria-hidden="true">松</span>松伴 <small>SONGBAN</small></a><span class="tag">P5 · 虚构交互原型</span></header>
+  <div class="prototype-note">这里演示报名与服务进度。没有真实订单、收款、退款或课程授权；所有人物、凭据和金额均为虚构。</div>
+  <section class="controls" aria-label="原型控制">
+    <label>演示视角（非真实登录）<select id="role"><option value="parent">家长</option><option value="staff">工作人员</option><option value="child">孩子</option></select></label>
+    <label>选择演示情境<select id="scenario"><option value="normal">正常报名与核验</option><option value="full">本期名额已满</option><option value="paused">暂停新报名，已有服务保留</option><option value="unverified">监护准备尚未完成</option><option value="expired">课程服务已到期</option><option value="refund_unknown">退款结果待核对</option></select></label>
+    <button id="reset" class="quiet">重新演示当前情境</button>
+  </section>
+  <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  <main id="main" tabindex="-1"></main>
+  <footer>仅在本标签页暂存虚构状态，刷新可继续。没有连接现有账号、数据库或模型。<br>正式产品的身份、金额、权益和核验均须由服务端验证。</footer>
+  <script src="prototype.js"></script>
+</body>
+</html>

@@ -15,6 +15,13 @@ sys.path.insert(0,str(SOURCE))
 spec=importlib.util.spec_from_file_location('native_server',SOURCE/'server.py');server=importlib.util.module_from_spec(spec);spec.loader.exec_module(server)
 
 class NativePluginTests(unittest.TestCase):
+ def test_desktop_and_standard_manifests_have_same_version_and_tools(self):
+  standard=json.loads((SOURCE/'plugin.json').read_text(encoding='utf-8'))
+  desktop=json.loads((SOURCE/'.codex-plugin/plugin.json').read_text(encoding='utf-8'))
+  self.assertEqual(standard['version'],desktop['version'])
+  self.assertEqual(standard['extensions']['com.openai']['interface'],desktop['interface'])
+  self.assertIn("'version':'"+standard['version']+"'",(SOURCE/'server.py').read_text(encoding='utf-8'))
+
  def test_topic_unselected_never_reads_binding_and_full_reply_kept(self):
   args={'selected':True,'round_id':'round','event_id':'topic-turn','topic_title':'选题','user_message':'  本人原话\n','assistant_message':'可见回复全文\n第二段'}
   with patch.object(server,'binding') as binding:
@@ -80,6 +87,12 @@ class NativePluginTests(unittest.TestCase):
    for p in (home/'.codex/plugins/cache/songban-local').rglob('*'):
     if p.is_file():self.assertNotIn(b'sbconn_synthetic-secret',p.read_bytes())
    assert_private(self,Path(r['config_file']))
+   from app.connector_plugin import _run
+   with patch('app.connector_plugin._run', wraps=_run) as commands:
+    rebound=install_connector_plugin('team2','me','second-id','sbconn_second-test-secret','http://127.0.0.1:8888',home=home,probe=lambda *_:True)
+   self.assertTrue(rebound['host_tools_loaded'])
+   self.assertFalse(any(call.args[1][:2]==['plugin','add'] for call in commands.call_args_list))
+   self.assertEqual(json.loads(Path(rebound['config_file']).read_text(encoding='utf-8'))['team_id'],'team2')
 
  def test_failed_probe_restores_binding_and_does_not_enable(self):
   with tempfile.TemporaryDirectory() as d:

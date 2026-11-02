@@ -13,6 +13,7 @@ import sys
 from datetime import datetime
 from contextlib import closing
 from unittest.mock import patch
+from urllib.parse import urlsplit, urlunsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -95,7 +96,15 @@ def demo_workbench(context):
                         {'type': 'open_page', 'label': '继续查看任务', 'page': 'tasks'}]}
 
 
-def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report_runner=None):
+def account_login_url(app_url):
+    url = urlsplit(app_url)
+    if url.scheme not in ('http', 'https') or not url.hostname or url.username or url.password or url.query or url.fragment:
+        raise ValueError('The account service URL must be an HTTP(S) address without credentials, query or fragment.')
+    return urlunsplit((url.scheme, url.netloc, url.path.rstrip('/') + '/', '', '/login'))
+
+
+def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report_runner=None, app_url='http://127.0.0.1:8893', real_connector=False):
+    login_url = account_login_url(app_url)
     # The caller chooses a new dedicated DB before app.main's module-level app is imported.
     from app.main import create_app, digest, now
     from fastapi.testclient import TestClient
@@ -128,8 +137,8 @@ def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report
         path = request.url.path
         if path in ('/', '/learning', '/demo', '/static/songban.html'):
             html = (ROOT / 'static/songban.html').read_text(encoding='utf-8')
-            html = html.replace('<head>', '<head>\n<script src="/demo/bootstrap.js"></script>\n<link rel="stylesheet" href="/static/songban-demo.css?v=1">')
-            html = html.replace('</head>', '<script defer src="/static/songban-demo.js?v=1"></script>\n</head>')
+            html = html.replace('<head>', '<head>\n<script src="/demo/bootstrap.js"></script>\n<link rel="stylesheet" href="/static/songban-demo.css?v=20261101-account-entry">')
+            html = html.replace('</head>', '<script defer src="/static/songban-demo.js?v=20261101-real-connector"></script>\n</head>')
             return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
         if path == '/demo/bootstrap.js':
             code = 'window.SongbanDemo=' + json.dumps(bootstrap, ensure_ascii=False) + ';\n'
@@ -144,8 +153,17 @@ if(!location.hash)location.hash='/onboarding';
 '''
             return Response(code, media_type='text/javascript', headers={'Cache-Control': 'no-store'})
         if path == '/api/core/install-options':
+            if real_connector:
+                from app.team_install import is_local_request
+                return JSONResponse({'available': is_local_request(request), 'download_available': False, 'project_dir': str(ROOT),
+                                     'tools': [{'id': 'connector-plugin', 'name': 'Codex · 原生插件'}, {'id': 'cursor', 'name': 'Cursor · 项目连接'}, {'id': 'workbuddy', 'name': 'WorkBuddy · 项目连接'}],
+                                     'notice': '本演示已启用真实松伴连接器。安装会绑定当前演示成员与小队，之后在 Codex 中选择插件共享获准的对话。'})
             return JSONResponse({'available': True, 'project_dir': '校园活动搭子（模拟项目）', 'notice': '演示连接流程，仅生成模拟回执。'})
         if path.endswith('/install') and request.method == 'POST':
+            if real_connector:
+                body = await request.json()
+                if body.get('tool', 'connector-plugin') in ('connector-plugin', 'codex', 'cursor', 'workbuddy'):
+                    return await call_next(request)
             return JSONResponse({'kind': 'demo', 'tool': '演示工具', 'project_dir': '校园活动搭子（模拟项目）',
                                  'config_file': '演示配置', 'backup_dir': '演示备份', 'notice': '【模拟连接成功】没有安装插件，也没有修改电脑上的配置。'})
         if path.startswith('/api/studio/') or path.startswith('/api/workflow'):
@@ -220,7 +238,7 @@ if(!location.hash)location.hash='/onboarding';
                              'team_id': scope, 'summary': f'【模拟共享】{users[index]["name"]}：' + users[index]['willingness'] + '\n' + CONTENT['share'], 'selected': True}, index)
                 call('POST', base + '/connections', {'label': users[index]['name'] + '的演示工具'}, index)
 
-    bootstrap.update(users=users, team=team, topic_team=topic_team, direction={**DIRECTION, 'deadline': deadline}, rules=RULES, parent_reports=True)
+    bootstrap.update(users=users, team=team, topic_team=topic_team, direction={**DIRECTION, 'deadline': deadline}, rules=RULES, parent_reports=True, login_url=login_url, real_connector=real_connector)
 
     from fastapi import Header
     @app.post('/demo/advance')
@@ -287,6 +305,8 @@ if __name__ == '__main__':
     from app import environment
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8898)
+    parser.add_argument('--app-url', default='http://127.0.0.1:8893', help='Account service URL used by the demo login link')
+    parser.add_argument('--real-connector', action='store_true', help='Enable real native Codex connector installation and binding to the synthetic demo team')
     parser.add_argument('--resume', help='Private resume manifest containing the existing demo DB and bootstrap identities')
     args = parser.parse_args()
     # Capture only the report's model configuration before clearing demo services.
@@ -310,7 +330,7 @@ if __name__ == '__main__':
     if allowed_model_hosts: os.environ['MODEL_ALLOWED_HOSTS'] = allowed_model_hosts
     os.environ['DATABASE_PATH'] = str(db)
     with patch('app.environment.load_env'):
-        app = build_demo(db, resume=resume, parent_report_config=parent_report_config)
+        app = build_demo(db, resume=resume, parent_report_config=parent_report_config, app_url=args.app_url, real_connector=args.real_connector)
     (folder / 'runtime.json').write_text(json.dumps({'pid': os.getpid(), 'port': args.port, 'db': str(db)}, ensure_ascii=False), encoding='utf-8')
     print(f'Songban demo: http://127.0.0.1:{args.port}/#/onboarding', flush=True)
     uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning')

@@ -1,0 +1,530 @@
+[
+  {
+    "operation_id": "bootstrap",
+    "method": "GET",
+    "path": "/api/learning/v2/session-bootstrap",
+    "request_schema": null,
+    "response_schema": "Bootstrap",
+    "status": 200
+  },
+  {
+    "operation_id": "config",
+    "method": "GET",
+    "path": "/api/learning/v2/config",
+    "request_schema": null,
+    "response_schema": "Config",
+    "status": 200
+  },
+  {
+    "operation_id": "authenticate",
+    "method": "POST",
+    "path": "/api/learning/v2/sessions/authenticate",
+    "request_schema": "Authenticate",
+    "response_schema": "Session",
+    "status": 200
+  },
+  {
+    "operation_id": "session",
+    "method": "GET",
+    "path": "/api/learning/v2/session",
+    "request_schema": null,
+    "response_schema": "Session",
+    "status": 200
+  },
+  {
+    "operation_id": "enterLearner",
+    "method": "POST",
+    "path": "/api/learning/v2/sessions/enter-learner",
+    "request_schema": "EnterLearner",
+    "response_schema": "Session",
+    "status": 200
+  },
+  {
+    "operation_id": "logout",
+    "method": "POST",
+    "path": "/api/learning/v2/sessions/logout",
+    "request_schema": "Logout",
+    "response_schema": "LoggedOut",
+    "status": 200
+  },
+  {
+    "operation_id": "createFamily",
+    "method": "POST",
+    "path": "/api/learning/v2/families",
+    "request_schema": "NewFamily",
+    "response_schema": "Family",
+    "status": 201
+  },
+  {
+    "operation_id": "listFamilies",
+    "method": "GET",
+    "path": "/api/learning/v2/families",
+    "request_schema": null,
+    "response_schema": "Families",
+    "status": 200
+  },
+  {
+    "operation_id": "getFamily",
+    "method": "GET",
+    "path": "/api/learning/v2/families/{family_id}",
+    "request_schema": null,
+    "response_schema": "Family",
+    "status": 200
+  },
+  {
+    "operation_id": "createLearner",
+    "method": "POST",
+    "path": "/api/learning/v2/families/{family_id}/learners",
+    "request_schema": "NewLearner",
+    "response_schema": "Learner",
+    "status": 201
+  },
+  {
+    "operation_id": "getProfile",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/profile",
+    "request_schema": null,
+    "response_schema": "Learner",
+    "status": 200
+  },
+  {
+    "operation_id": "editProfile",
+    "method": "PATCH",
+    "path": "/api/learning/v2/learners/{learner_id}/profile",
+    "request_schema": "EditProfile",
+    "response_schema": "Learner",
+    "status": 200
+  },
+  {
+    "operation_id": "createConsent",
+    "method": "POST",
+    "path": "/api/learning/v2/learners/{learner_id}/consents",
+    "request_schema": "NewConsent",
+    "response_schema": "Consent",
+    "status": 201
+  },
+  {
+    "operation_id": "listConsents",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/consents",
+    "request_schema": null,
+    "response_schema": "Consents",
+    "status": 200
+  },
+  {
+    "operation_id": "consentText",
+    "method": "GET",
+    "path": "/api/learning/v2/consent-texts/{consent_version}",
+    "request_schema": null,
+    "response_schema": "ConsentText",
+    "status": 200
+  },
+  {
+    "operation_id": "revokeConsent",
+    "method": "POST",
+    "path": "/api/learning/v2/consents/{consent_id}/revoke",
+    "request_schema": "Reason",
+    "response_schema": "Consent",
+    "status": 200
+  },
+  {
+    "operation_id": "enroll",
+    "method": "POST",
+    "path": "/api/learning/v2/learners/{learner_id}/enrollments",
+    "request_schema": "NewEnrollment",
+    "response_schema": "Enrollment",
+    "status": 201
+  },
+  {
+    "operation_id": "home",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/home",
+    "request_schema": null,
+    "response_schema": "Home",
+    "status": 200
+  },
+  {
+    "operation_id": "getStart",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/start",
+    "request_schema": null,
+    "response_schema": "Start",
+    "status": 200
+  },
+  {
+    "operation_id": "saveStart",
+    "method": "PATCH",
+    "path": "/api/learning/v2/learners/{learner_id}/start",
+    "request_schema": "SaveStart",
+    "response_schema": "Start",
+    "status": 200
+  },
+  {
+    "operation_id": "courses",
+    "method": "GET",
+    "path": "/api/learning/v2/courses",
+    "request_schema": null,
+    "response_schema": "Courses",
+    "status": 200
+  },
+  {
+    "operation_id": "course",
+    "method": "GET",
+    "path": "/api/learning/v2/courses/{course_version_id}",
+    "request_schema": null,
+    "response_schema": "Course",
+    "status": 200
+  },
+  {
+    "operation_id": "createRun",
+    "method": "POST",
+    "path": "/api/learning/v2/learners/{learner_id}/runs",
+    "request_schema": "NewRun",
+    "response_schema": "Run",
+    "status": 201
+  },
+  {
+    "operation_id": "run",
+    "method": "GET",
+    "path": "/api/learning/v2/runs/{run_id}",
+    "request_schema": null,
+    "response_schema": "Run",
+    "status": 200
+  },
+  {
+    "operation_id": "createAttempt",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/attempts",
+    "request_schema": "NewAttempt",
+    "response_schema": "Attempt",
+    "status": 201
+  },
+  {
+    "operation_id": "attempt",
+    "method": "GET",
+    "path": "/api/learning/v2/attempts/{attempt_id}",
+    "request_schema": null,
+    "response_schema": "Attempt",
+    "status": 200
+  },
+  {
+    "operation_id": "saveAttempt",
+    "method": "PATCH",
+    "path": "/api/learning/v2/attempts/{attempt_id}",
+    "request_schema": "EditAttempt",
+    "response_schema": "Attempt",
+    "status": 200
+  },
+  {
+    "operation_id": "createModelRun",
+    "method": "POST",
+    "path": "/api/learning/v2/attempts/{attempt_id}/model-runs",
+    "request_schema": "NewModelRun",
+    "response_schema": "ModelRun",
+    "status": 202
+  },
+  {
+    "operation_id": "modelRun",
+    "method": "GET",
+    "path": "/api/learning/v2/model-runs/{model_run_id}",
+    "request_schema": null,
+    "response_schema": "ModelRun",
+    "status": 200
+  },
+  {
+    "operation_id": "help",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/help",
+    "request_schema": "NewHelp",
+    "response_schema": "Help",
+    "status": 202
+  },
+  {
+    "operation_id": "helps",
+    "method": "GET",
+    "path": "/api/learning/v2/runs/{run_id}/help",
+    "request_schema": null,
+    "response_schema": "Helps",
+    "status": 200
+  },
+  {
+    "operation_id": "createArtifact",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/artifacts",
+    "request_schema": "NewArtifact",
+    "response_schema": "Artifact",
+    "status": 201
+  },
+  {
+    "operation_id": "artifacts",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/artifacts",
+    "request_schema": null,
+    "response_schema": "Artifacts",
+    "status": 200
+  },
+  {
+    "operation_id": "artifact",
+    "method": "GET",
+    "path": "/api/learning/v2/artifacts/{artifact_id}",
+    "request_schema": null,
+    "response_schema": "Artifact",
+    "status": 200
+  },
+  {
+    "operation_id": "versionArtifact",
+    "method": "POST",
+    "path": "/api/learning/v2/artifacts/{artifact_id}/versions",
+    "request_schema": "NewArtifactVersion",
+    "response_schema": "Artifact",
+    "status": 201
+  },
+  {
+    "operation_id": "checkArtifact",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/checks",
+    "request_schema": "NewCheck",
+    "response_schema": "Check",
+    "status": 201
+  },
+  {
+    "operation_id": "check",
+    "method": "GET",
+    "path": "/api/learning/v2/checks/{check_id}",
+    "request_schema": null,
+    "response_schema": "Check",
+    "status": 200
+  },
+  {
+    "operation_id": "reflect",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/reflections",
+    "request_schema": "NewReflection",
+    "response_schema": "Reflection",
+    "status": 201
+  },
+  {
+    "operation_id": "askHuman",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/cases",
+    "request_schema": "NewCase",
+    "response_schema": "Case",
+    "status": 201
+  },
+  {
+    "operation_id": "cases",
+    "method": "GET",
+    "path": "/api/learning/v2/cases",
+    "request_schema": null,
+    "response_schema": "Cases",
+    "status": 200
+  },
+  {
+    "operation_id": "case",
+    "method": "GET",
+    "path": "/api/learning/v2/cases/{case_id}",
+    "request_schema": null,
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "claimCase",
+    "method": "POST",
+    "path": "/api/learning/v2/cases/{case_id}/claim",
+    "request_schema": "Claim",
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "transferCase",
+    "method": "POST",
+    "path": "/api/learning/v2/cases/{case_id}/transfer",
+    "request_schema": "Transfer",
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "resolveCase",
+    "method": "POST",
+    "path": "/api/learning/v2/cases/{case_id}/resolve",
+    "request_schema": "ResolveCase",
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "createReport",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/reports",
+    "request_schema": "NewReport",
+    "response_schema": "Report",
+    "status": 202
+  },
+  {
+    "operation_id": "report",
+    "method": "GET",
+    "path": "/api/learning/v2/reports/{report_id}",
+    "request_schema": null,
+    "response_schema": "Report",
+    "status": 200
+  },
+  {
+    "operation_id": "disputeReport",
+    "method": "POST",
+    "path": "/api/learning/v2/reports/{report_id}/disputes",
+    "request_schema": "Dispute",
+    "response_schema": "DisputeRecord",
+    "status": 201
+  },
+  {
+    "operation_id": "submitReport",
+    "method": "POST",
+    "path": "/api/learning/v2/reports/{report_id}/submit-review",
+    "request_schema": "SubmitReview",
+    "response_schema": "Report",
+    "status": 200
+  },
+  {
+    "operation_id": "reviewReport",
+    "method": "POST",
+    "path": "/api/learning/v2/reports/{report_id}/reviews",
+    "request_schema": "ReviewReport",
+    "response_schema": "Report",
+    "status": 200
+  },
+  {
+    "operation_id": "publishReport",
+    "method": "POST",
+    "path": "/api/learning/v2/reports/{report_id}/publications",
+    "request_schema": "PublishReport",
+    "response_schema": "Publication",
+    "status": 201
+  },
+  {
+    "operation_id": "revokeReport",
+    "method": "POST",
+    "path": "/api/learning/v2/reports/{report_id}/revocations",
+    "request_schema": "Reason",
+    "response_schema": "Report",
+    "status": 200
+  },
+  {
+    "operation_id": "reports",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/reports",
+    "request_schema": null,
+    "response_schema": "Reports",
+    "status": 200
+  },
+  {
+    "operation_id": "usage",
+    "method": "GET",
+    "path": "/api/learning/v2/learners/{learner_id}/usage",
+    "request_schema": null,
+    "response_schema": "Usage",
+    "status": 200
+  },
+  {
+    "operation_id": "reconciliation",
+    "method": "GET",
+    "path": "/api/learning/v2/reconciliation-cases/{case_id}",
+    "request_schema": null,
+    "response_schema": "Reconciliation",
+    "status": 200
+  },
+  {
+    "operation_id": "resolveReconciliation",
+    "method": "POST",
+    "path": "/api/learning/v2/reconciliation-cases/{case_id}/resolve",
+    "request_schema": "ResolveReconciliation",
+    "response_schema": "Reconciliation",
+    "status": 200
+  },
+  {
+    "operation_id": "requirements",
+    "method": "GET",
+    "path": "/api/learning/v2/runs/{run_id}/requirements",
+    "request_schema": null,
+    "response_schema": "Requirements",
+    "status": 200
+  },
+  {
+    "operation_id": "saveRequirements",
+    "method": "PUT",
+    "path": "/api/learning/v2/runs/{run_id}/requirements",
+    "request_schema": "SaveRequirements",
+    "response_schema": "Requirements",
+    "status": 200
+  },
+  {
+    "operation_id": "selfCheck",
+    "method": "POST",
+    "path": "/api/learning/v2/runs/{run_id}/self-checks",
+    "request_schema": "NewSelfCheck",
+    "response_schema": "SelfCheck",
+    "status": 201
+  },
+  {
+    "operation_id": "readVersion",
+    "method": "GET",
+    "path": "/api/learning/v2/artifacts/{artifact_id}/versions/{version_id}",
+    "request_schema": null,
+    "response_schema": "VersionRead",
+    "status": 200
+  },
+  {
+    "operation_id": "readback",
+    "method": "POST",
+    "path": "/api/learning/v2/artifacts/{artifact_id}/readbacks",
+    "request_schema": "ReadbackRequest",
+    "response_schema": "Readback",
+    "status": 201
+  },
+  {
+    "operation_id": "caseEvidence",
+    "method": "GET",
+    "path": "/api/learning/v2/cases/{case_id}/evidence",
+    "request_schema": null,
+    "response_schema": "CaseEvidence",
+    "status": 200
+  },
+  {
+    "operation_id": "extendCase",
+    "method": "POST",
+    "path": "/api/learning/v2/cases/{case_id}/extensions",
+    "request_schema": "ExtendCase",
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "appendCase",
+    "method": "POST",
+    "path": "/api/learning/v2/cases/{case_id}/messages",
+    "request_schema": "AppendCase",
+    "response_schema": "Case",
+    "status": 200
+  },
+  {
+    "operation_id": "material",
+    "method": "GET",
+    "path": "/api/learning/v2/courses/{course_version_id}/materials/{material_id}",
+    "request_schema": null,
+    "response_schema": "Material",
+    "status": 200
+  },
+  {
+    "operation_id": "getSelfCheck",
+    "method": "GET",
+    "path": "/api/learning/v2/self-checks/{self_check_id}",
+    "request_schema": null,
+    "response_schema": "SelfCheck",
+    "status": 200
+  },
+  {
+    "operation_id": "getReflection",
+    "method": "GET",
+    "path": "/api/learning/v2/reflections/{reflection_id}",
+    "request_schema": null,
+    "response_schema": "Reflection",
+    "status": 200
+  }
+]

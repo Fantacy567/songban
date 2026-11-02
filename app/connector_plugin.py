@@ -1,6 +1,5 @@
 """Install the real native plugin through the supported Codex CLI registry."""
 import json
-import re
 from .private_files import restrict_file
 import os
 from pathlib import Path
@@ -43,16 +42,14 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
     if not d[key]:d.pop(key)
   return d
  files={str(p.relative_to(SOURCE)):p.read_bytes() for p in SOURCE.rglob('*') if p.is_file() and '__pycache__' not in p.parts}
- # Older local Codex hosts do not expand PLUGIN_ROOT in MCP arguments/cwd.
- # Preserve the portable layout for modern/Windows hosts and the working legacy path otherwise.
- try:
-  version=subprocess.run([cli,'--version'],capture_output=True,text=True,encoding='utf-8',timeout=5,env=env)
-  match=re.search(r'(\d+)\.(\d+)\.',version.stdout)
-  modern=bool(match and tuple(map(int,match.groups()))>=(0,165))
- except (OSError,subprocess.SubprocessError):modern=False
- portable=os.name=='nt' or modern
- mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name if portable else sys.executable,'args':['${PLUGIN_ROOT}/server.py' if portable else str(target/'server.py'),'--binding',str(binding)],'cwd':'${PLUGIN_ROOT}' if portable else str(target),'env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
- files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=b'1.3.0\n'
+ # Agent Plugins requires a bare executable; pin its lookup to the
+ # installer's Python directory, and let the host resolve the cached root.
+ mcp={'mcpServers':{'songban':{'type':'stdio','command':Path(sys.executable).name,'args':['${PLUGIN_ROOT}/server.py','--binding',str(binding)],'cwd':'${PLUGIN_ROOT}','env':{'PATH':str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''),'PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}}}}
+ manifest=json.loads(files['plugin.json'])
+ legacy=json.loads(files[str(Path('.codex-plugin/plugin.json'))])
+ if legacy['version']!=manifest['version']:
+  raise InstallError('plugin_manifest_mismatch','插件清单版本不一致，已停止安装。',409)
+ files['.mcp.json']=json.dumps(mcp).encode();files['mcp.json']=json.dumps({'$schema':'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',**mcp}).encode();files['.songban-owned']=(manifest['version']+'\n').encode()
  cat={'name':'songban-local','interface':{'displayName':'松伴本机插件'},'plugins':[{'name':'songban-connector','source':{'source':'local','path':'./plugins/songban-connector'},'policy':{'installation':'AVAILABLE','authentication':'ON_INSTALL'},'category':'Productivity'}]}
  writes={target/k:v for k,v in files.items()}
  writes[catalog]=json.dumps(cat,ensure_ascii=False,indent=2).encode()
@@ -77,8 +74,14 @@ def install_connector_plugin(sid,user_id,connection_id,token,url,home=None,cli=N
    ok=r.returncode==0
   if not ok:raise InstallError('plugin_connection_failed','插件无法读取团队。请确认松伴服务、连接有效期及本机网络权限；本次绑定已回退。',502)
   _run(cli,['plugin','marketplace','add',str(root)],env)
-  _run(cli,['plugin','add',SELECTOR],env)
-  state=_run(cli,['plugin','list'],env)
+  state=_run(cli,['plugin','list','--marketplace','songban-local'],env)
+  version=json.loads(files['plugin.json'])['version']
+  current=state.get('installed',[]) if isinstance(state,dict) else []
+  # Binding is outside the immutable plugin cache. Rebinding the same enabled
+  # version must not replace a directory the running Windows host is using.
+  if not any(x.get('name')=='songban-connector' and x.get('version')==version and x.get('enabled') is True for x in current):
+   _run(cli,['plugin','add',SELECTOR],env)
+   state=_run(cli,['plugin','list','--marketplace','songban-local'],env)
   entries=state.get('installed',[]) if isinstance(state,dict) else []
   enabled=any(x.get('name')=='songban-connector' and x.get('enabled') is True for x in entries)
   if not enabled:raise InstallError('plugin_not_enabled','文件已生成，但Codex未确认插件启用。请在插件目录查看松伴连接器。',502)
