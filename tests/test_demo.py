@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from scripts.run_demo import build_demo
+from scripts.run_demo import account_login_url, build_demo
 
 
 class DemoTests(unittest.TestCase):
@@ -64,6 +64,43 @@ class DemoTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / 'static/songban.html').read_text(encoding='utf-8')
         self.assertNotIn('/demo/bootstrap.js', source)
         self.assertNotIn('songban-demo.js', source)
+
+    def test_account_entry_does_not_enable_email_in_demo(self):
+        self.assertEqual(self.fixture['login_url'], 'http://127.0.0.1:8893/#/login')
+        with patch('app.email_login.deliver_email_code') as send:
+            response = self.client.post('/api/studio/email-codes', json={'email': 'member@example.com'})
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.json()['error']['code'], 'demo_only')
+            send.assert_not_called()
+
+    def test_account_entry_accepts_custom_service_but_rejects_unsafe_links(self):
+        self.assertEqual(account_login_url('http://127.0.0.1:8894'), 'http://127.0.0.1:8894/#/login')
+        self.assertEqual(account_login_url('https://example.com/songban/'), 'https://example.com/songban/#/login')
+        for value in ['javascript:alert(1)', '//example.com', 'https://user:secret@example.com', 'https://example.com?token=secret', 'https://example.com/#login']:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                account_login_url(value)
+
+    def test_real_connector_opt_in_uses_checked_installer_and_keeps_login_blocked(self):
+        app = build_demo(self.app.state.db_path, resume=self.fixture, real_connector=True)
+        with TestClient(app, base_url='http://127.0.0.1:8895') as client, \
+                patch('app.team_install.is_local_request', return_value=True), \
+                patch('app.team_core.is_local_request', return_value=True), \
+                patch('app.team_core.install_connector_plugin', return_value={'kind': 'native-plugin', 'installed': True}) as install, \
+                patch('app.email_login.deliver_email_code') as email:
+            options = client.get('/api/core/install-options', headers=self.headers).json()
+            self.assertEqual(options['tools'][0]['id'], 'connector-plugin')
+            self.assertTrue(options['available'])
+            denied = client.post(self.base + '/install', headers=self.headers, json={'tool': 'connector-plugin'})
+            self.assertNotEqual(denied.status_code, 200)
+            install.assert_not_called()
+            result = client.post(self.base + '/install', headers=self.headers, json={'tool': 'connector-plugin', 'consent': True})
+            self.assertEqual(result.status_code, 200, result.text)
+            self.assertEqual(result.json()['kind'], 'native-plugin')
+            self.assertEqual(install.call_args.args[0], self.fixture['team']['id'])
+            self.assertEqual(install.call_args.args[1], self.fixture['users'][0]['id'])
+            self.assertEqual(install.call_args.args[4], 'http://127.0.0.1:8895')
+            self.assertEqual(client.post('/api/studio/email-codes', json={'email': 'member@example.com'}).status_code, 403)
+            email.assert_not_called()
 
     def test_topic_walkthrough_has_five_people_and_no_live_model(self):
         base='/api/core/teams/'+self.fixture['topic_team']['id']

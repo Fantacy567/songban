@@ -1,0 +1,19 @@
+{
+  "source_version": "0.2.0",
+  "purpose": "0.2.1只补家庭与授权恢复；冻结0.2.0起点/检查schema及其引用",
+  "schema_sha256": {
+    "AgeAnswer": "c92cbf549b34606bc1138c191052f9ddb2a7e7d35ff25fe597567b055eab7713",
+    "Check": "6060f73142a45b01d7c8e18570fb95985dcfa0af16a87e372257a6e65ef40fe8",
+    "EvidenceRef": "a0760f6011196e89baaef2a544345d54923e74ef33e64e03465e4eb446923952",
+    "ExperienceAnswer": "45e128eea6913a7f5941dee19710dbf47dc7dc8f55c32f7c727ac30bea3e02bc",
+    "HelpPreferenceAnswer": "f21a89a0857ffbf80ffb405e3a48121516ee04d3a947c9e6022c569756dc53fd",
+    "InterestsAnswer": "4a03322276dc8e59d3cf3550263693f2d7a9a4043d01279518a7f7e1fe3a7dc4",
+    "MiniAttemptAnswer": "8ccca9b3eda8897832f336ce74254054254d55d9b9306197d2d4af7f4fee4241",
+    "NewCheck": "b907242a5598416979fc2e16646991fddc785e7163b5161f82a59aff8d277b57",
+    "SaveStart": "7f933cccb2d0c87f4d69336c69e0df1ff7520fad2b1f5774535d5ffcd1184357",
+    "Start": "3bfc5ce00391698eb9f024c7bbfae19e5a977953c9270a6141901791207c54d8",
+    "StartAnswerPatch": "154dc594a13259340ecec5d6f03b9a86d5358aa6b175dff9907afcfba25af8b6",
+    "StartAnswers": "aa6ff8d50c4ce5eb1b3bcfb4b48287282e6d5647a580d8d289246261cef34cb3",
+    "StartChoiceAnswer": "cd087a8aa4bd49f76b5b00a06936d16f58f3fe4227e100222e709684cc927fbf"
+  }
+}

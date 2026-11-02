@@ -1,0 +1,50 @@
+[
+  {
+    "id": "MAT_A",
+    "version": "0.1.0",
+    "source_type": "fictional_course_material",
+    "facts": {
+      "event_name": "松果班故事交换会",
+      "audience": "松果班同学",
+      "date": "2030-05-18",
+      "start_time": "14:00",
+      "end_time": "15:00",
+      "place": "松果活动室",
+      "preparation": "带一本愿意分享的故事书"
+    },
+    "notice": "这是练习用的虚构活动，不是真实通知。",
+    "source_locators": [
+      "MAT_A@0.1.0#event_name",
+      "MAT_A@0.1.0#audience",
+      "MAT_A@0.1.0#date",
+      "MAT_A@0.1.0#start_time",
+      "MAT_A@0.1.0#end_time",
+      "MAT_A@0.1.0#place",
+      "MAT_A@0.1.0#preparation"
+    ]
+  },
+  {
+    "id": "MAT_B",
+    "version": "0.1.0",
+    "source_type": "fictional_course_material",
+    "facts": {
+      "event_name": "星叶班纸桥挑战",
+      "audience": "星叶班同学",
+      "date": "2030-05-25",
+      "start_time": "10:00",
+      "end_time": "11:00",
+      "place": "星叶活动室",
+      "preparation": "带两张废旧A4纸"
+    },
+    "notice": "这是练习用的虚构活动，不是真实通知。",
+    "source_locators": [
+      "MAT_B@0.1.0#event_name",
+      "MAT_B@0.1.0#audience",
+      "MAT_B@0.1.0#date",
+      "MAT_B@0.1.0#start_time",
+      "MAT_B@0.1.0#end_time",
+      "MAT_B@0.1.0#place",
+      "MAT_B@0.1.0#preparation"
+    ]
+  }
+]

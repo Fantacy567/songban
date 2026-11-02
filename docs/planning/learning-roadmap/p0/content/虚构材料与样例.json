@@ -1,0 +1,180 @@
+{
+  "package_id": "invitation-p0-content",
+  "version": "0.1.0",
+  "status": "review_candidate",
+  "mode": "fixture",
+  "contains_real_learner_data": false,
+  "lesson_id": "class-activity-invitation",
+  "lesson_version": "0.1.0",
+  "rubric_version": "invitation-rubric@0.1.0",
+  "publication_note": "仅供P0审阅和后续协议fixture；不得整包发送给孩子或模型，reviewer_only答案需由内容服务按权限和任务投影排除。",
+  "learner_notice": "这是练习用的虚构活动，不是真实通知。",
+  "task_ids": ["S1.1", "S1.2", "S2.1", "S2.2", "S3.1", "S3.2", "S3.3", "S3.4"],
+  "rule_ids": ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08"],
+  "manual_rubric_ids": ["M1", "M2", "M3", "M4"],
+  "artifact_fields": ["title", "audience", "date", "start_time", "end_time", "place", "preparation", "invitation_line"],
+  "fact_fields": ["audience", "date", "start_time", "end_time", "place", "preparation"],
+  "materials": [
+    {
+      "id": "MAT_A",
+      "version": "0.1.0",
+      "source_type": "fictional_course_material",
+      "visibility": "learner_current_task",
+      "event_name": "松果班故事交换会",
+      "audience": "松果班同学",
+      "date": "2030-05-18",
+      "start_time": "14:00",
+      "end_time": "15:00",
+      "place": "松果活动室",
+      "preparation": "带一本愿意分享的故事书",
+      "purpose": "让同学知道活动安排并愿意参加",
+      "source_locators": {
+        "event_name": "MAT_A@0.1.0#event_name",
+        "audience": "MAT_A@0.1.0#audience",
+        "date": "MAT_A@0.1.0#date",
+        "start_time": "MAT_A@0.1.0#start_time",
+        "end_time": "MAT_A@0.1.0#end_time",
+        "place": "MAT_A@0.1.0#place",
+        "preparation": "MAT_A@0.1.0#preparation"
+      }
+    },
+    {
+      "id": "MAT_B",
+      "version": "0.1.0",
+      "source_type": "fictional_course_material",
+      "visibility": "learner_current_task",
+      "event_name": "星叶班纸桥挑战",
+      "audience": "星叶班同学",
+      "date": "2030-05-25",
+      "start_time": "10:00",
+      "end_time": "11:00",
+      "place": "星叶活动室",
+      "preparation": "带两张废旧A4纸",
+      "purpose": "让同学知道活动安排并愿意参加",
+      "source_locators": {
+        "event_name": "MAT_B@0.1.0#event_name",
+        "audience": "MAT_B@0.1.0#audience",
+        "date": "MAT_B@0.1.0#date",
+        "start_time": "MAT_B@0.1.0#start_time",
+        "end_time": "MAT_B@0.1.0#end_time",
+        "place": "MAT_B@0.1.0#place",
+        "preparation": "MAT_B@0.1.0#preparation"
+      }
+    }
+  ],
+  "examples": [
+    {
+      "id": "EX_A_BASE",
+      "source_type": "example",
+      "visibility": "reviewer_only",
+      "label": "审阅样例：事实正确、表达可改进，非孩子作品",
+      "material_ref": "MAT_A@0.1.0",
+      "artifact": {
+        "title": "松果班故事交换会邀请卡",
+        "audience": "松果班同学",
+        "date": "2030-05-18",
+        "start_time": "14:00",
+        "end_time": "15:00",
+        "place": "松果活动室",
+        "preparation": "带一本愿意分享的故事书",
+        "invitation_line": "欢迎来参加活动。"
+      },
+      "expected_fact_mismatches": [],
+      "expected_manual": "事实正确仍需本人实质修改与解释；本样例不提供任何真实独立性证据。"
+    },
+    {
+      "id": "EX_A_REVISED",
+      "source_type": "example",
+      "visibility": "reviewer_only",
+      "label": "审阅样例：把邀请语改得具体，非孩子作品",
+      "material_ref": "MAT_A@0.1.0",
+      "previous_example_ref": "EX_A_BASE",
+      "artifact": {
+        "title": "松果班故事交换会邀请卡",
+        "audience": "松果班同学",
+        "date": "2030-05-18",
+        "start_time": "14:00",
+        "end_time": "15:00",
+        "place": "松果活动室",
+        "preparation": "带一本愿意分享的故事书",
+        "invitation_line": "带上你愿意分享的故事书，一起来讲讲喜欢的故事吧！"
+      },
+      "example_reason": "我把参加活动改成一起讲故事，让同学更清楚会做什么。",
+      "expected_fact_mismatches": [],
+      "expected_manual": "可说明什么是实质改进；复制这段不能证明本人独立修改。"
+    },
+    {
+      "id": "EX_A_WRONG_TIME",
+      "source_type": "example",
+      "visibility": "learner_on_explicit_example_request",
+      "label": "练习样例：这里预设了一处错误，不是你的作品",
+      "material_ref": "MAT_A@0.1.0",
+      "artifact": {
+        "title": "松果班故事交换会邀请卡",
+        "audience": "松果班同学",
+        "date": "2030-05-18",
+        "start_time": "13:00",
+        "end_time": "15:00",
+        "place": "松果活动室",
+        "preparation": "带一本愿意分享的故事书",
+        "invitation_line": "欢迎来参加活动。"
+      },
+      "expected_fact_mismatches": ["start_time"],
+      "expected_manual": "核对到开始时间不同，仅算样例检查练习，仍需本人作品修改。"
+    },
+    {
+      "id": "EX_A_PROSE_CONFLICT",
+      "source_type": "example",
+      "visibility": "reviewer_only",
+      "label": "审阅反例：结构事实全对，但邀请语与材料冲突",
+      "material_ref": "MAT_A@0.1.0",
+      "artifact": {
+        "title": "松果班故事交换会邀请卡",
+        "audience": "松果班同学",
+        "date": "2030-05-18",
+        "start_time": "14:00",
+        "end_time": "15:00",
+        "place": "松果活动室",
+        "preparation": "带一本愿意分享的故事书",
+        "invitation_line": "请13:00到操场集合，还要交10元报名费。"
+      },
+      "expected_fact_mismatches": [],
+      "expected_manual": "M1 needs_practice：邀请语新增冲突的时间、地点和无依据收费；结构检查全绿也不能过关。"
+    },
+    {
+      "id": "EX_B_TRANSFER",
+      "source_type": "example",
+      "visibility": "reviewer_only",
+      "label": "审阅用迁移答案，禁止预填给孩子或进入角色上下文",
+      "material_ref": "MAT_B@0.1.0",
+      "artifact": {
+        "title": "星叶班纸桥挑战邀请卡",
+        "audience": "星叶班同学",
+        "date": "2030-05-25",
+        "start_time": "10:00",
+        "end_time": "11:00",
+        "place": "星叶活动室",
+        "preparation": "带两张废旧A4纸",
+        "invitation_line": "带上废旧A4纸，一起来试试做一座纸桥吧！"
+      },
+      "example_changed_fields": ["place", "preparation"],
+      "example_reason": "这次换了活动室，也从带故事书变成带纸，直接用上次的卡会让同学走错或带错物品。",
+      "expected_fact_mismatches": [],
+      "expected_manual": "用于审核理解差异，不是学习记录；仅复制答案不能满足M4。"
+    }
+  ],
+  "evidence_requirements": {
+    "G1_requirements": ["material_ref", "requirements_revision", "learner_confirmation", "help_disclosure"],
+    "G2_create_save": ["input_snapshot", "model_run_with_mode", "candidate_selection", "artifact_version", "save_receipt", "same_version_readback"],
+    "G3_check_transfer": ["self_check_revision", "source_locator", "previous_artifact_version", "current_artifact_version", "change_intent", "reflection_revision", "transfer_response_revision", "help_events", "help_disclosure", "current_check", "assigned_human_review"]
+  },
+  "safety_boundary": {
+    "allow_real_model_in_p0": false,
+    "allow_arbitrary_files": false,
+    "allow_external_accounts": false,
+    "allow_html_execution": false,
+    "allow_automatic_pass_from_examples": false,
+    "allow_whole_package_in_learner_context": false,
+    "is_report_evidence": false
+  }
+}

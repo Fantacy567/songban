@@ -1,0 +1,11 @@
+/* Opt-in stage navigation only; existing competition layout stays scoped. */
+[data-stage-nav] { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+[data-stage-nav] a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 18px; border-radius: 13px; text-decoration: none; color: #302638; font-size: 16px; line-height: 1.4; white-space: nowrap; }
+[data-stage-nav] a[aria-current="page"] { background: #eee8ff; color: #5833aa; font-weight: 650; }
+[data-stage-nav] a:hover { background: #f3efff; }
+[data-stage-nav] a:focus-visible { outline: 3px solid #6f45ca; outline-offset: 3px; }
+.app-header:has([data-stage-nav]), .landing-header:has([data-stage-nav]) { flex-wrap: wrap; gap: 12px 24px; }
+@media (max-width: 600px) {
+  .app-header:has([data-stage-nav]) [data-stage-nav], .landing-header:has([data-stage-nav]) [data-stage-nav] { order: 3; flex-basis: 100%; }
+  [data-stage-nav] a { flex: 1; }
+}

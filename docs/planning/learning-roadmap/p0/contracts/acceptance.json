@@ -1,0 +1,301 @@
+{
+  "notice": "实施后验收清单，本轮未运行API测试",
+  "scenarios": [
+    {
+      "id": "RECOVERY-01",
+      "gate": "G1",
+      "setup": "建立两个隔离家庭后清空localStorage/sessionStorage并重新登录manager；从GET families取本人家庭/learner，再GET consents及对应consent-texts；另测pending、孩子、staff未分配和跨家庭ID",
+      "expected": "仅恢复本人至多一个家庭及获准consent_id/revision/scopes；pending只看本人记录，孩子/越权不得读成人管理；草案禁止正式确认，历史文本按版本匹配，GET不新建家庭或授权",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "START-01",
+      "gate": "G1",
+      "setup": "新用户只提交年龄主题后刷新GET start，其余主题从未回答",
+      "expected": "PATCH只改该主题；其余unanswered/null，missing_fields可恢复，不伪造帮助偏好/小尝试/本人选择",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "START-02",
+      "gate": "G1",
+      "setup": "分别省略主题、显式unanswered清空、skipped跳过和answered回答",
+      "expected": "缺失保留；清空和跳过独立留痕；null/空串不能冒充已答；完成状态由服务器计算",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "START-03",
+      "gate": "G1",
+      "setup": "只看系统guided推荐，随后明确accepted_default；提交过期推荐版本",
+      "expected": "默认兜底不写chosen_start；明确点击才记录采纳，过期返回409不覆盖",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "START-04",
+      "gate": "G1",
+      "setup": "小尝试跳过、部分草稿、答完后模拟模型故障",
+      "expected": "草稿不丢；推荐依据如实，静态小尝试不因模型故障变未完成，问卷完成不等于掌握",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "CHECK-01",
+      "gate": "G2",
+      "setup": "review预检缺迁移/有完整证据/无值班均尝试，包括重试",
+      "expected": "仅保存规则反馈；绝不建人工案、不改阶段passed、不解锁；同请求幂等",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "CHECK-02",
+      "gate": "G2",
+      "setup": "clarify/create分别preflight成功后显式advance，同时修改要求版本",
+      "expected": "仅advance可事务推进；预检不解锁；版本竞争409，无半次推进",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "CHECK-03",
+      "gate": "G2",
+      "setup": "review submit_review，分别缺证据、无值班、完整且有值班",
+      "expected": "缺证据或无值班无案件/无pending_review；完整且可接案才唯一建案并原子变pending_review",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "CHECK-04",
+      "gate": "G2",
+      "setup": "模型unknown/pending/running时预检、推进或送审",
+      "expected": "反馈保留unknown等待，无派单/假失败/通过，预算保持核对且不重跑",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "HELP-01",
+      "gate": "G2",
+      "setup": "原样采用AI候选、成人内容帮助、参考示例、帮助unknown分别保存回读",
+      "expected": "原样不是child_edit；各来源保留，unknown不是none_reported；示例引用需真实获准来源",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "REVIEW-01",
+      "gate": "G3",
+      "setup": "老师保存M3 unclear并补问，再补齐M1-M4；重复/缺项或unclear尝试passed",
+      "expected": "needs_information保存分项且案件保持claimed；仅四项各一条supported并核验当前证据才过关",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-01",
+      "gate": "G1",
+      "setup": "两个家庭分别尝试读写对方 learner/attempt/artifact/report，含混合归属ID",
+      "expected": "统一404，未读写任何跨家庭内容",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-02",
+      "gate": "G1",
+      "setup": "manager 切 learner，使用旧 Bearer、旧 cookie、旧标签调用 v2/旧 core/recap/workbench/account",
+      "expected": "旧凭证401；child cookie旧账号API403；无新管理副作用",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-03",
+      "gate": "G1",
+      "setup": "暂停旧写入在认证后，先提交 enter-learner 再恢复旧写入",
+      "expected": "提交时 fence拒绝；audit无越权写入；旧调用已发则仅受限归档",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-04",
+      "gate": "G1",
+      "setup": "旧读取响应与cookie轮换迟到，另标签bfcache恢复",
+      "expected": "epoch失配丢弃；旧cookie已撤销；GET session恢复，不能升权",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-05",
+      "gate": "G1",
+      "setup": "篡改 role/scopes/learner_id，用sbconn_/v1 session/分享token换家庭授权",
+      "expected": "拒绝；client字段不能授予scope",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-06",
+      "gate": "G1",
+      "setup": "跨Origin写入/缺CSRF/旧token exchange/孩子经旧login旁路",
+      "expected": "拒绝；显式新鲜重新认证成功后才进入管理",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "AUTH-07",
+      "gate": "G1",
+      "setup": "关系pending、consent撤回、权益过期与在途调用/报告读取竞态",
+      "expected": "校验最新授权；拒绝新调用，撤销派生访问，保留账本",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "WRITE-01",
+      "gate": "G2",
+      "setup": "并发同request_id同正文、同ID异正文、过期revision",
+      "expected": "只产生一个资源；异正文409；冲突保留用户输入",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "FLOW-01",
+      "gate": "G2",
+      "setup": "无squad/比赛/连接器完整三关；有经验者调整起点",
+      "expected": "可以独立完成；不生成虚构小队、不强制比赛入门",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "FLOW-02",
+      "gate": "G2",
+      "setup": "修改已检查作品，并发人工通过旧check",
+      "expected": "旧事实保留，新版recheck_required；旧审核不解锁新版本",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "FLOW-03",
+      "gate": "G2",
+      "setup": "无迁移/解释/人工帮助记录，客户端强写passed",
+      "expected": "拒绝或补练；AI建议不等于掌握",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "FLOW-04",
+      "gate": "G2",
+      "setup": "保存/检查事务各阶段中断、刷新、重登、SQLite写锁",
+      "expected": "原子落盘或无副作用，按服务器事实恢复",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MODEL-01",
+      "gate": "G3",
+      "setup": "两个请求争抢最后预算、同尝试换request_id绕unknown",
+      "expected": "至多一次预占/派发，余额非负，unknown阻塞绕行",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MODEL-02",
+      "gate": "G3",
+      "setup": "dispatch标记前/后进程退出、lease到期、多worker接管",
+      "expected": "发送前可恢复；可能发送后unknown，不第二次发出",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MODEL-03",
+      "gate": "G3",
+      "setup": "超时后账单/迟到响应/人工核对同时到达",
+      "expected": "结算唯一；冲突进差异案件；未知成本仍null",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MODEL-04",
+      "gate": "G3",
+      "setup": "mock/live/replay以及模型未提供实际名字",
+      "expected": "模式可辨；actual_model=null；replay不重新付费",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MODEL-05",
+      "gate": "G3",
+      "setup": "无供应商/费用配置/预算/核对负责人或截止时间",
+      "expected": "live拒绝配置不足，已保存输入不丢",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "ROLE-01",
+      "gate": "G3",
+      "setup": "四角色读其他孩子来源、检索中注入执行命令",
+      "expected": "归属拒绝；输出白名单，不能改权限/过关/预算",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "REPORT-01",
+      "gate": "G3",
+      "setup": "引用不存在来源、队友私聊、未检查作品、重复生成",
+      "expected": "拒绝或保留失败草稿；不重跑孩子实验",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "REPORT-02",
+      "gate": "G3",
+      "setup": "未审核、过期审核、未结异议、跨范围发布",
+      "expected": "禁止发布；通过固定revision/hash审核后才能发布",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "REPORT-03",
+      "gate": "G3",
+      "setup": "家长读draft、撤销后读取、同意撤回与发布竞态",
+      "expected": "无未发布数据；撤销后失效；发布与撤回原子排序",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "HUMAN-01",
+      "gate": "G3",
+      "setup": "案件无排班、重复认领、越scope转交、到期升级",
+      "expected": "未配置503；仅一次认领；有责任人与可见出口",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "COMPAT-01",
+      "gate": "G4",
+      "setup": "v1原样例API、所有旧比赛哈希、两报告、三工作台角色",
+      "expected": "原语义保留；new v2不会覆盖旧注册和记录",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "COMPAT-02",
+      "gate": "G4",
+      "setup": "方向/投票/全员分工/内部AI发布/本人任务/同伴检查顺序",
+      "expected": "新学习进度不改变原团队权威",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "ROLLBACK-01",
+      "gate": "G4",
+      "setup": "关闭三个开关，已有unknown与已撤销session，旧导航恢复",
+      "expected": "停新派发，继续核对和历史读取；不恢复旧token/删账本",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    },
+    {
+      "id": "MIGRATE-01",
+      "gate": "G4",
+      "setup": "增量迁移失败、重复执行、备份恢复，含原报告/比赛数据",
+      "expected": "整批回滚/版本校验；旧行保持，未知调用不重放",
+      "status": "not_run",
+      "implementation_test": "待S00登记隔离测试文件"
+    }
+  ]
+}

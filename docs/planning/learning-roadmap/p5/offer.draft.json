@@ -1,0 +1,24 @@
+{
+  "schema_version": "p5-offer-draft-0.2.0",
+  "approval_status": "draft",
+  "sales_enabled": false,
+  "course_version_id": "invitation-course@0.1.0",
+  "title": "做出第一张活动邀请卡",
+  "service_scope_version_id": "first-theme-service@1.0.0",
+  "service_scope_file": "service-scope.confirmed.json",
+  "price_minor": null,
+  "currency": null,
+  "capacity": null,
+  "schedule": null,
+  "staff_assignments": null,
+  "support_contact": null,
+  "model_budget_config": null,
+  "refund_policy_version": null,
+  "history_retention_policy_version": null,
+  "approved_at": null,
+  "proposal": {
+    "cohort_upper_bound": 5,
+    "status": "not_approved_not_runtime_defaults"
+  },
+  "notice": "服务范围已获用户确认用于准备，正式报价仍是不可售草案；不能作为业务配置导入，原型虚构金额不是报价。"
+}

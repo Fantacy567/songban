@@ -1,0 +1,343 @@
+{
+  "date": "2026-11-02",
+  "contract_version": "0.2.1",
+  "validation": "passed",
+  "scope": "offline proposal structure, local references, schema-subset conditions/examples, cross-field invariants, S01 field alignment; NOT API/runtime/permissions/transaction tests",
+  "structural_assertions": 1518,
+  "offline_contract_cases": [
+    {
+      "id": "START-first-topic",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "START-unanswered-reset",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "START-empty-patch",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-answered-null",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-answered-empty",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-answered-whitespace",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-skipped-with-value",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-client-completion",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-restored-draft",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "START-fake-completion",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-hidden-unanswered",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-fake-learner-choice",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-default-explicit",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "START-default-stale",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-default-mixed-edit",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "HELP-unknown",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "HELP-example-without-source",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "HELP-example-with-source",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "HELP-adult-content",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-preflight-input",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-submit-incomplete-input",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-advance-forbidden",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-preflight-no-dispatch",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-preflight-illegal-case",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-preflight-illegal-pass",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-preflight-fake-human-result",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-preflight-complete-no-staff",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-submitted",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-no-staff-dispatch",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-incomplete-dispatch",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-review-no-staff-blocked",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-unknown-waits",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-unknown-fake-failure",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "CHECK-unknown-dispatch",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "REVIEW-persist-unclear",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "REVIEW-unclear-cannot-pass",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "REVIEW-four-supported",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "REVIEW-duplicate-criterion",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "START-patch-preserves-omitted",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "START-patch-cannot-wipe-omitted",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-family-discovery",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-family-limit-one",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-consent-minimal",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-consent-no-adult-details",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-revoked-no-effective-scope",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-pending-no-effective-scope",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-draft-text-disabled",
+      "expected_valid": true,
+      "actual_valid": true,
+      "result": "passed"
+    },
+    {
+      "id": "RECOVERY-draft-cannot-enable",
+      "expected_valid": false,
+      "actual_valid": false,
+      "result": "passed"
+    }
+  ],
+  "operations": 66,
+  "schemas": 100,
+  "examples": 16,
+  "acceptance_scenarios": 37,
+  "acceptance_scenarios_executed": 0,
+  "content_alignment": "passed",
+  "frozen_0_2_0_schemas": 13,
+  "api_registered": false,
+  "db_migrated": false,
+  "paid_calls": 0,
+  "checks": [
+    {
+      "file": "openapi.proposed.json",
+      "sha256": "64eeb934e9c2509ad61b163aa37e87f3678b5ad4456135ad0c448da37fce3b0c"
+    },
+    {
+      "file": "operations.json",
+      "sha256": "3de4e18ff360b041d0c219c4a5a8f0036b4d12a6ec97313829ef1f536a3edd36"
+    },
+    {
+      "file": "examples.json",
+      "sha256": "93993ee92598904be35584a906457544e6c718ecfe3de1e0a1e6a22d2234f347"
+    },
+    {
+      "file": "acceptance.json",
+      "sha256": "713febec09d9c72992cc06d5c17ec001fb5e56929601289c98a2c8a58485375d"
+    },
+    {
+      "file": "ui-actions.json",
+      "sha256": "ca332ad2bf94acc206c674b120f3955001b7664758e8825217a82db2f3b547b1"
+    },
+    {
+      "file": "contract-cases.json",
+      "sha256": "106b6a92bdbb99c956dd4f92aa53ea4c2b849fbad00488db7c8ba033e5ac3c50"
+    },
+    {
+      "file": "frozen-0.2.0.json",
+      "sha256": "cbd1ba28cca146bd058cbd6eb4a77f8ab2a718f53089f70e654548c9be8e0105"
+    }
+  ],
+  "limitations": [
+    "自带校验器仅覆盖本契约使用的schema子集（含组合/条件/contains），不是完整OpenAPI 3.1规范认证",
+    "离线条件案例检查提案内部约束，不执行后端起点存储/关卡推进/派单/数据库事务",
+    "未执行真实身份/旧Bearer/并发/模型/报告端到端验收",
+    "G0仍须S00与产品/教研审阅"
+  ]
+}

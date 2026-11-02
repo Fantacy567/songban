@@ -51,6 +51,22 @@ command = "existing-command"
         self.assertFalse((self.root/'.songban/connection.json').exists())
         self.assertFalse((self.root/'.songban/install.lock').exists())
 
+    def test_cursor_installs_explicit_conversation_skill(self):
+        self.install('cursor')
+        skill=self.root/'.cursor/skills/songban-connector/SKILL.md'
+        text=skill.read_text(encoding='utf-8')
+        self.assertIn('name: songban-connector',text)
+        self.assertIn('songban_sync_selected_turn',text)
+        self.assertIn('full_reply_authorized',text)
+        self.assertNotIn('sbconn_',text)
+
+    def test_cursor_skill_conflict_preserves_existing_content(self):
+        skill=self.root/'.cursor/skills/songban-connector/SKILL.md'
+        skill.parent.mkdir(parents=True)
+        skill.write_text('unrelated skill',encoding='utf-8')
+        with self.assertRaises(InstallError):self.install('cursor')
+        self.assertEqual(skill.read_text(encoding='utf-8'),'unrelated skill')
+
     def test_reinstall_only_replaces_our_managed_block(self):
         self.install();r=self.install(token='sbconn_new-test-connection',connection_id='new-install')
         p=self.root/'.codex/config.toml';self.assertEqual(p.read_text(encoding='utf-8').count('[mcp_servers.songban-team]'),1)

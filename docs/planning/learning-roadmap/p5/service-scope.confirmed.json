@@ -1,0 +1,32 @@
+{
+  "schema_version": "p5-service-scope-1.0.0",
+  "scope_version_id": "first-theme-service@1.0.0",
+  "status": "confirmed_for_preparation",
+  "confirmed_on": "2026-11-02",
+  "confirmation_source": "user_reply",
+  "confirmation_text": "按这个范围准备，暂不开售",
+  "sales_authorized": false,
+  "scope": {
+    "topic_count": 1,
+    "stage_count": 3,
+    "practice_session_count": 2,
+    "practice_minutes_per_session": 30,
+    "practice_duration_qualifier": "approximately",
+    "human_support_session_count": 2,
+    "human_support_minutes_per_session_max": 10,
+    "reviewed_parent_report_count": 1,
+    "service_duration_days": 7,
+    "feedback_after_submission_business_days": 3
+  },
+  "not_confirmed": [
+    "price_and_currency",
+    "opening_date_and_service_start_rule",
+    "staff_and_service_hours",
+    "capacity",
+    "business_day_calendar",
+    "additional_review_after_remedial_work",
+    "payment_and_refund_policy",
+    "history_retention_policy",
+    "live_model_budget"
+  ]
+}

@@ -133,6 +133,11 @@ def install_project(root,tool,url,sid,actor_id,connection_id,token,probe=None,bi
             if skill.exists() and '松伴团队联络员' not in skill.read_text(encoding='utf-8-sig'):raise InstallError('skill_conflict','已有同名技能，未覆盖。',409)
             files[skill]=(PLUGIN_ROOT/'skills/songban-team/SKILL.md').read_bytes()
             files[target_path(root,'.agents/skills/songban-team/agents/openai.yaml')]=(PLUGIN_ROOT/'skills/songban-team/agents/openai.yaml').read_bytes()
+        if tool=='cursor':
+            skill=target_path(root,'.cursor/skills/songban-connector/SKILL.md')
+            if skill.exists() and '松伴连接器' not in skill.read_text(encoding='utf-8-sig'):
+                raise InstallError('skill_conflict','已有同名技能，未覆盖。',409)
+            files[skill]=(PLUGIN_ROOT.parent/'songban-native/skills/team-sync/SKILL.md').read_bytes().replace(b'name: team-sync',b'name: songban-connector')
         gitignore=target_path(root,'.gitignore');ignore_text=gitignore.read_text(encoding='utf-8-sig') if gitignore.exists() else ''
         if '.songban/' not in ignore_text.splitlines():files[gitignore]=(ignore_text.rstrip()+'\n\n# 松伴个人连接（含私有凭证，不提交）\n.songban/\n').encode()
         backup.mkdir(parents=True,mode=0o700)
