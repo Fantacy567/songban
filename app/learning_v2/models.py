@@ -299,13 +299,20 @@ class ModelDomain:
             sources = self.project_model_sources(con, run, body['role_id'], body['source_ids'])
             role = self._roles()['roles'][body['role_id']]
             value = dict(id=ident(), revision=1, run_id=run['id'], role_id=body['role_id'], prompt_version=role['prompt_version'], help_level=body['help_level'], mode=body['mode'], text=None, sources=[{k:v for k,v in s.items() if k!='content'} for s in sources], actions=[], model_run_id=None, parent_revision=run['revision']+1, task_id=card['id'], task_card_version=card['version'])
-            private = {'question': body['question'], 'source_ids': body['source_ids'], 'content_version': self._roles()['version']}
+            private = {'question': body['question'], 'source_ids': body['source_ids'], 'content_version': self._roles()['version'], 'created_at': self.stamp()}
             if body['mode'] == 'static':
                 value.update(text=role['hints'][body['help_level']-1], actions=['open_tool_card','request_human_help'])
                 self.put(con, 'help', value, run['learner_id'], run['id'], private)
             else:
                 # NewHelp has no replay_of: reuse the most recent exact matching input.
                 payload = {'role_id':body['role_id'], 'help_level':body['help_level'], 'question':body['question'], 'task':{k:card[k] for k in ('id','version','stage','goal','instructions')}, 'sources':sources, 'source_ids':body['source_ids']}
+                if self.settings.studio_enabled:
+                    value['prompt_version'] = role['prompt_version'] + '+studio.1'
+                    payload['workbench'] = self.studio_teaching_context(card['stage'])
+                    payload['conversation'] = self.recent_teaching_context(con, session, run, body)
+                    entry = self.confirmed_entry_context(con, session, run['learner_id'])
+                    if entry:
+                        payload['learner_self_report'] = entry
                 replay = None
                 if body['mode'] == 'replay':
                     replay = next((m['id'] for m in reversed(self.objects(con, 'model', run=run['id'])) if m['help_event_id'] and m['status']=='succeeded' and self.meta(con,m['id']).get('input_hash')==sha(payload)), None)
@@ -318,8 +325,41 @@ class ModelDomain:
                     value.update(model_run_id=model['id'], revision=value['revision']+1)
                     self.put(con, 'help', value)
             self.update_run(con, run, invalidate=True)
-            return value, None
+            return self.help_projection(con, value), None
         fail(404, 'resource_not_found', '找不到模型操作。')
+
+    def studio_teaching_context(self, stage):
+        """Versioned product capabilities, not inferred learner abilities."""
+        return {'version': 'invitation-studio-context@0.1.0', 'kind': 'controlled_text_invitation',
+                'current_stage': stage, 'current_steps': {
+                    'clarify': ['展开当前动手小任务', '阅读活动资料', '自己填写并保存要求', '核对后进入下一步'],
+                    'create': ['展开当前动手小任务', '保存工具输入', '生成候选', '核对后保存这张作品', '打开已保存的作品'],
+                    'review': ['做一次自己的检查', '亲手改进一处并另存版本', '换材料尝试', '写复盘并明确送老师复核'],
+                }[stage],
+                'limits': '本页只编辑文字字段并在平台保存作品；没有页面大小、横竖方向、外部空白画布、下载文件命名或上传文件的必做步骤。候选、保存、本人打开确认、过关和发布分别处理。'}
+
+    def recent_teaching_context(self, con, session, run, body):
+        """Small, authorized context; old full transcripts never enter the prompt."""
+        history = []
+        for item in reversed(self.objects(con, 'help', run=run['id'])):
+            if item['task_id'] != body['task_id'] or item['task_card_version'] != body['task_card_version']:
+                continue
+            meta = self.meta(con, item['id'])
+            question = meta.get('question')
+            if not question or question == body['question'] or not set(meta.get('source_ids', [])) <= set(body['source_ids']):
+                continue
+            if item['model_run_id']:
+                try:
+                    model = self.model_read(con, 'modelRun', session, {'model_run_id': item['model_run_id']}, {})
+                    if model['visibility'] != 'normal' or model['status'] != 'succeeded':
+                        continue
+                except Problem:
+                    continue
+            if item.get('text'):
+                history.append({'help_id': item['id'], 'question': question[:500], 'reply': item['text'][:800], 'mode': item['mode']})
+            if len(history) == 4:
+                break
+        return list(reversed(history))
 
     def _model_messages(self, purpose, payload):
         rules = self._roles()
@@ -329,6 +369,11 @@ class ModelDomain:
             instruction += ' 当前角色：'+role['name']+'。只返回 {"text":提示,"actions":[建议动作],"source_ids":[引用]}。动作仅 open_tool_card/save_candidate/request_human_help。'
             if payload['role_id'] == 'tool_guide':
                 instruction += ' 当前工具卡：'+canonical(rules['tool_card'])
+            if 'workbench' in payload:
+                instruction += (' 当前教学环境是松伴内置的受控文字邀请卡工作台。'
+                    '只能依据workbench和当前task描述建议页面实际支持的操作，不得发明控件、外部软件或设置步骤。'
+                    '历史回复可能不适合当前页面，不要继续错误指引。每次先给一个孩子能自己完成的小动作；'
+                    '不确定界面时请孩子展开当前动手小任务，不要猜测。')
         elif purpose == 'attempt':
             instruction += ' 仅返回邀请候选 JSON，字段 title/audience/date/start_time/end_time/place/preparation/invitation_line；事实不补造，不含HTML、网址或联系方式。'
         else:

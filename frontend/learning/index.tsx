@@ -4,6 +4,8 @@ import { LearningApi } from './api';
 import { FamilyPage } from './FamilyPage';
 import { StartPage } from './StartPage';
 import { HomePage } from './HomePage';
+import { FirstWorkPage } from './FirstWorkPage';
+import { CourseHallPage } from './CourseHallPage';
 import { RunPage } from './RunPage';
 import { WorksPage } from './WorksPage';
 import { ReviewAdmin } from './ReviewAdmin';
@@ -19,6 +21,9 @@ function App({ api, options, bridge }: { api: LearningApi; options: MountOptions
   const readyBoundary = useRef<number | null>(null);
   if (identity.phase === 'ready') readyBoundary.current = identity.boundary;
   const [route, setRoute] = useState<Route>(options.initialRoute && validRoute(options.initialRoute) ? options.initialRoute : '#/learn');
+  const learningTarget = useRef<Route>(options.initialRoute && validRoute(options.initialRoute) && !['#/family', '#/learning-admin'].includes(options.initialRoute) ? options.initialRoute : '#/learn');
+  const targetLearner = useRef<string | null>(null);
+  if (identity.phase === 'ready' && identity.session?.mode === 'learner' && !targetLearner.current) targetLearner.current = identity.session.learner_id;
   const [auth, setAuth] = useState(false), [message, setMessage] = useState(''), [leave, setLeave] = useState<((allow: boolean) => void) | null>(null);
   const guard = useRef<LeaveGuard>({ dirty: false }), heading = useRef<HTMLHeadingElement>(null), leaveRef = useRef<((allow: boolean) => void) | null>(null);
   const setGuard = useCallback((g: LeaveGuard) => { guard.current = g; }, []);
@@ -30,8 +35,9 @@ function App({ api, options, bridge }: { api: LearningApi; options: MountOptions
   const answerLeave = (allow: boolean) => { leaveRef.current?.(allow); leaveRef.current = null; setLeave(null); };
   const navigate = useCallback(async (next: Route) => {
     if (!validRoute(next) || !(await canLeave())) return false;
+    if (!['#/family', '#/learning-admin'].includes(next)) { learningTarget.current = next; targetLearner.current = api.snapshot().session?.learner_id || null; }
     setRoute(next); setAuth(false); options.onRouteChange?.(next); return true;
-  }, [canLeave, options]);
+  }, [api, canLeave, options]);
   useEffect(() => { bridge.navigate = navigate; bridge.canLeave = canLeave; return () => { bridge.navigate = undefined; bridge.canLeave = undefined; }; }, [bridge, navigate, canLeave]);
   useEffect(() => { void api.revalidate(); return () => { leaveRef.current?.(false); }; }, [api]);
   useEffect(() => { const before = (e: BeforeUnloadEvent) => { if (guard.current.dirty) { e.preventDefault(); e.returnValue = ''; } }; window.addEventListener('beforeunload', before); return () => window.removeEventListener('beforeunload', before); }, []);
@@ -42,20 +48,23 @@ function App({ api, options, bridge }: { api: LearningApi; options: MountOptions
   const changing = identity.phase === 'checking' || identity.phase === 'loading';
   async function change(kind: 'authenticate' | 'enter-learner' | 'logout', fields: Record<string, unknown> = {}) {
     setMessage(''); setAuth(false);
-    try { await api.changeIdentity(kind, fields); if (kind === 'enter-learner') { setRoute('#/learn'); options.onRouteChange?.('#/learn'); } }
+    const switchedChild = kind === 'enter-learner' && targetLearner.current && targetLearner.current !== fields.learner_id;
+    const pendingTarget = !config?.studio_enabled || switchedChild ? '#/learn' : learningTarget.current;
+    try { await api.changeIdentity(kind, fields); if (kind === 'enter-learner') { const target = pendingTarget === '#/learn' && config?.studio_enabled ? '#/learn/first' : pendingTarget; learningTarget.current = target; targetLearner.current = String(fields.learner_id); setRoute(target); options.onRouteChange?.(target); } else if (kind === 'logout') { learningTarget.current = '#/learn'; targetLearner.current = null; } }
     catch { setMessage('这次身份操作未确认成功。已重新核对当前会话，请按当前身份继续或重新输入密码。'); }
   }
-  return <div data-learning-root="" className="lp-root">
-    <header className="lp-header"><img src="/static/design/pine-mascot.png" alt="" width="64" height="64" /><div><span className="lp-eyebrow">松伴 · 一起慢慢学</span><h1 tabIndex={-1} ref={heading}>{session?.mode === 'staff' || route === '#/learning-admin' ? '复核待办' : route === '#/family' ? '家庭与授权' : parsed.page === '#/learn/run' ? '做好眼前这一步' : parsed.page === '#/learn/works' ? '看看留下的作品' : '找到舒服的开始方式'}</h1></div></header>
+  return <div data-learning-root="" className={`lp-root${config?.studio_enabled && parsed.page === '#/learn/run' ? ' lp-studio-page' : ''}`}>
+    <header className="lp-header"><img src="/static/design/pine-mascot.png" alt="" width="64" height="64" /><div><span className="lp-eyebrow">松伴 · 一起慢慢学</span><h1 tabIndex={-1} ref={heading}>{session?.mode === 'staff' || route === '#/learning-admin' ? '复核待办' : route === '#/family' ? '家庭与授权' : parsed.page === '#/learn/run' ? '做好眼前这一步' : parsed.page === '#/learn/works' ? '看看留下的作品' : parsed.page === '#/learn/courses' ? '找一个想做的小作品' : '找到舒服的开始方式'}</h1></div></header>
     <div className="lp-content">
-      {config?.notice && !['#/learn/run', '#/learn/works', '#/learning-admin'].includes(parsed.page) && session?.mode !== 'staff' && <Notice>{config.notice}</Notice>}
+      {config?.notice && !['#/learn/run', '#/learn/works', '#/learn/first', '#/learn/courses', '#/learning-admin'].includes(parsed.page) && !(config.studio_enabled && parsed.page === '#/learn') && session?.mode !== 'staff' && <Notice>{config.notice}</Notice>}
       {config && !config.learning_enabled && <Notice>学习入口暂未开放，已保存的记录可在授权范围内查看。</Notice>}
       {message && <Notice error>{message}</Notice>}
       {changing && <Notice>正在核对当前身份…</Notice>}
       {identity.phase === 'error' && <section className="lp-card"><Notice error>{identity.notice}</Notice><button className="lp-primary" onClick={() => void api.revalidate()}>重新核对身份</button></section>}
       <div hidden={identity.phase !== 'ready'}>
         <nav className="lp-actions" aria-label="学习准备页面">
-          {session?.mode === 'learner' && <><button aria-current={route === '#/learn' ? 'page' : undefined} onClick={() => void navigate('#/learn')}>我的学习起点</button><button onClick={() => void navigate('#/learn/start')}>调整帮助方式</button></>}
+          {session?.mode === 'learner' && <><button aria-current={route === '#/learn' || route === '#/learn/first' ? 'page' : undefined} onClick={() => void navigate(config?.studio_enabled ? '#/learn/first' : '#/learn')}>{config?.studio_enabled ? '继续我的作品' : '我的学习起点'}</button><button onClick={() => void navigate('#/learn/start')}>调整帮助方式</button></>}
+          {session?.mode === 'learner' && config?.catalog_enabled && <button aria-current={route === '#/learn/courses' ? 'page' : undefined} onClick={() => void navigate('#/learn/courses')}>课程大厅</button>}
           <button onClick={async () => { if (await canLeave()) { setRoute('#/family'); setAuth(session?.mode !== 'manager'); options.onRouteChange?.('#/family'); } }}>家长管理</button>
           {session?.mode === 'staff' && <button onClick={() => void navigate('#/learning-admin')}>我的复核待办</button>}
           {session && <button onClick={async () => { if (await canLeave()) await change('logout'); }}>退出当前身份</button>}
@@ -68,6 +77,8 @@ function App({ api, options, bridge }: { api: LearningApi; options: MountOptions
             : session.mode === 'learner' && session.learner_id && config ? parsed.page === '#/learn/run' && parsed.id ? <RunPage key={parsed.id} api={api} learnerId={session.learner_id} id={parsed.id} config={config} setGuard={setGuard} canLeave={canLeave} navigate={navigate} review={parsed.review} />
               : parsed.page === '#/learn/works' ? <WorksPage key={route} api={api} learnerId={session.learner_id} id={parsed.id} version={parsed.version} navigate={navigate} setGuard={setGuard} />
               : route === '#/learn/start' ? <StartPage key={route} api={api} learnerId={session.learner_id} config={config} setGuard={setGuard} edit={() => void navigate('#/learn/start')} />
+              : route === '#/learn/courses' ? <CourseHallPage api={api} learnerId={session.learner_id} config={config} setGuard={setGuard} navigate={navigate} />
+              : config.studio_enabled && (route === '#/learn/first' || route === '#/learn') ? <FirstWorkPage api={api} learnerId={session.learner_id} config={config} setGuard={setGuard} navigate={navigate} />
               : <HomePage api={api} learnerId={session.learner_id} config={config} setGuard={setGuard} navigate={navigate} />
             : <Notice>这个会话不提供家庭管理视图。请使用获准的管理入口，或重新认证家长账号。</Notice>}
         </div>}

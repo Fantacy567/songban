@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">松果班故事交换会邀请卡示例</title>
+  <desc id="desc">虚构活动的固定模板示例，显示邀请对象、时间、地点和准备物品，不是孩子已完成的作品。</desc>
+  <!-- Original Songban course illustration. Copyright 2026 2292576833, Fantacy567, andorwu5-dev. -->
+  <rect width="900" height="600" fill="#eeebff"/>
+  <circle cx="80" cy="84" r="95" fill="#dfd5ff"/><circle cx="840" cy="565" r="170" fill="#e1d9fc"/>
+  <path d="M106 436l12 25 28 4-20 20 5 28-25-13-25 13 5-28-20-20 28-4z" fill="#d8ed72"/>
+  <rect x="178" y="51" width="554" height="507" rx="23" fill="#cfc5f0"/>
+  <rect x="166" y="39" width="554" height="507" rx="23" fill="#fffdf5"/>
+  <path d="M189 39h508a23 23 0 0 1 23 23v15H166V62a23 23 0 0 1 23-23z" fill="#8064db"/>
+  <g fill="#272432" font-family="Microsoft YaHei, PingFang SC, sans-serif">
+    <text x="211" y="120" font-size="18" fill="#7352ca" letter-spacing="3">一起分享故事</text>
+    <text x="208" y="178" font-size="35" font-weight="700">松果班故事交换会</text>
+    <text x="211" y="226" font-size="22">给：松果班同学</text>
+    <path d="M210 251h466" stroke="#e7dfd0"/>
+    <text x="211" y="296" font-size="20">时间　2030 年 5 月 18 日</text>
+    <text x="272" y="330" font-size="20">14:00–15:00</text>
+    <text x="211" y="379" font-size="20">地点　松果活动室</text>
+    <text x="211" y="427" font-size="20">准备　一本愿意分享的故事书</text>
+    <text x="211" y="493" font-size="22" fill="#7352ca">带上你的故事，我们一起交换！</text>
+  </g>
+  <path d="M740 129l39-64 39 64h-22l34 54h-102l34-54z" fill="#d8ed72"/>
+  <path d="M772 175h14v34h-14z" fill="#d8ed72"/>
+  <circle cx="767" cy="143" r="8" fill="#272432"/><circle cx="791" cy="143" r="8" fill="#272432"/>
+</svg>

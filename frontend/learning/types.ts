@@ -1,5 +1,5 @@
 /** Consumer types for the frozen, proposed learning-v2 0.2.1 P1 subset. */
-export type Route = '#/family' | '#/learn' | '#/learn/start' | '#/learning-admin' | `#/learn/run?${string}` | '#/learn/works' | `#/learn/works?${string}`;
+export type Route = '#/family' | '#/learn' | '#/learn/first' | '#/learn/courses' | '#/learn/start' | '#/learning-admin' | `#/learn/run?${string}` | '#/learn/works' | `#/learn/works?${string}`;
 export interface MountOptions {
   initialRoute?: Route;
   onRouteChange?: (route: Route) => void;
@@ -16,7 +16,7 @@ export interface MountHandle {
 }
 export interface Session { id: string; revision: number; mode: 'manager' | 'learner' | 'staff'; actor_id: string; learner_id: string | null; mode_epoch: number; scopes: string[]; expires_at: string }
 export interface Bootstrap { csrf_token: string; browser_revision: number }
-export interface Config { contract_version: string; learning_enabled: boolean; live_enabled: boolean; publication_enabled: boolean; age_band_options: string[]; consent_version: string; notice: string; live_model_config_version?: string | null; mock_enabled?: boolean; reports_enabled?: boolean; reports_readable?: boolean }
+export interface Config { contract_version: string; learning_enabled: boolean; live_enabled: boolean; publication_enabled: boolean; age_band_options: string[]; consent_version: string; notice: string; live_model_config_version?: string | null; mock_enabled?: boolean; reports_enabled?: boolean; reports_readable?: boolean; studio_enabled?: boolean; catalog_enabled?: boolean }
 export type Relationship = 'pending' | 'verified' | 'rejected' | 'revoked';
 export interface LearnerSelf { id: string; revision: number; display_name: string; age_band: string | null }
 export interface Learner extends LearnerSelf { family_id: string; guardian_link: { id: string; revision: number; learner_id: string; status: Relationship; declared_relationship: string; verification_method: string | null } }

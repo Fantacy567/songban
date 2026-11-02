@@ -1,0 +1,116 @@
+/* Isolated synthetic UI checks. No real identity, database, mail or model calls. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), path = require('node:path');
+const { chromium } = require('playwright'), esbuild = require('esbuild');
+const root = path.resolve(__dirname, '../../..');
+const out = process.env.SONGBAN_COMPANION_EVIDENCE || path.resolve(root, '../outputs/learning-experience/companion');
+const state = { helps: [], models: {}, revision: 1, studio: true, next: 'succeeded', writes: [], reads: [], role: 'S1.1' };
+const body = () => ({ helps: state.helps, revision: state.revision, studio: state.studio, role: state.role });
+const results = [];
+const record = name => results.push({ name, passed: true });
+async function main() {
+  fs.mkdirSync(out, { recursive: true });
+  const entry = `
+    import React, { useCallback, useEffect, useState } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { RolesPanel } from './frontend/learning/RolesPanel';
+    import { useLessonMutation } from './frontend/learning/workspace';
+    import './frontend/learning/learning.css';
+    const api={request:async(p,method='GET',b)=>{const r=await fetch('/api'+p,{method,headers:{'Content-Type':'application/json'},body:b===undefined?undefined:JSON.stringify(b)});if(!r.ok)throw Error('fixture');return r.json();}};
+    function App(){const [s,set]=useState(null);const load=useCallback(async()=>{set(await(await fetch('/state')).json());},[]);useEffect(()=>{load();},[load]);const m=useLessonMutation(api,load);window.fixtureLoad=load;window.fixtureGuard=null;const guard=useCallback(g=>{window.fixtureGuard=g.dirty},[]);if(!s)return <p>读取中</p>;
+      const task={id:s.role,version:'fixture-v1',stage:s.role.startsWith('S1')?'clarify':s.role.startsWith('S2')?'create':'review',goal:'对照资料，让同学知道活动在哪里。'};
+      return <RolesPanel api={api} run={{id:'run-fixture',revision:s.revision,allowed_actions:['help']}} task={task} helps={s.helps} config={{learning_enabled:true,live_enabled:true,studio_enabled:s.studio}} mutation={m} setGuard={guard} sourceIds={{guide:[],tool_guide:[],creation_coach:[],review_coach:[]}}/>;
+    }createRoot(document.getElementById('root')).render(<App/>);`;
+  await esbuild.build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, format: 'iife', jsx: 'automatic', outfile: path.join(out, 'fixture.js'), define: { 'process.env.NODE_ENV': '"development"' } });
+  const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+  const page = await browser.newPage({ viewport: { width: 900, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url()), p = url.pathname;
+    const json = value => route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
+    if (p === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/fixture.css"><div data-learning-root class="lp-root"><div id="root"></div></div><script src="/fixture.js"></script>' });
+    if (p === '/fixture.js' || p === '/fixture.css') return route.fulfill({ contentType: p.endsWith('.js') ? 'text/javascript' : 'text/css', body: fs.readFileSync(path.join(out, p.slice(1))) });
+    if (p === '/static/design/pine-mascot.png') return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(path.join(root, 'static/design/pine-mascot.png')) });
+    if (p === '/state') return json(body());
+    if (p === '/api/runs/run-fixture/help') {
+      const b = request.postDataJSON(); state.writes.push(b);
+      assert.equal(b.expected_revision, state.revision);
+      const id = `help-${state.writes.length}`, modelId = b.mode === 'live' ? `model-${id}` : null;
+      const h = { id, revision: 1, run_id: 'run-fixture', parent_revision: ++state.revision, role_id: b.role_id, help_level: b.help_level, mode: b.mode, question: b.question, created_at: '2026-11-02T12:00:00Z', text: b.mode === 'static' ? '先从资料找到地点，再自己决定怎么表达。' : null, sources: [], actions: [], prompt_version: 'fixture', model_run_id: modelId, task_id: b.task_id, task_card_version: b.task_card_version };
+      if (modelId) state.models[modelId] = { id: modelId, help_event_id: id, visibility: 'normal', status: state.next, actual_model: state.next === 'succeeded' ? 'fixture-model' : null, output_text: state.next === 'succeeded' ? JSON.stringify({ text: '试着把活动地点放在标题下方，再看看是否更清楚。' }) : null };
+      state.helps.push(h); return json(h);
+    }
+    if (p.startsWith('/api/model-runs/')) { const id = p.split('/').pop(); state.reads.push(id); return json(state.models[id]); }
+    throw Error(`Unexpected network access ${request.method()} ${url}`);
+  });
+  try {
+    await page.goto('http://127.0.0.1:43219/');
+    await page.getByRole('heading', { name: '和松伴聊' }).waitFor();
+    assert.equal(state.writes.length, 0);
+    assert.equal(await page.getByLabel('找谁帮忙', { exact: true }).count(), 0);
+    record('Opening the studio has one companion and never auto-runs a model');
+    const question = '地点太长怎么办？<script>window.injected=true</script>';
+    await page.getByLabel('想问松伴什么', { exact: true }).fill(question);
+    assert.equal(await page.evaluate(() => window.fixtureGuard), true);
+    await page.getByRole('button', { name: '发送，看看本步提示', exact: true }).click();
+    await page.locator('.lp-message-user').getByText(question, { exact: true }).waitFor();
+    assert.equal(state.writes[0].question, question);
+    assert.equal(state.writes[0].role_id, 'guide');
+    assert.equal(state.writes[0].mode, 'static');
+    assert.equal(await page.evaluate(() => window.injected), undefined);
+    record('Static prompt records the actual question and renders text without executing it');
+    await page.reload();
+    await page.getByText(question, { exact: true }).waitFor();
+    await page.getByText('先从资料找到地点，再自己决定怎么表达。', { exact: true }).waitFor();
+    assert.equal(state.writes.length, 1);
+    record('Reload restores both saved question and static response without replaying the write');
+    await page.getByLabel('想问松伴什么', { exact: true }).fill('我还没发出去的想法');
+    state.role = 'S3.2';
+    await page.evaluate(() => window.fixtureLoad());
+    assert.equal(await page.getByLabel('想问松伴什么', { exact: true }).inputValue(), '我还没发出去的想法');
+    await page.getByText('步骤已经更新，你还没发送的话仍在这里。先看看当前任务，再决定怎样问。', { exact: true }).waitFor();
+    record('A task update keeps the unsent draft and explains the changed context');
+    await page.getByLabel('这次怎样帮我', { exact: true }).selectOption('live');
+    await page.getByLabel('想问松伴什么', { exact: true }).fill('我想改一下地点的排版');
+    await page.getByRole('button', { name: '发送给松伴', exact: true }).click();
+    await page.getByText('试着把活动地点放在标题下方，再看看是否更清楚。', { exact: true }).waitFor();
+    assert.equal(state.writes[1].role_id, 'creation_coach');
+    assert.equal(state.writes[1].task_id, 'S3.2');
+    record('The task chooses the creation responsibility and preserves a real-response label');
+    state.next = 'unknown';
+    await page.getByLabel('想问松伴什么', { exact: true }).fill('这样会不会更好读？');
+    await page.getByRole('button', { name: '发送给松伴', exact: true }).click();
+    await page.getByText('这次结果还在核对，先保留你的问题。不会自动重新发送。', { exact: true }).waitFor();
+    await page.getByLabel('想问松伴什么', { exact: true }).fill('再问一个问题');
+    assert.equal(await page.getByRole('button', { name: '发送给松伴', exact: true }).isDisabled(), true);
+    const count = state.reads.length;
+    await page.waitForTimeout(2800);
+    assert.equal(state.reads.length, count);
+    assert.equal(state.writes.length, 3);
+    await page.getByRole('button', { name: '重新读取这次结果', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-help-id]').length === 3);
+    assert.equal(state.writes.length, 3);
+    record('Unknown status stops polling, blocks another live question and retry only rereads');
+    await page.getByLabel('这次怎样帮我', { exact: true }).selectOption('static');
+    assert.equal(await page.getByRole('button', { name: '发送，看看本步提示', exact: true }).isEnabled(), true);
+    record('Prepared hints remain available while a live response is under reconciliation');
+    await page.reload();
+    await page.getByText('这样会不会更好读？', { exact: true }).waitFor();
+    await page.getByText('这次结果还在核对，先保留你的问题。不会自动重新发送。', { exact: true }).waitFor();
+    await page.getByLabel('这次怎样帮我', { exact: true }).selectOption('live');
+    await page.getByLabel('想问松伴什么', { exact: true }).fill('还有一个问题');
+    assert.equal(await page.getByRole('button', { name: '发送给松伴', exact: true }).isDisabled(), true);
+    record('Unknown state survives reload and cannot be silently retried');
+    await page.screenshot({ path: path.join(out, 'companion-desktop.png'), fullPage: true });
+    state.studio = false;
+    await page.reload();
+    await page.getByLabel('找谁帮忙', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('heading', { name: '和松伴聊', exact: true }).count(), 0);
+    record('Turning off studio restores the legacy role panel');
+    assert.deepEqual(errors, []);
+    fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify({ results, errors, writes: state.writes.length, scope: 'isolated synthetic browser fixture' }, null, 2));
+    console.log(JSON.stringify({ passed: results.length, evidence: out }));
+  } finally { await browser.close(); }
+}
+main().catch(e => { console.error(e); process.exitCode = 1; });

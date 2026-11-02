@@ -14,7 +14,10 @@ import httpx
 from .planner import PlannerError, check_model_base, team_model_config
 from .model_transport import post_chat_completion
 
-MAX_QUESTIONS = 30
+MAX_QUESTIONS = 8
+# Accept stored transcripts from the former 30-question flow, but only summarize
+# them once the new limit is reached. Never discard previously saved answers.
+MAX_HISTORY_QUESTIONS = 30
 MAX_MESSAGES = 100
 MAX_USER_TEXT = 1000
 MAX_ASSISTANT_TEXT = 300
@@ -41,7 +44,7 @@ SYSTEM = """你是松伴注册后的访谈助手，帮助一个人说清自己�
 年龄和阶段只影响措辞与例子，不影响能力判断。不要诊断心理、性格、智力、天赋或职业前途；不要索取成绩、学校名称、收入、健康状况、证件或住址。
 你要了解的是这些方面（不是固定题目，也不用全部问到）：兴趣与动机、想做的东西、已有经历、怎样把想法说清楚并拆成小步、怎样检查和改进AI给的结果、喜欢怎样和别人合作、能投入的时间。不要求每个人回答技术问题。
 从具体经历和情境了解熟练程度：例如对方有游戏创意，就沿着这个创意问他会怎样让AI开始、怎样检查结果。不要像考试一样问术语，不要把说对概念当成有开发能力。允许对方没有作品、不知道、跳过。
-每次只问一个问题，紧接前面对方说过的内容，用对方听得懂的话，不超过60字，只用一个问号，不要列出1、2、3几个小问题，也不要重复已经问过的问题。通常10到15个问题就够，不必凑数。
+每次只问一个问题，紧接前面对方说过的内容，用对方听得懂的话，不超过60字，只用一个问号，不要列出1、2、3几个小问题，也不要重复已经问过的问题。通常5到6个核心问题就够，信息足够可以更早结束，不必凑数。6题后只有关键内容不清楚才补问，最多补充2题，总计不能超过8题；不要沿着作品细节不断追问。不了解的方面写进unknowns，不为补齐画像延长访谈。
 mode为profile_only时，不能再提问，必须输出画像草稿。
 提问格式：{"type":"ask","question":"一句中文问题","purpose":"内部追问目的，不给用户看","dimension":"interest_motivation|want_to_make|experience|express_decompose|check_iterate_ai|collaboration|time之一"}
 画像草稿格式：{"type":"profile_draft","interests":[条目],"goals":[条目],"experiences":[条目],"possible_strengths":[条目],"roles_to_try":[条目],"help_needed":[条目],"time_available":条目或null,"next_practice":[条目],"conflicts":[{"text":"前后说法不一致之处","evidence":["至少两条用户消息id"]}],"unknowns":["还不知道的方面"]}
@@ -77,8 +80,8 @@ def validate_request(request):
     count = request.get("asked_count")
     if type(count) is not int or count < 0:
         raise _bad_input("invalid_asked_count", "已问问题数必须是不小于0的整数。")
-    if count > MAX_QUESTIONS:
-        raise _bad_input("asked_count_over_limit", f"已问问题数不能超过{MAX_QUESTIONS}。")
+    if count > MAX_HISTORY_QUESTIONS:
+        raise _bad_input("asked_count_over_limit", f"历史问题数不能超过{MAX_HISTORY_QUESTIONS}。")
     finish = request.get("finish", False)
     if type(finish) is not bool:
         raise _bad_input("invalid_finish", "提前结束标记必须是true或false。")
@@ -238,7 +241,7 @@ def next_turn(request, runner=None):
     payload = {
         "mode": "profile_only" if must_profile else "ask_or_profile",
         "age_band": state["age_band"], "stage": state["stage"],
-        "asked_count": count, "max_questions": MAX_QUESTIONS, "remaining_questions": MAX_QUESTIONS - count,
+        "asked_count": count, "max_questions": MAX_QUESTIONS, "remaining_questions": max(0, MAX_QUESTIONS - count),
         "dimensions": list(DIMENSIONS),
         "transcript": copy.deepcopy(state["messages"]),
     }

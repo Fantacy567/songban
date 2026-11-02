@@ -15,6 +15,8 @@ from .storage import Store
 from .course import CourseDomain
 from .models import ModelDomain
 from .reports import ReportDomain
+from .entry import EntryDomain
+from .entry_contract import install_entry_contract
 
 P3_MODEL_OPS = {'usage', 'reconciliation', 'reconciliations', 'resolveReconciliation'}
 P3_REPORT_OPS = {'createReport', 'report', 'reports', 'disputeReport', 'submitReport', 'reviewReport', 'publishReport', 'revokeReport'}
@@ -62,8 +64,12 @@ class Settings:
     # No teaching mapping is approved yet. None deliberately means conservative fallback.
     recommendation_rule_version: str = "unconfigured-conservative-v1"
     navigation_enabled: bool = False
+    studio_enabled: bool = False
+    catalog_enabled: bool = False
 
     def __post_init__(self):
+        if self.catalog_enabled and not self.studio_enabled:
+            raise ValueError("Course catalogue requires the first-work studio entry")
         if not 60 <= self.session_seconds <= 3600 or not self.session_seconds <= self.browser_seconds <= 86400:
             raise ValueError("Session/browser TTL outside supported bounds")
         if self.loopback_http and not self.allowed_origins:
@@ -100,7 +106,7 @@ class LegacyFence:
     connection_hash: str | None = None
 
 
-class LearningV2(ModelDomain, ReportDomain, CourseDomain):
+class LearningV2(EntryDomain, ModelDomain, ReportDomain, CourseDomain):
     def __init__(self, db_path, settings=None, *, password_verifier=None, clock=time.time):
         if settings is not None and not isinstance(settings, Settings):
             raise TypeError("Learning settings must be an explicit Settings instance")
@@ -108,6 +114,7 @@ class LearningV2(ModelDomain, ReportDomain, CourseDomain):
         self.clock = clock
         self.store = Store(db_path)
         self.contract = Contract()
+        install_entry_contract(self.contract)
         with closing(self.store.connect()) as con:
             tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             metering_history = 'learn_model_jobs' in tables and con.execute('SELECT 1 FROM learn_model_jobs LIMIT 1').fetchone() is not None
@@ -352,6 +359,8 @@ class LearningV2(ModelDomain, ReportDomain, CourseDomain):
         return selected, self.cursor(con, session, scope, selected[-1]["id"]) if len(rows) > limit else None
 
     def read(self, con, op, session, params, query):
+        if op in self.ENTRY_OPS:
+            return self.entry_read(con, op, session, params, query)
         if self.model_handles(con, op, params):
             return self.model_read(con, op, session, params, query)
         if self.report_handles(con, op, params):
@@ -403,6 +412,8 @@ class LearningV2(ModelDomain, ReportDomain, CourseDomain):
         fail(503, "operation_unavailable", "该功能尚未实现。", "contact_support")
 
     def authorize_write(self, con, op, session, params, body):
+        if op in self.ENTRY_OPS:
+            return self.entry_authorize(con, op, session, params, body)
         if (self.settings.models_enabled or op == 'resolveReconciliation') and self.model_handles(con, op, params):
             return self.model_authorize(con, op, session, params, body)
         if self.report_handles(con, op, params):
@@ -432,6 +443,8 @@ class LearningV2(ModelDomain, ReportDomain, CourseDomain):
             self.learner(con, session, row["learner_id"])
 
     def write(self, con, op, session, browser, params, body):
+        if op in self.ENTRY_OPS:
+            return self.entry_write(con, op, session, params, body), None
         if (self.settings.models_enabled or op == 'resolveReconciliation') and self.model_handles(con, op, params):
             return self.model_write(con, op, session, params, body)
         if self.report_handles(con, op, params):

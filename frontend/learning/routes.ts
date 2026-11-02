@@ -6,7 +6,7 @@ export function parseRoute(route: string): { page: string; id: string | null; ve
   const params = new URLSearchParams(query || '');
   const keys = [...params.keys()];
   if (new Set(keys).size !== keys.length) return null;
-  if (['#/family', '#/learn', '#/learn/start', '#/learning-admin'].includes(page)) return query === undefined ? { page, id: null, version: null, review: false } : null;
+  if (['#/family', '#/learn', '#/learn/first', '#/learn/courses', '#/learn/start', '#/learning-admin'].includes(page)) return query === undefined ? { page, id: null, version: null, review: false } : null;
   if (!['#/learn/run', '#/learn/works'].includes(page)) return null;
   const allowed = page === '#/learn/run' ? ['id', 'view'] : ['id', 'version'];
   if (keys.some(k => !allowed.includes(k))) return null;

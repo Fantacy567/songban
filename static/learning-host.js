@@ -2,7 +2,7 @@
 (() => {
   const host = document.querySelector('#learning-prep-root');
   const validRoute = hash => {
-    if (['#/learn', '#/learn/start', '#/family', '#/learning-admin'].includes(hash)) return true;
+    if (['#/learn', '#/learn/first', '#/learn/courses', '#/learn/start', '#/family', '#/learning-admin'].includes(hash)) return true;
     const [path, query = '', ...extra] = hash.split('?');
     if (extra.length || !['#/learn/run', '#/learn/works'].includes(path)) return false;
     const params = new URLSearchParams(query);
