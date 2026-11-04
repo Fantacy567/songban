@@ -1,6 +1,6 @@
 # 松伴产品规划与交付文档
 
-> **当前体验规划（2026-11-02）**：[双入口与儿童创作工作台](learning-roadmap/experience/README.md) · [宪法1.1.0](learning-roadmap/01-项目宪法.md) · [UI排版](learning-roadmap/experience/02-儿童工作台UI.md)。访谈确认后直达首作，默认与一个松伴交流，带图课程大厅已在E4实现。分会话工程交付与实际验证见[验收报告](learning-roadmap/experience/handoffs/W00-实施与验收.md)；仅8897合成预览启用，8894/8895未部署，收费仍暂停；下列底座与运营历史继续保留。
+> **当前平台规划（2026-11-02）**：[三入口、全程陪伴与作品集](learning-roadmap/platform/README.md) · [宪法2.0.0](learning-roadmap/01-项目宪法.md) · [UI层级](learning-roadmap/platform/01-UI层级与页面规范.md) · [H0–H6工期与分会话](learning-roadmap/platform/05-工期与分会话执行.md)。AI教学大厅、黑客松教学大厅、作品集为三个一级入口，黑客松先认识再实践；新目标尚待实施。既有[E0–E4工程交付](learning-roadmap/experience/README.md)继续复用，P5暂不开售；[实际状态](learning-roadmap/platform/00-基线与状态.md)明确单演示整合未激活。
 
 > **P5接续（2026-11-02）**：[服务包、报名权益和交互原型](learning-roadmap/p5/README.md)。服务范围已获用户确认用于准备，明确暂不开售；价格、日期、人员和退款/保留等规则仍待定。原型15组为既有检查结果，P4业务源码未改。P5-B实现、真实履约及G5商业判断尚未完成。
 

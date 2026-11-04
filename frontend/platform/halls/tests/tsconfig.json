@@ -1,0 +1,4 @@
+{
+  "extends": "../../../../tsconfig.learning.json",
+  "include": ["../**/*.ts", "../**/*.tsx"]
+}

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">给小机器接上一个新功能</title>
+  <desc id="desc">原创教学插画：中央基础小机器保留自己的画布，左边是一张关闭扩展时的朴素小卡，右边两个可拆卸模块分别带有格线与装饰符号，连接线和开关展示附加功能。仅为课程内扩展的比喻。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Joint ownership: COPYRIGHT.md. Original repo-native SVG for Songban; AI workbench attribution: 2292576833. Fictional teaching illustration, not a learner artifact or generated service output.</metadata>
+  <rect width="900" height="600" fill="#eee8fb"/><circle cx="106" cy="81" r="143" fill="#e4daf3"/>
+  <path d="M0 459q210-36 457 13t443-9v137H0Z" fill="#ded4ec"/><ellipse cx="473" cy="500" rx="314" ry="34" fill="#c8b8da"/>
+  <g transform="rotate(-8 158 305)"><rect x="68" y="203" width="164" height="207" rx="14" fill="#fffdf7"/><rect x="88" y="228" width="124" height="112" rx="7" fill="#ece6f4"/><circle cx="149" cy="280" r="23" fill="#c8b5df"/><rect x="118" y="361" width="65" height="24" rx="12" fill="#d4c9df"/><circle cx="131" cy="373" r="9" fill="#fffdf7"/></g>
+  <path d="M232 313h47" stroke="#af98c8" stroke-width="5" stroke-dasharray="5 9" stroke-linecap="round"/><path d="m269 302 14 11-14 11" fill="none" stroke="#af98c8" stroke-width="5" stroke-linecap="round"/>
+  <rect x="289" y="154" width="306" height="316" rx="33" fill="#ac94c6"/><rect x="289" y="142" width="306" height="308" rx="33" fill="#fffdf7"/>
+  <rect x="320" y="181" width="244" height="166" rx="15" fill="#e7edce"/>
+  <path d="M361 185v159m41-159v159m41-159v159m41-159v159m41-159v159m-202-124h239m-239 41h239m-239 41h239" stroke="#c9d7a3" stroke-width="2"/>
+  <circle cx="441" cy="263" r="43" fill="#bfa7dc"/><path d="m424 263 11 11 23-28" fill="none" stroke="#fffdf7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m350 384 14-14-14-14m31 0-14 14 14 14" fill="none" stroke="#b49aca" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="455" y="371" width="79" height="33" rx="17" fill="#c4dc83"/><circle cx="516" cy="387" r="12" fill="#fffdf7"/>
+  <path d="M329 452v28m220-28v28" stroke="#806497" stroke-width="19" stroke-linecap="round"/>
+  <path d="M397 141v-31h91v31" fill="none" stroke="#ac94c6" stroke-width="12" stroke-linecap="round"/>
+  <rect x="581" y="222" width="28" height="40" rx="5" fill="#9e83ba"/><path d="M612 241h26q17 0 17-18v-41" fill="none" stroke="#ac94c6" stroke-width="8" stroke-linecap="round"/>
+  <g transform="rotate(6 736 166)"><rect x="656" y="88" width="158" height="156" rx="20" fill="#c6d997"/><rect x="674" y="105" width="122" height="104" rx="9" fill="#f6f8e8"/>
+    <path d="M706 106v101m30-101v101m30-101v101m-91-76h120m-120 26h120m-120 26h120" stroke="#a8bd76" stroke-width="3"/>
+    <circle cx="736" cy="227" r="6" fill="#7f9851"/>
+  </g>
+  <rect x="586" y="320" width="21" height="42" rx="4" fill="#c4b4d7"/>
+  <path d="M614 341h29" stroke="#ac94c6" stroke-width="5" stroke-dasharray="4 8" stroke-linecap="round"/>
+  <g transform="rotate(-7 749 377)"><rect x="674" y="306" width="157" height="149" rx="20" fill="#e9c39c"/><rect x="691" y="323" width="122" height="97" rx="10" fill="#fff7ed"/>
+    <path d="m749 336 9 23 25 2-20 16 6 24-20-14-21 14 7-24-20-16 25-2Z" fill="#c4acd9"/><circle cx="751" cy="438" r="6" fill="#ba8f61"/>
+    <path d="M674 356h-17v30h17" fill="#ba8f61"/>
+  </g>
+  <path d="M666 258q46 9 70 27" fill="none" stroke="#bca8cf" stroke-width="4" stroke-linecap="round"/><path d="m721 285 18 2-3-18" fill="none" stroke="#bca8cf" stroke-width="4" stroke-linecap="round"/>
+  <path d="M107 455h74v50h-74Z" fill="#d4e2ac"/><circle cx="131" cy="479" r="6" fill="#9aae6c"/><circle cx="158" cy="479" r="6" fill="#9aae6c"/>
+  <path d="m220 113 7-16 7 16 16 7-16 7-7 16-7-16-16-7Z" fill="#d0bfdf"/>
+</svg>

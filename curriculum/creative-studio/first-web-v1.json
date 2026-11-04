@@ -1,0 +1,63 @@
+{
+  "id": "first-browser-project",
+  "version": "0.1.1",
+  "title": "把一个想法变成会回应的小网页",
+  "status": "draft",
+  "updated_at": "2026-11-03",
+  "technical_review": null,
+  "education_review": null,
+  "pilot_evidence": [],
+  "automated_technical_validation": {
+    "command": "node scripts/validate_creative_curriculum.cjs",
+    "scope": "浏览器核对示例、修改后的迁移练习和条件边界；不代表人工教研复核或孩子已掌握。",
+    "examples_root": "curriculum/creative-studio/examples",
+    "evidence": "运行时输出带源文件哈希的 results.json，结果与相应代码版本绑定。"
+  },
+  "prerequisites": ["能点击、输入或在支持下操作浏览器", "先认识页面文字、样式与行为的不同作用"],
+  "notice": "教学设计草稿；来源用于核对知识，不代表本课程已通过教研复核或效果验证。",
+  "instruction": {
+    "sequence": ["明确一个小目标", "预测结果", "运行并观察", "用自己的话解释", "改一处再试", "换个小情境尝试"],
+    "help": ["先给短提示", "必要时示范一个例子", "一起做一步", "减少帮助后再试"],
+    "evidence_rule": "AI代码、孩子决定、手工改动、自述观察、自动检查与人工观察分别记录；运行成功不等于学会。",
+    "sources": ["ies-learning-2007", "eef-metacognition-2025"]
+  },
+  "sources": [
+    {"id": "ies-learning-2007", "title": "IES WWC Organizing Instruction and Study to Improve Student Learning", "url": "https://ies.ed.gov/ncee/wwc/PracticeGuide/1", "kind": "evidence_synthesis", "checked_at": "2026-11-02", "scope": "示例与练习交替、解释性提问、间隔复习；不证明本产品效果"},
+    {"id": "eef-metacognition-2025", "title": "EEF Metacognition and Self-Regulated Learning", "url": "https://educationendowmentfoundation.org.uk/education-evidence/guidance-reports/metacognition", "kind": "evidence_synthesis", "checked_at": "2026-11-02", "scope": "具体学科内的计划、检查、反思以及逐步减少支持"},
+    {"id": "mdn-events", "title": "MDN Introduction to events", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Events", "kind": "technical_documentation", "checked_at": "2026-11-02", "scope": "浏览器事件与addEventListener"},
+    {"id": "mdn-variables", "title": "MDN Variables", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Variables", "kind": "technical_documentation", "checked_at": "2026-11-02", "scope": "let初始化、赋值和变量值更新"},
+    {"id": "mdn-conditionals", "title": "MDN Conditionals", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Conditionals", "kind": "technical_documentation", "checked_at": "2026-11-02", "scope": "if分支与比较条件"}
+  ],
+  "lessons": [
+    {
+      "id": "events", "example": "examples/events/index.html", "title": "让按钮有反应", "objective": "指出一个触发事件与对应的程序行为，并有目的地改变行为。",
+      "facts": ["页面上的点击可以触发click事件。", "addEventListener注册事件处理函数，事件发生时执行相应代码。"],
+      "source_ids": ["mdn-events"],
+      "task": "让一个按钮改变页面上的一句话，再把这句话改成你自己想表达的内容。",
+      "prediction": "点击前后，哪一处会变化？",
+      "check": "运行前后的文字与按钮操作一一核对，再说明改的是显示内容还是触发条件。",
+      "misconception": "改按钮上的文字不等于改变点击后执行的行为。",
+      "transfer": "增加一个作用不同的按钮，先说出两个按钮的区别再运行。"
+    },
+    {
+      "id": "state", "example": "examples/state/index.html", "title": "让程序记住次数", "objective": "预测计数变量在连续操作后的值，并验证改变增量后的结果。",
+      "facts": ["let可给变量设置初始值，并在后续赋予新值。", "变量值变化与页面显示更新是需要代码关联的两件事。"],
+      "source_ids": ["mdn-variables"],
+      "task": "从0开始，每按一次加1；再尝试每次加2。",
+      "prediction": "现在是0，连续按3次后应该是多少？改成加2后呢？",
+      "check": "比较初值、三次操作后的值和页面显示；刷新后的表现以实际持久化代码为准。",
+      "misconception": "变量不会因为显示在网页上就自动永久保存；刷新行为取决于实现。",
+      "transfer": "把初值改成5，预测两次操作后的值，再验证。"
+    },
+    {
+      "id": "conditions", "example": "examples/conditions/index.html", "title": "让作品按规则回应", "objective": "解释一个条件的两条路径，并测试边界值。",
+      "facts": ["if根据条件结果选择执行的代码。", "大于和大于等于在边界值上行为不同。"],
+      "source_ids": ["mdn-conditionals"],
+      "task": "计数达到目标时显示提醒；目标由你决定。",
+      "prediction": "目标是3时，计数为2、3、4分别会显示什么？",
+      "check": "分别运行低于、等于和高于目标的情形；改目标后重新检查，旧结果不能替新版本作证。",
+      "misconception": "看到成功文字不能证明所有条件都正确，必须检查未达到目标的情形。",
+      "transfer": "改成只在恰好达到目标时提示，说明与达到或超过的区别。"
+    }
+  ]
+}

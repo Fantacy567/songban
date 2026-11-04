@@ -1,6 +1,14 @@
 # 松伴 · 当前仓库导航
 
-> **最新体验交付（2026-11-02）**：[AI学习／黑客松双入口与儿童创作工作台](docs/planning/learning-roadmap/experience/README.md)。[项目宪法1.1.0](docs/planning/learning-roadmap/01-项目宪法.md)和[儿童UI规划](docs/planning/learning-roadmap/experience/02-儿童工作台UI.md)明确：访谈确认后开始或继续小作品，四个职责通过一个松伴提供帮助，后续再加入带图课程大厅。E0–E4本地工程实现及验证已完成，见[实施报告](docs/planning/learning-roadmap/experience/handoffs/W00-实施与验收.md)。新功能在8897合成预览开启，8894/8895未部署；真实儿童与公网条件另验。P1–P4底座复用，P5仍暂不开售。
+> **最新U期交付（2026-11-04）**：[统一工作台规划](docs/planning/learning-roadmap/unified-workbench/README.md) · [宪法4.0.0](docs/planning/learning-roadmap/01-项目宪法.md) · [UI/API契约](docs/planning/learning-roadmap/unified-workbench/02-UI与接口契约.md) · [验收与剩余条件](docs/planning/learning-roadmap/unified-workbench/05-主会话验收报告.md)。七门课进入对应老师工作台，成果可编辑保存版本，探索记录由本人确认后进入作品集。905项Python、216项学习浏览器及实际HTTP流程通过；演示8895、真实本机8894。正式模型预算、豆包真实出图、Harness容器及真实试用仍待。
+
+> **最新课程增量（2026-11-03）**：[两篇章七门独立课程](docs/planning/learning-roadmap/course-series/README.md) · [宪法3.1.0](docs/planning/learning-roadmap/01-项目宪法.md) · [七幅封面与UI](docs/planning/learning-roadmap/course-series/03-UI与封面规划.md) · [分期与独立会话](docs/planning/learning-roadmap/course-series/04-分期与独立会话.md) · [实测结果](docs/planning/learning-roadmap/course-series/05-执行与验收.md)。七课分别保存记录，旧首课、作品和比赛流程保留；课程保持试学，教研与真实模型验收不以页面完成替代。
+
+> **新增S期（2026-11-02）**：[儿童真实编程工作台与服务端管理](docs/planning/learning-roadmap/creative-studio/README.md) · [宪法3.0.0](docs/planning/learning-roadmap/01-项目宪法.md) · [教学依据](docs/planning/learning-roadmap/creative-studio/03-教学依据与内容准入.md) · [本轮验收](docs/planning/learning-roadmap/creative-studio/06-执行与验收.md)。使用固定DeepSeek Harness源码，模型API由服务端提供，管理员经验证邮箱白名单准入。保留原课程与比赛；本轮进行中的结果不能用下方H期测试数代替。
+
+> **最新平台工程（2026-11-02）**：[三入口规划](docs/planning/learning-roadmap/platform/README.md) · [宪法2.0.0](docs/planning/learning-roadmap/01-项目宪法.md) · [UI层级](docs/planning/learning-roadmap/platform/01-UI层级与页面规范.md) · [分会话实施与验收](docs/planning/learning-roadmap/platform/H5-主会话验收报告.md)。已实现AI教学大厅、黑客松教学大厅、私人作品集和跨页松伴；黑客松先认识再实践，原流程保留。豆包图片适配及自动保存工程已实现，无真实凭据/新调用预算时使用明确标注的演示样例。P5暂不开售。
+
+> **当前版本与运行**：HEAD `2fb18d2`为前次已推送版本；本轮新代码在工作区，未提交或推送。统一演示、端口核对及记录保全以[H5主报告](docs/planning/learning-roadmap/platform/H5-主会话验收报告.md)为准，优先于下方旧记录。本轮716项Python及183组学习浏览器回归通过，没有新增真实模型调用或公网部署。[真人交接](docs/planning/learning-roadmap/platform/handoffs/H6-交付准备与待核验项.md)已备齐，实际试用与教研仍待。
 
 > **余项接续**：[受控启动、可访问性及6次真实模型联调](docs/planning/learning-roadmap/experience/handoffs/W00-余项补齐与真实联调.md)；真人教研和公网待验范围见报告。
 

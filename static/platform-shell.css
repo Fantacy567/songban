@@ -1,0 +1,64 @@
+/* Platform chrome is opt-in; all three hall destinations share one icon rail. */
+html:has(meta[name="songban-platform"]) [data-learning-exit-shell]{display:none!important}
+html:has(meta[name="songban-platform"]) #learning-prep-root:not(.lp-unified-shell){max-width:none!important;margin-left:108px!important;padding:16px 24px 48px!important}
+html:has(meta[name="songban-platform"]) #learning-prep-root:has(.lp-unified-shell){max-width:none!important;margin:0!important;padding:0!important}
+html:has(meta[name="songban-platform"]) .sidebar{overflow-y:auto}
+html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.app-header,
+html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.page-footer{margin-left:108px}
+html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.app-content{margin-left:108px;margin-right:0;max-width:none;padding-inline:max(24px,calc((100vw - 108px - 1060px)/2))}
+html:has(meta[name="songban-platform"]) .sidebar nav{flex-shrink:0;gap:10px;margin-top:26px}
+html:has(meta[name="songban-platform"]) .sidebar nav a{min-height:76px;height:76px;gap:8px;padding:10px 4px;border-radius:20px;font-size:14px;line-height:1.4}
+html:has(meta[name="songban-platform"]) .sidebar .sp-primary-nav{margin:12px 0 20px;padding-top:12px;border-top:1px solid var(--sb-line)}
+.sidebar .sp-primary-nav a[aria-current="page"]{background:var(--sb-lavender);color:var(--sb-purple-deep)}
+.sidebar nav a:hover{background:var(--sb-lavender);color:var(--sb-purple-deep)}
+.sidebar nav a:focus-visible{outline:3px solid var(--sb-purple-deep);outline-offset:2px}
+.sidebar nav svg{flex-shrink:0}
+.app-shell[data-platform-hall="true"] .practice-bar,.app-shell[data-platform-hall="true"] .stage-support,.app-shell[data-platform-hall="true"] .journey-chrome{display:none}
+.app-shell[data-platform-hall="true"] .app-content{padding-top:32px;padding-bottom:64px}
+@media(max-width:600px){
+  html:has(meta[name="songban-platform"]) #learning-prep-root:not(.lp-unified-shell){margin-left:0!important;padding:12px 0 calc(90px + env(safe-area-inset-bottom))!important}
+  html:has(meta[name="songban-platform"]) #learning-prep-root:has(.lp-unified-shell){margin:0!important;padding:0!important}
+  html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.app-header,
+  html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.app-content,
+  html:has(meta[name="songban-platform"]) .app-shell[data-learning-intro="true"]>.page-footer{margin-left:0}
+  html:has(meta[name="songban-platform"]) .sb-companion-floating{bottom:calc(90px + env(safe-area-inset-bottom))}
+  html:has(meta[name="songban-platform"]) .sb-companion-floating .sb-companion-panel{max-height:calc(100dvh - 164px - env(safe-area-inset-bottom));overflow-y:auto}
+  html:has(meta[name="songban-platform"]) .sidebar{flex-direction:row;height:calc(76px + env(safe-area-inset-bottom));padding:4px 8px env(safe-area-inset-bottom);overflow:visible;gap:0}
+  html:has(meta[name="songban-platform"]) .sidebar nav{display:flex;gap:2px;margin:0;padding:0;border:0;height:64px;width:40%;flex-shrink:1}
+  html:has(meta[name="songban-platform"]) .sidebar .sp-primary-nav{width:60%}
+  html:has(meta[name="songban-platform"]) .sidebar nav a{flex:1;width:auto;min-width:0;height:64px;min-height:64px;margin:0;flex-direction:column;gap:5px;padding:7px 2px;border-radius:12px;font-size:11px;white-space:nowrap}
+  html:has(meta[name="songban-platform"]) .sidebar nav svg{width:22px;height:22px}
+  html:has(meta[name="songban-platform"]) .app-shell>.page-footer{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .app-shell[data-platform-hall="true"] .app-content{padding:24px 20px 60px}
+}
+
+/* The existing competition state keeps its routes inside the shared workbench chrome. */
+html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar{width:240px;padding:22px 14px;background:#f3f2ee;align-items:stretch;border-right:1px solid var(--sb-line)}
+.sb-workbench-shell .sidebar .sidebar-brand{display:flex;align-items:center;gap:8px;width:auto;height:auto;border-radius:0;background:none;color:var(--sb-ink,#252823);padding:0 12px;margin:0 0 24px;font-size:24px;font-weight:750}
+.sb-workbench-shell .sidebar-brand small{font-size:12px;letter-spacing:.04em}
+.sb-workbench-shell .sb-new-exploration{display:block;padding:12px 8px;border:1px solid var(--sb-line);background:white;border-radius:12px;text-align:center;color:var(--sb-ink,#252823);font-size:14px}
+html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar .sp-primary-nav{display:flex;flex-direction:column;gap:6px;margin:22px 0;padding:0;border:0;width:100%}
+html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar .sp-primary-nav a{display:flex;flex-direction:row;justify-content:flex-start;gap:12px;min-height:48px;height:auto;padding:12px;border-radius:10px;font-size:14px}
+.sb-workbench-shell .sb-competition-shortcuts{display:flex;flex-direction:column;gap:12px;margin:8px 12px;color:var(--sb-muted,#747870);font-size:13px}
+.sb-workbench-shell .sb-competition-shortcuts>span{font-size:12px}
+.sb-workbench-shell .sb-competition-shortcuts a{padding:5px 0;color:var(--sb-ink,#252823)}
+.sb-workbench-shell .sidebar .side-profile{align-self:flex-start;margin-left:12px}
+html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-header{margin-left:240px;padding:16px 28px;min-height:68px;justify-content:flex-end}
+.sb-workbench-shell>.app-header>.wordmark{display:none}
+html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-content{margin-left:240px;margin-right:0;max-width:none;padding:36px clamp(24px,5vw,96px) 64px}
+html:has(meta[name="songban-platform"]) .sb-workbench-shell>.page-footer{margin-left:240px}
+@media(min-width:601px) and (max-width:1100px){
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar{width:205px}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-header,
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-content,
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.page-footer{margin-left:205px}
+}
+@media(max-width:600px){
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar{width:100%;padding:4px 8px env(safe-area-inset-bottom);border-right:0;align-items:center}
+  .sb-workbench-shell .sidebar .sidebar-brand,.sb-workbench-shell .sb-new-exploration,.sb-workbench-shell .sb-competition-shortcuts{display:none}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar .sp-primary-nav{flex-direction:row;margin:0;gap:2px}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell .sidebar .sp-primary-nav a{flex-direction:column;justify-content:center;font-size:11px;padding:7px 2px;gap:5px}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-header{margin-left:0;padding:12px 16px;min-height:56px}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.app-content{margin-left:0;padding:24px 18px 80px}
+  html:has(meta[name="songban-platform"]) .sb-workbench-shell>.page-footer{margin-left:0}
+}

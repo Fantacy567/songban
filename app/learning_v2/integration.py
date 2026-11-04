@@ -76,6 +76,9 @@ class LegacyBoundary:
 
     def __init__(self, service):
         self.service = service
+        # Set only by the central installer after an independently guarded domain
+        # is registered. Unknown APIs continue through this legacy fence.
+        self.managed_prefixes = ()
         if getattr(service, "legacy_boundary", None) is not None:
             raise ValueError("A legacy boundary is already attached to this service")
         with service.store.transaction() as con:
@@ -415,7 +418,8 @@ class _Middleware:
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
-        if scope["type"] != "http" or not (path == "/api" or path.startswith("/api/")) or path == "/api/learning/v2" or path.startswith("/api/learning/v2/"):
+        managed = any(path == prefix or path.startswith(prefix+'/') for prefix in self.boundary.managed_prefixes)
+        if scope["type"] != "http" or not (path == "/api" or path.startswith("/api/")) or path == "/api/learning/v2" or path.startswith("/api/learning/v2/") or managed:
             await self.app(scope, receive, send)
             return
         context = None

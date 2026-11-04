@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import os
 import secrets
 import sqlite3
@@ -112,7 +113,11 @@ CREATE INDEX IF NOT EXISTS events_project ON events(project_id, sequence);
 """
 
 
-def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None, interview_runner=None, enforce_journey=None, topic_model_runner=None, parent_report_options=None, learning_settings=None):
+def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only=None, core_model_runner=None, materials_model_runner=None, workbench_model_runner=None, recap_model_runner=None, idea_model_runner=None, interview_runner=None, enforce_journey=None, topic_model_runner=None, parent_report_options=None, learning_settings=None, platform_settings=None, server_admin_settings=None, studio_settings_provider=None, studio_runner=None, learning_workbench_settings_provider=None, learning_workbench_runner=None):
+    if platform_settings is not None and learning_settings is None:
+        raise ValueError('The platform requires the existing learning identity boundary')
+    if server_admin_settings is not None and learning_settings is None:
+        raise ValueError('Server administration requires the learning identity boundary')
     path = Path(db_path or os.environ.get("DATABASE_PATH") or ROOT / "data" / "collab.sqlite3")
     if not path.is_absolute():
         path = ROOT / path
@@ -308,8 +313,27 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.qlogo.cn https://*.qpic.cn; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
+        if re.fullmatch(r"/api/platform/v1/assets/[A-Za-z0-9_.:@-]{1,150}/content", path):
+            # Private binary assets have a deliberately narrower response policy
+            # than the HTML shell. Do not broaden it in this outer middleware.
+            response.headers["Cache-Control"] = "private, no-store"
+            response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+            response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        elif path == '/server-admin':
+            # Preserve the dedicated management page's stricter framing policy.
+            response.headers['Cache-Control'] = 'private, no-store'
+        elif (getattr(api.state, 'creative_studio', None) is not None and
+              re.fullmatch(r'/api/platform/v1/studio/projects/[A-Za-z0-9_-]{1,100}/preview/[A-Za-z0-9_-]{1,100}/document', path)):
+            # This separately authenticated document is an opaque, network-free
+            # sandbox. Its route owns script policy; never loosen the main shell.
+            response.headers['Cache-Control'] = 'private, no-store'
+        else:
+            response.headers["Cache-Control"] = "no-store"
+            platform = getattr(api.state, 'platform_v1', None)
+            private_blob_images = bool(platform and platform.settings.navigation_enabled and path in {
+                '/', '/learning', '/learning-prep', '/demo', '/demo/', '/static/songban.html'})
+            image_sources = "'self' data: https://*.qlogo.cn https://*.qpic.cn" + (" blob:" if private_blob_images else "")
+            response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src " + image_sources + "; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"
         return response
 
     @api.exception_handler(Problem)
@@ -830,11 +854,14 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
             return FileResponse(ROOT / 'static' / name)
         html = (ROOT / 'static' / name).read_text(encoding='utf-8')
         extra = '<meta name="songban-learning-v2" content="1"><style id="learning-identity-pending">html{visibility:hidden}</style>'
+        if server_admin_settings is not None:
+            extra += '<meta name="songban-server-admin" content="1">'
         if learning_settings.navigation_enabled:
             extra += '<meta name="songban-learning-navigation" content="1"><link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-p4-v1">'
         if name != 'songban.html':
             extra += '<script defer src="/static/legacy-learning-boundary.js?v=20261102-p1-v1"></script>'
-        return HTMLResponse(html.replace('<head>', '<head>\n'+extra, 1))
+        from .platform_v1.pages import platform_page
+        return HTMLResponse(platform_page(html.replace('<head>', '<head>\n'+extra, 1), platform_settings))
 
     @api.get("/", include_in_schema=False)
     def homepage():
@@ -845,11 +872,14 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         if learning_settings is None:
             raise Problem(404, 'learning_not_enabled', '学习准备入口尚未启用。')
         html = (ROOT / 'static/learning-prep.html').read_text(encoding='utf-8')
+        if server_admin_settings is not None:
+            html = html.replace('</head>', '<meta name="songban-server-admin" content="1"></head>', 1)
         if learning_settings.navigation_enabled:
             html = html.replace('</head>', '<link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-p4-v1"></head>', 1)
             html = html.replace('<a class="text-link" href="/#/events" data-learning-exit>返回活动与比赛</a>',
                 '<nav data-stage-nav aria-label="主导航"><a href="#/learn" aria-current="page">AI 学习</a><a href="/#/events" data-learning-exit>黑客松</a></nav>', 1)
-        return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
+        from .platform_v1.pages import platform_page
+        return HTMLResponse(platform_page(html, platform_settings, learning=True), headers={'Cache-Control': 'no-store'})
 
     @api.get('/static/{page_name}.html', include_in_schema=False)
     def static_page(page_name: str):
@@ -894,10 +924,48 @@ def create_app(db_path=None, model_runner=None, discovery_runner=None, core_only
         learning_service = LearningV2(path, learning_settings)
         learning_service.migrate()
         register_learning_v2(api, learning_service)
+        admin_service = None
+        if server_admin_settings is not None:
+            from .server_admin import register_server_admin
+            admin_service = register_server_admin(api, learning_service, server_admin_settings)
+        if platform_settings is not None:
+            from .platform_v1 import PlatformService, register_platform
+            platform_service = PlatformService(learning_service, platform_settings)
+            register_platform(api, platform_service)
+            if admin_service is not None:
+                from .platform_v1.images import ImageSettings
+                base_images = platform_settings.image_settings
+                if base_images is None:
+                    # Provider credentials remain in the administrator's private
+                    # store. User consent and image grants are never inferred.
+                    directory = server_admin_settings.secret_dir
+                    base_images = ImageSettings(storage_dir=(
+                        Path(directory).resolve().parent / 'images-private'
+                        if directory is not None else None))
+                admin_service.bind_image_runtime(platform_service.images, base_images)
+            if platform_settings.creative_studio_enabled:
+                from .creative_studio.routes import register_studio as register_creative_studio
+                from .creative_studio.harness import HarnessRunner
+                provider = studio_settings_provider
+                if provider is None and admin_service is not None:
+                    provider = lambda con=None: admin_service.runtime_config('text', con=con)
+                creative = register_creative_studio(api, platform_service, provider,
+                                                   studio_runner if studio_runner is not None else HarnessRunner())
+                platform_service.portfolio.creative_studio = creative
+            from .learning_courses import register_courses
+            register_courses(api, platform_service)
+            from .learning_workbench import register_workbench as register_learning_workbench
+            teacher_provider = learning_workbench_settings_provider
+            if teacher_provider is None and admin_service is not None:
+                teacher_provider = lambda con=None: admin_service.runtime_config('text', con=con)
+            register_learning_workbench(api, platform_service, teacher_provider, learning_workbench_runner)
         if learning_settings.models_enabled:
             from .learning_v2.worker import install_model_worker
             install_model_worker(api, learning_service)
         learning_boundary = LegacyBoundary(learning_service)
+        learning_boundary.managed_prefixes = tuple(
+            prefix for prefix, enabled in (('/api/platform/v1', platform_settings is not None),
+                                          ('/api/server-admin/v1', server_admin_settings is not None)) if enabled)
         learning_boundary.install(api)
 
     @api.get("/classic", include_in_schema=False)

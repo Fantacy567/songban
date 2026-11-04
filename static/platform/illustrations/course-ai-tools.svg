@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">从想法到运行，再亲手检查</title>
+  <desc id="desc">原创教学插画：左上方的想法气泡连向桌上的电脑，屏幕展示一个按钮网页。虚构孩子操作鼠标，右边放着放大镜、检查卡和修改铅笔。不是实际软件截图或孩子成果。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Joint ownership: COPYRIGHT.md. Original repo-native SVG for Songban; AI workbench attribution: 2292576833. Fictional teaching illustration, not a learner artifact or generated service output.</metadata>
+  <rect width="900" height="600" fill="#eee8fb"/><circle cx="770" cy="65" r="190" fill="#e5dcf6"/>
+  <path d="M0 464q213-41 437-3t463-17v156H0Z" fill="#e0d5f0"/>
+  <ellipse cx="466" cy="500" rx="335" ry="36" fill="#cbbddc"/>
+  <path d="M114 94q0-22 22-22h196q22 0 22 22v110q0 22-22 22h-81l-38 32 6-32h-83q-22 0-22-22Z" fill="#fffdf7"/>
+  <path d="M219 112c-36 0-44 43-20 59v15h38v-15c24-18 17-59-18-59Z" fill="#d9e89b"/>
+  <path d="M205 195h26m-19 11h12m-6-111V84m-42 25-8-8m91 9 9-9" stroke="#9dad69" stroke-width="5" stroke-linecap="round"/>
+  <path d="M366 148q64-1 70 51" fill="none" stroke="#a78bce" stroke-width="7" stroke-dasharray="9 11" stroke-linecap="round"/>
+  <path d="m423 189 15 17 10-21" fill="none" stroke="#a78bce" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M173 454h606v23H173Zm42 22v65m514-65v65" fill="#b7a4c9" stroke="#b7a4c9" stroke-width="14" stroke-linecap="round"/>
+  <rect x="340" y="201" width="361" height="236" rx="18" fill="#a996c4"/>
+  <rect x="352" y="213" width="337" height="210" rx="10" fill="#fffdf7"/>
+  <path d="M353 244h335" stroke="#ded3ed" stroke-width="3"/><circle cx="369" cy="230" r="4" fill="#b69ad5"/><circle cx="384" cy="230" r="4" fill="#c5dd80"/><circle cx="399" cy="230" r="4" fill="#efc99f"/>
+  <rect x="375" y="263" width="132" height="133" rx="9" fill="#e7edce"/>
+  <path d="m436 280-26 37h15l-27 36h27v26h20v-26h28l-27-36h15Z" fill="#9bb65b"/>
+  <path d="M533 278h119m-119 19h88" stroke="#c9badc" stroke-width="8" stroke-linecap="round"/>
+  <rect x="531" y="325" width="125" height="39" rx="18" fill="#8a6acb"/>
+  <path d="M562 344h59" stroke="#fffdf7" stroke-width="6" stroke-linecap="round"/>
+  <path d="m621 354 5 31 10-12 14-3Z" fill="#4f445e" stroke="#fffdf7" stroke-width="3" stroke-linejoin="round"/>
+  <path d="m490 438-6 16h82l-6-16" fill="#8e79a5"/><rect x="385" y="452" width="218" height="10" rx="5" fill="#d5c7e4"/>
+  <g transform="rotate(9 746 331)"><rect x="714" y="259" width="119" height="169" rx="10" fill="#fffdf7"/><path d="M739 282h61" stroke="#c4b6d4" stroke-width="7" stroke-linecap="round"/><path d="m735 317 10 10 17-24m-27 56 10 10 17-24" fill="none" stroke="#91a552" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M776 317h26m-26 42h26" stroke="#d3c8df" stroke-width="6" stroke-linecap="round"/></g>
+  <circle cx="750" cy="177" r="38" fill="#fffdf7" stroke="#9b83b8" stroke-width="11"/><path d="m776 205 27 30" stroke="#7d639f" stroke-width="17" stroke-linecap="round"/><path d="m733 178 12 12 22-29" fill="none" stroke="#a3b66b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M223 331c-36 0-55 27-46 57 11 36 53 46 74 17 24-33 9-74-28-74" fill="#d9b69c"/>
+  <path d="M175 369q-7-57 43-58 48 0 44 56-23-8-34-26-18 23-53 28" fill="#574c62"/><circle cx="236" cy="374" r="4" fill="#3f3943"/>
+  <path d="m235 393 12-2" stroke="#a07860" stroke-width="3" stroke-linecap="round"/>
+  <path d="M183 417q34-20 66 4l35 93H157Z" fill="#8a6acb"/><path d="m244 438 52 21 35-7m-137-9 26 40 42-9" fill="none" stroke="#d9b69c" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="332" cy="451" rx="20" ry="10" fill="#fffdf7"/><path d="m194 517-4 33m54-33 7 33" stroke="#6f5b86" stroke-width="19" stroke-linecap="round"/>
+  <g transform="rotate(24 717 491)"><rect x="706" y="444" width="18" height="83" rx="3" fill="#edba80"/><path d="m706 527 9 21 9-21" fill="#fffdf7"/><path d="m711 539 4 9 4-9" fill="#6f5b86"/></g>
+  <path d="m87 307 8-18 8 18 18 8-18 8-8 18-8-18-18-8Z" fill="#c7b3de"/>
+</svg>

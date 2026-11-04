@@ -1,5 +1,27 @@
 /** Consumer types for the frozen, proposed learning-v2 0.2.1 P1 subset. */
-export type Route = '#/family' | '#/learn' | '#/learn/first' | '#/learn/courses' | '#/learn/start' | '#/learning-admin' | `#/learn/run?${string}` | '#/learn/works' | `#/learn/works?${string}`;
+export type Route = '#/family' | '#/learn' | '#/learn/first' | '#/learn/courses' | `#/learn/course?id=${CourseId}` | '#/learn/start' | '#/learn/create' | `#/learn/create?${string}` | '#/learning-admin' | '#/hackathon' | '#/hackathon/intro' | '#/portfolio' | `#/learn/run?${string}` | '#/learn/works' | `#/learn/works?${string}`;
+export const courseIds = ['ai-tools', 'imagination', 'first-project', 'plugins', 'models', 'api', 'model-powered-app'] as const;
+export type CourseId = typeof courseIds[number];
+export type CourseStep = 'understand' | 'try' | 'reflect';
+export interface SeriesCourse {
+  id: CourseId; version: string; title: string; status: 'trial'; order: number;
+  chapter: { id: string; title: string; order: number };
+  goal: string; preparation: string; duration: string; intro: string;
+  cover: { src: string; alt: string };
+  steps: { id: CourseStep; title: string; instruction: string; example: string; prompt: string }[];
+  activity: { kind: string; title: string; instruction: string };
+  sources: { title: string; url: string; supports: string }[];
+  review: { technical: string; education: string; pilot: string };
+}
+export interface LearningCatalog { version: string; courses: SeriesCourse[] }
+export type CourseActivity = Record<string, string | boolean | string[]>;
+export interface CourseProgress {
+  course_id: CourseId; course_version: string; learner_id: string; revision: number;
+  answers: Record<CourseStep, string>; activity: CourseActivity; project_id: string | null;
+  updated_at: string | null; status: 'not_started' | 'saved';
+}
+export interface CourseSave { request_id: string; expected_revision: number; answers: CourseProgress['answers']; activity: CourseActivity; project_id: string | null }
+export interface CourseExperiment { kind: 'teaching-api'; request: { operation: 'greet'; name: string }; response: { message: string }; notice: string }
 export interface MountOptions {
   initialRoute?: Route;
   onRouteChange?: (route: Route) => void;

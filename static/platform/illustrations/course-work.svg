@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">把想法变成一张邀请卡</title>
+  <desc id="desc">原创课程封面示意：米白桌面上放着带插图、时间位置与文字行的邀请卡草图，以及一支紫色铅笔。封面不是孩子的真实作品。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Original SVG illustration for Songban. Fictional course cover, not a completed learner artifact. See COPYRIGHT.md.</metadata>
+  <rect width="900" height="600" fill="#eee8fb"/>
+  <circle cx="86" cy="64" r="150" fill="#e1d5f1"/>
+  <path d="M0 471q252-54 468-10t432-19v158H0Z" fill="#e3dbee"/>
+  <rect x="236" y="78" width="401" height="456" rx="21" fill="#d1c2e3" transform="rotate(6 436 306)"/>
+  <g transform="rotate(-5 443 293)"><rect x="223" y="62" width="412" height="456" rx="19" fill="#fffdf7"/>
+    <rect x="255" y="94" width="348" height="141" rx="10" fill="#e8eecf"/>
+    <path d="M283 205v-53q0-9 9-9h63q14 0 24 9 10-9 24-9h63q9 0 9 9v53h-72q-14 0-24 9-10-9-24-9z" fill="#fffdf7"/>
+    <path d="M379 153v61m-79-51h56m-56 17h50m50-17h56m-56 17h50" stroke="#b0bf87" stroke-width="5" stroke-linecap="round"/>
+    <path d="m541 120-25 35h14l-24 34h23l-20 28h29v13h17v-13h30l-22-28h23l-25-34h14Z" fill="#c5dd58"/>
+    <rect x="255" y="263" width="226" height="20" rx="10" fill="#8a6acb"/>
+    <path d="M257 310h313m-313 23h271" stroke="#d6c9e7" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="271" cy="383" r="15" fill="#eee8fb"/><path d="M271 374v10l7 4" fill="none" stroke="#8a6acb" stroke-width="3" stroke-linecap="round"/>
+    <path d="M304 382h247" stroke="#cec3dc" stroke-width="9" stroke-linecap="round"/>
+    <path d="M271 410c-9 0-15 7-15 15 0 12 15 24 15 24s15-12 15-24c0-8-6-15-15-15" fill="#eee8fb"/><circle cx="271" cy="424" r="5" fill="#8a6acb"/>
+    <path d="M304 426h190" stroke="#cec3dc" stroke-width="9" stroke-linecap="round"/>
+    <rect x="495" y="461" width="108" height="27" rx="13" fill="#eee8fb"/>
+  </g>
+  <g transform="rotate(24 707 352)"><rect x="695" y="215" width="25" height="253" rx="6" fill="#8a6acb"/><path d="m695 468 12 33 13-33z" fill="#dfb48c"/><path d="m703 489 4 12 5-12z" fill="#43473b"/><path d="M695 234h25" stroke="#cdb8e6" stroke-width="12"/></g>
+  <path d="m163 207 12-27 12 27-28-13h32Z" fill="#b6a0d4"/>
+  <circle cx="745" cy="130" r="13" fill="#d4e789"/>
+</svg>

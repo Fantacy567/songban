@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "revision": "ce7073d51254c26cd63b22a60835b8f948deb447",
+  "version": "0.2.2-alpha.2",
+  "license": "MIT",
+  "node": ">=24.9.0",
+  "pnpm": "11.28.5",
+  "source_build": true,
+  "source_build_scope": "offline SDK client bundle only; full upstream build not performed",
+  "worker_contract": "2026-11-03-files-v1",
+  "offline_sdk_protocol_verified": true,
+  "offline_selected_type_contracts_verified": true,
+  "full_upstream_build_verified": false,
+  "local_container_verified": false,
+  "paid_model_verified": false,
+  "verified_contracts": ["packages/sdk/client/src/types.ts", "packages/sdk/client/README.md", "packages/bundle/sdk-minimal/cordis.patch.yml", "packages/llm/llm-pi-ai/README.md"]
+}

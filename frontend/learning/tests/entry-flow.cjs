@@ -24,7 +24,7 @@ function family() { return { id: familyId(), revision: 1, learners: [{ id: child
 async function browserChecks() {
   const fixture = `
     import React, {useCallback} from 'react';import {createRoot} from 'react-dom/client';
-    import './frontend/learning/index';import {FirstWorkPage} from './frontend/learning/FirstWorkPage';import {EntryTransfer} from './frontend/learning/EntrySummary';import {ApiError} from './frontend/learning/api';import './frontend/learning/learning.css';
+    import './frontend/learning/index';import {LegacyFirstWorkPage as FirstWorkPage} from './frontend/learning/FirstWorkPage';import {EntryTransfer} from './frontend/learning/EntrySummary';import {ApiError} from './frontend/learning/api';import './frontend/learning/learning.css';
     const api={request:async(p,method='GET',b)=>{const r=await fetch('/api/learning/v2'+p,{method,headers:{'Content-Type':'application/json'},body:b===undefined?undefined:JSON.stringify(b)});const data=await r.json();if(!r.ok)throw new ApiError(r.status,data.error.code,'fixture');return data;}};
     window.routes=[];const config={studio_enabled:true,learning_enabled:true,live_enabled:false};
     function Direct(){const guard=useCallback(()=>{},[]);const navigate=useCallback(async r=>{window.routes.push(r);history.replaceState(null,'',r);return true;},[]);return new URLSearchParams(location.search).get('view')==='transfer'?<EntryTransfer api={api} learnerId="child-fixture" learnerName="小松" onDirty={guard}/>:<FirstWorkPage api={api} learnerId="child-fixture" config={config} setGuard={guard} navigate={navigate}/>;}
@@ -108,6 +108,8 @@ async function browserChecks() {
       await button('确认进入').click();
       await routeIs(otherFamily ? '#/learn/first' : original);
       if (otherFamily) {
+        await button('和老师试用 AI').waitFor();
+        await page.getByText('以前的邀请卡与访谈记录', { exact: true }).click();
         await button('开始我的第一个作品').waitFor();
         assert.ok(state.reads.slice(readOffset).some(r => r.path === '/learners/child-other/home'));
         assert.ok(!state.reads.slice(readOffset).some(r => r.path.includes('run-child-a') || r.path.includes('/learners/child-fixture/')));

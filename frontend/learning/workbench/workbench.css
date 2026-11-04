@@ -1,0 +1,104 @@
+/* Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. See COPYRIGHT.md. */
+[data-learning-root].lp-unified-shell { margin-left:240px; padding:24px 28px; }
+[data-learning-root].lp-unified-shell .lp-content { max-width:1400px; }
+[data-learning-root].lp-unified-shell .lp-platform-header { max-width:1400px; margin-bottom:8px; }
+[data-learning-root].lp-unified-shell .lp-platform-sidebar { width:240px; align-items:stretch; padding:24px 16px; }
+[data-learning-root].lp-unified-shell .lp-sidebar-brand { background:transparent; color:var(--sb-ink); width:auto; display:flex; gap:12px; font-size:24px; justify-content:flex-start; }
+[data-learning-root] .lp-sidebar-brand img { width:42px; height:42px; object-fit:contain; }
+[data-learning-root].lp-unified-shell .lp-platform-sidebar .sp-primary-nav button { min-height:52px; flex-direction:row; justify-content:flex-start; padding:12px; border-radius:12px; font-size:15px; }
+[data-learning-root] .wb-new { margin-top:24px; color:var(--sb-purple-deep); }
+[data-learning-root] .wb-recent { border-top:1px solid var(--sb-line); padding-top:16px; font-size:14px; }
+[data-learning-root] .wb-recent button { width:100%; text-align:left; background:transparent; border:0; font-size:14px; }
+[data-learning-root] .wb-recent button[aria-current] { background:var(--sb-lavender); }
+[data-learning-root] .wb-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:12px 0; }
+[data-learning-root] .wb-heading p { margin:4px 0; font-size:15px; color:#625a71; }
+[data-learning-root] .wb-heading h1 { font-size:28px; }
+[data-learning-root] .wb-view-switch { display:flex; gap:8px; margin:12px 0; }
+[data-learning-root] .wb-view-switch button[aria-pressed=true] { background:var(--sb-lavender); color:var(--sb-purple-deep); }
+[data-learning-root] .wb-collapse { margin-left:auto; }
+[data-learning-root] .wb-layout { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr); gap:18px; height:var(--wb-height,calc(100dvh - 350px)); min-height:320px; }
+[data-learning-root] .wb-layout.wb-result-collapsed { grid-template-columns:minmax(0,1fr); }
+[data-learning-root] .wb-result-collapsed .wb-results { display:none; }
+[data-learning-root] .wb-chat { min-width:0; min-height:0; display:flex; flex-direction:column; border:1px solid var(--sb-line); border-radius:20px; background:#f5f2f9; overflow:hidden; }
+[data-learning-root] .wb-messages { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; padding:20px; }
+[data-learning-root] .wb-bubble { border-radius:16px; background:white; padding:16px; margin-bottom:18px; font-size:16px; }
+[data-learning-root] .wb-user { margin-left:12%; background:var(--sb-lavender); }
+[data-learning-root] .wb-bubble p { margin:8px 0; }
+[data-learning-root] .wb-model { display:block; font-size:12px; color:#625a71; }
+[data-learning-root] .wb-text { white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; font:inherit; }
+[data-learning-root] .wb-candidate { border-top:1px solid var(--sb-line); margin-top:12px; }
+[data-learning-root] .wb-candidate pre { max-height:200px; overflow:auto; }
+[data-learning-root] .wb-composer { flex-shrink:0; padding:16px; border-top:1px solid var(--sb-line); background:var(--sb-bg); font-size:14px; }
+[data-learning-root] .wb-composer textarea { margin:8px 0; max-height:150px; min-height:70px; }
+[data-learning-root] .wb-send-row { display:flex; align-items:center; gap:12px; justify-content:space-between; }
+[data-learning-root] .wb-send-row label { display:flex; align-items:center; gap:8px; }
+[data-learning-root] .wb-send-row select { margin:0; width:140px; min-height:44px; padding:8px; font-size:14px; }
+[data-learning-root] .wb-suggestions { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+[data-learning-root] .wb-suggestions button { font-size:13px; padding:6px 10px; }
+[data-learning-root] .wb-results { min-width:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--sb-line); border-radius:20px; padding:22px; background:white; font-size:15px; }
+[data-learning-root] .wb-results h2 { font-size:23px; }
+[data-learning-root] .wb-results textarea { min-height:100px; }
+[data-learning-root] .wb-record-editor { border-top:1px solid var(--sb-line); padding-top:24px; margin-top:24px; }
+[data-learning-root] .wb-version { border-top:1px solid var(--sb-line); padding:12px 0; }
+[data-learning-root] .wb-tools { margin-top:24px; border-top:1px solid var(--sb-line); }
+[data-learning-root] .wb-recovery { padding:16px; background:#fff1db; border-radius:12px; }
+[data-learning-root] .wb-record-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:18px; }
+[data-learning-root] .wb-record-grid .lp-card { margin:0; }
+[data-learning-root] .wb-records { margin:24px 0; }
+[data-learning-root] .wb-mobile-recent { display:none; }
+[data-learning-root].lp-unified-shell.lp-workbench-page { position:relative; }
+[data-learning-root].lp-unified-shell.lp-workbench-page .lp-platform-header { display:none; }
+[data-learning-root].lp-unified-shell.lp-workbench-page .lp-account-menu { margin:0; }
+[data-learning-root] .wb-heading > div { min-width:0; }
+[data-learning-root] .wb-goal, [data-learning-root] .wb-mode-info { position:relative; margin:0; font-size:14px; }
+[data-learning-root] .wb-goal > summary, [data-learning-root] .wb-mode-info > summary { min-height:44px; padding:10px 0; }
+[data-learning-root] .wb-goal > p, [data-learning-root] .wb-mode-info > p { position:absolute; z-index:15; width:min(330px,calc(100vw - 40px)); margin:0; padding:16px; border:1px solid var(--sb-line); border-radius:12px; background:white; box-shadow:0 8px 28px #271b4526; font-size:14px; line-height:1.65; }
+[data-learning-root] .wb-goal > p { top:100%; left:0; }
+[data-learning-root] .wb-mode-info > p { bottom:calc(100% + 8px); left:0; width:min(330px,100%); }
+[data-learning-root] .wb-mode-info { margin-right:auto; }
+[data-learning-root] .wb-mode-info > summary { width:44px; text-align:center; list-style:none; color:var(--sb-purple-deep); }
+[data-learning-root] .wb-send-row { position:relative; justify-content:flex-start; }
+[data-learning-root] .wb-send-row .wb-mode-info { position:static; }
+@media(max-width:1100px) {
+  [data-learning-root].lp-unified-shell { margin-left:205px; padding:18px; }
+  [data-learning-root].lp-unified-shell .lp-platform-sidebar { width:205px; padding-inline:10px; }
+  [data-learning-root] .wb-layout { grid-template-columns:minmax(0,1fr); }
+  [data-learning-root] .wb-layout[data-panel=chat] .wb-results, [data-learning-root] .wb-layout[data-panel=result] .wb-chat { display:none; }
+  [data-learning-root] .wb-collapse { display:none; }
+}
+@media(max-width:600px) {
+  [data-learning-root] .wb-mobile-recent { display:block; margin:0; font-size:14px; }
+  [data-learning-root] .wb-mobile-recent > summary img { display:inline-block; width:24px; height:24px; vertical-align:middle; margin-right:6px; }
+  [data-learning-root] .wb-mobile-recent button { display:block; width:100%; text-align:left; }
+  [data-learning-root].lp-unified-shell { margin-left:0; padding:12px 12px 90px; }
+  [data-learning-root].lp-unified-shell .lp-platform-sidebar { width:100%; height:auto; padding:4px 6px env(safe-area-inset-bottom); }
+  [data-learning-root].lp-unified-shell .lp-sidebar-brand, [data-learning-root] .wb-new, [data-learning-root] .wb-recent { display:none; }
+  [data-learning-root].lp-unified-shell .lp-platform-sidebar .sp-primary-nav button { flex-direction:column; justify-content:center; min-height:66px; padding:6px 2px; gap:4px; font-size:12px; }
+  [data-learning-root] .wb-heading { align-items:flex-start; gap:8px; }
+  [data-learning-root] .wb-heading h1 { font-size:23px; }
+  [data-learning-root] .wb-heading > button { font-size:12px; padding:8px; min-width:85px; }
+  [data-learning-root] .wb-layout { height:var(--wb-height,calc(100dvh - 350px)); min-height:320px; }
+  [data-learning-root] .wb-results { padding:16px; }
+  [data-learning-root] .wb-messages { padding:12px; }
+  [data-learning-root] .wb-composer { padding:12px; }
+  [data-learning-root] .wb-send-row { align-items:center; gap:8px; }
+  [data-learning-root] .wb-send-row label { flex-direction:row; align-items:center; gap:0; }
+  [data-learning-root] .wb-send-row .lp-primary { width:auto; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page { padding-top:8px; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .wb-mobile-recent { position:relative; height:44px; width:max-content; font-size:13px; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .wb-mobile-recent > summary { min-height:44px; padding:10px 0; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .wb-mobile-recent-menu { position:absolute; top:44px; left:0; z-index:30; width:min(330px,calc(100vw - 24px)); max-height:50dvh; overflow:auto; padding:8px; background:white; border:1px solid var(--sb-line); border-radius:12px; box-shadow:0 8px 28px #271b4526; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .lp-account-menu { position:absolute; top:8px; right:12px; z-index:25; font-size:13px; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .lp-account-menu > summary { min-height:44px; padding:10px 0; }
+  [data-learning-root].lp-unified-shell.lp-workbench-page .lp-account-menu > nav { position:absolute; right:0; top:44px; width:min(330px,calc(100vw - 24px)); margin:0; padding:12px; background:white; border:1px solid var(--sb-line); border-radius:12px; box-shadow:0 8px 28px #271b4526; }
+  [data-learning-root].lp-workbench-page .wb-heading { margin:4px 0; align-items:center; }
+  [data-learning-root].lp-workbench-page .wb-heading .lp-eyebrow { display:none; }
+  [data-learning-root].lp-workbench-page .wb-heading h1 { margin:0; font-size:21px; line-height:1.4; }
+  [data-learning-root].lp-workbench-page .wb-heading > button { min-width:80px; min-height:44px; white-space:nowrap; }
+  [data-learning-root].lp-workbench-page .wb-view-switch { margin:4px 0 8px; }
+  [data-learning-root].lp-workbench-page .wb-view-switch button { min-height:44px; padding:7px 14px; }
+  [data-learning-root].lp-workbench-page .wb-composer { padding:10px; }
+  [data-learning-root].lp-workbench-page .wb-composer textarea { min-height:68px; height:68px; max-height:110px; padding:8px 10px; margin:6px 0; font-size:16px; line-height:1.5; }
+  [data-learning-root].lp-workbench-page .wb-send-row select { width:116px; padding:8px; font-size:14px; }
+  [data-learning-root].lp-workbench-page .wb-send-row .lp-primary { min-height:44px; padding:8px 12px; font-size:14px; }
+}

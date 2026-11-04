@@ -1,0 +1,101 @@
+{
+  "checked_on": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "scope": "U03 offline content checks and in-process compatibility tests; not UI, live-model or education/pilot acceptance.",
+  "checks": [
+    {
+      "command": "node scripts/validate_ai_teachers.cjs",
+      "result": "pass"
+    },
+    {
+      "command": "node scripts/validate_ai_course_catalog.cjs",
+      "result": "pass"
+    },
+    {
+      "command": "node --test tests/test_ai_teachers.cjs tests/test_ai_course_catalog.cjs",
+      "tests": 16,
+      "passed": 16,
+      "failed": 0
+    },
+    {
+      "command": "python -m unittest tests.test_learning_courses tests.test_learning_courses_integration",
+      "python": "E:/松伴/songban-materials/.browser-cache/materials/full-audit-20261031/clean-env/Scripts/python.exe",
+      "env": {
+        "PYTHONUTF8": "1"
+      },
+      "tests": 42,
+      "passed": 42,
+      "failed": 0
+    },
+    {
+      "check": "Actual load_catalog/load_teachers/public_teacher read compatibility and seven-field public projection",
+      "result": "pass"
+    },
+    {
+      "check": "SHA256 of each of the seven SVG covers matches 2026-11-03 evidence",
+      "result": "pass"
+    }
+  ],
+  "real_model_calls": 0,
+  "education_review": "pending",
+  "child_pilot": "pending",
+  "covers": [
+    {
+      "id": "ai-tools",
+      "sha256": "b995ab719f0433820911b55c686b0d9688ded40b34d4508b7c2fe9c95c05ff58",
+      "unchanged": true
+    },
+    {
+      "id": "imagination",
+      "sha256": "7426d509ca602ca70bed0c16eb19bc4704d5ab6725976e5e85962d9dd38c84d5",
+      "unchanged": true
+    },
+    {
+      "id": "first-project",
+      "sha256": "45af6951184fc94eb6a6bacc3b9fc66cbb17144ccfe05bdc7c274f453f50bfce",
+      "unchanged": true
+    },
+    {
+      "id": "plugins",
+      "sha256": "6981cfc48f836ef7c963125f3bbcfaf61710d89fdc98a5922a738e6eff9a26a2",
+      "unchanged": true
+    },
+    {
+      "id": "models",
+      "sha256": "420acab50af091030e878689ed654a49f03d7b421af6dc894d2181d60be2480a",
+      "unchanged": true
+    },
+    {
+      "id": "api",
+      "sha256": "6eee5733c9f1c65887f288579d47059d223c3da325f8a7bd4c8bea46e73ac3aa",
+      "unchanged": true
+    },
+    {
+      "id": "model-powered-app",
+      "sha256": "eff6e6313727d4a00cbf28760568250b0fd995d7b0f1d47d0bbcddd053decd1e",
+      "unchanged": true
+    }
+  ],
+  "files": [
+    {
+      "path": "curriculum/ai-courses/teachers.json",
+      "sha256": "a2dcf7c2117e33cb5bad0c6d6c92a63803bfc4492e1721e669c3ee8db182fd4e"
+    },
+    {
+      "path": "curriculum/ai-courses/catalog.json",
+      "sha256": "8f7cace0d3beeb6b994d878303e7ce021efc550bbf47fbd3f57297bb8c1dcc98"
+    },
+    {
+      "path": "curriculum/ai-courses/source-checks.json",
+      "sha256": "79a7ba8ead268c7250720efaec451191dee620343156adf30eb4bdbcba502fd1"
+    },
+    {
+      "path": "scripts/validate_ai_teachers.cjs",
+      "sha256": "b365cba21fb0d1fb4db463312efaa871e7b923b91000eb70f1152578a92fc80a"
+    },
+    {
+      "path": "tests/test_ai_teachers.cjs",
+      "sha256": "f360c26a3a74afc94550c424f797f7ef35c60787a07e15cc0c3e8a3c0662f9b0"
+    }
+  ]
+}

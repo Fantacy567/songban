@@ -1,0 +1,151 @@
+{
+  "version": "1",
+  "courses": [
+    {
+      "id": "ai-tools", "version": "1", "title": "第一次用 AI：做一张角色介绍卡",
+      "chapter": {"id": "tools", "title": "AI 工具篇", "order": 1}, "order": 1,
+      "status": "trial",
+      "goal": "提出要求、查看回复、追问修改、检查并保存一张自己选择的角色介绍卡。",
+      "preparation": "不用先学编程或答题。想一个虚构角色，或直接试试老师示范的月亮蜗牛。",
+      "duration": "约 20 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-ai-tools.svg", "alt": "原创教学插画：想法气泡连接电脑中的按钮网页，旁边有放大镜、检查卡和修改铅笔。"},
+      "intro": "先跟小芽看一个角色卡示范，再发送自己的要求，查看、追问修改并检查保存。你可以换角色、改想法，做完后继续探索故事、游戏或别的兴趣。下方五个动作排序是日后做代码项目时可选的参考练习，不是进入对话或保存成果的条件。",
+      "steps": [
+        {"id": "understand", "title": "先看示范：一句要求得到角色卡", "instruction": "在老师对话中先看要求和结果，再试自己的角色。示范卡是预先编写的材料；模拟模式也不是实时模型返回。无需先完成参考练习。", "example": "示范要求：请为月亮蜗牛写三行角色介绍卡。固定示例：名字：月亮蜗牛；喜欢的事：收集晚风里的故事；特别本领：把故事变成发光的路标。", "prompt": "你可以照着发送要求，也可以换一个角色；暂时没想法就请老师再示范一次。"},
+        {"id": "try", "title": "动手试：提出要求，再改一处", "instruction": "发送自己的要求并查看回复。想改哪里，就追问修改；说清要保留什么。如果觉得已经合适，也可以直接检查。代码项目的五个动作排序仅供选看，不进行模型调用，也不是本课必答任务。", "example": "追问：把本领改成听懂星星说话，保留名字和爱好。查看新回复，比较本领有没有改变、其他两行有没有保留。", "prompt": "挑你想改的一处，或直接告诉老师想保留这个版本；不需要逐格填写答案。"},
+        {"id": "reflect", "title": "检查保存，再挑想探索的方向", "instruction": "读一遍候选卡，检查是否符合你的意思，在成果区亲自编辑后点击保存，以平台反馈为准。还可查看保存版本。故事、自然、游戏等方向都可以继续，也可以先停在这张卡。", "example": "我希望角色会听懂星星，所以检查这一句；若回复多改了名字，就改回来再保存。老师写出卡片不等于已经保存成功。", "prompt": "愿意的话，说说下一步想让角色经历什么；你也可以保存后休息。"}
+      ],
+      "activity": {"kind": "tool-sort", "title": "可选参考：代码项目的五个动作", "instruction": "若以后想做网页，可为描述目标、AI 生成、运行、检查、亲自修改再试排序；修改后再运行和检查。这是保留的可选练习，不影响老师对话、角色卡保存或继续探索，不进行真实模型调用。"},
+      "sources": [
+        {"title": "GitHub Blog · Spec-driven development with AI", "url": "https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/", "supports": "描述目标后由 AI 返回代码常被称为 vibe coding；代码可能看似正确却不符合意图。本课额外要求运行、检查与亲自修改，不宣称已经验证儿童学习效果。"},
+        {"title": "GitHub Docs · Responsible use of Copilot inline suggestions", "url": "https://docs.github.com/en/copilot/responsible-use/inline-suggestions", "supports": "AI 代码建议可能不准确，使用者需要审查和测试；支持运行检查的技术边界，不证明本课程的教学效果。"},
+        {"title": "MDN · JavaScript: Adding interactivity", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website/Adding_interactivity", "supports": "浏览器中的点击事件可以触发处理代码；按钮外观与实际交互需要分别检查。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "imagination", "version": "1", "title": "展开想象，寻找想做的事",
+      "chapter": {"id": "tools", "title": "AI 工具篇", "order": 1}, "order": 2,
+      "status": "trial",
+      "goal": "从兴趣出发发散几个可能，选择、组合或改变一个想法，愿意时留下可继续的作品方向。",
+      "preparation": "可以直接开始，带来喜欢的角色、故事、游戏或自然现象，也可先看云朵的创意示例。",
+      "duration": "约 20 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-imagination.svg", "alt": "原创教学插画：打开的画册展开校园、星球和植物，放大框只圈出一株植物旁的小目标卡。"},
+      "intro": "先和云朵一起把一个念头变成几种可能，不急着找用途或填目标表。你可以混合、改写或继续想。想制作小工具时再选用下方目标卡；想象片段本身也可以保存。",
+      "steps": [
+        {"id": "understand", "title": "先让念头长出分枝", "instruction": "说一个喜欢的事物，或请老师先给几个火花。先想画面、角色或玩法，可以有很多方向；虚构设定没有标准答案。", "example": "固定创意示例：会讲故事的石头可以是一篇故事、一场寻宝游戏，也可以是一张石头观察卡。", "prompt": "挑一个方向、把它们混合，或告诉云朵你自己的念头。"},
+        {"id": "try", "title": "把两个想法放到一起", "instruction": "邀请老师协作起草一个小场景，改掉不喜欢的地方。如果想做有用的小工具，才参考使用者、困难、一个功能和检查办法四格；不用填完才继续。", "example": "会讲故事的石头搭上书页小船，去寻找没被写下的结尾。也可以把它变成读书角寻宝提示，这是待试的设想。", "prompt": "你想加什么、去掉什么，还是继续发散？可以直接让老师给一版草稿。"},
+        {"id": "reflect", "title": "保留火花，决定下一步", "instruction": "选择保存文字画面、继续想或做一个能试的小场景。要制作时，可以给动作补一个看得见的结果；不用把每个幻想变成应用。", "example": "我先保存石头与小船的故事。另一个可做的方向是点一下石头按钮出现一句线索；还没有实际运行。", "prompt": "可以选想继续的方向，也可以写‘还想继续想’，以后再改。"}
+      ],
+      "activity": {"kind": "idea-builder", "title": "可选参考：给小工具做目标卡", "instruction": "当你想把创意做成小工具时，可用为谁、什么困难、一个功能、如何检查四格整理。只是参考材料，不是对话或保存想象火花的前置条件；故事与幻想可以不用此卡。"},
+      "sources": [
+        {"title": "MDN · What will your website look like?", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website/What_will_your_website_look_like", "supports": "编程前先确定网站内容与用途、从简单网页开始并画草图。四格目标卡是本课的教学设计，尚无本平台儿童试点效果证据。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "first-project", "version": "1", "title": "做第一个小项目",
+      "chapter": {"id": "tools", "title": "AI 工具篇", "order": 1}, "order": 3,
+      "status": "trial",
+      "goal": "在创作工作台运行一个按钮网页，亲自修改一处并记录修改前后的结果。",
+      "preparation": "可直接用本课起步内容，也可带来自己的角色卡或小目标。草稿可随时保存，进入创作工作台无需先填课内答案；如需保存，使用平台现有学习身份。",
+      "duration": "约 30 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-first-project.svg", "alt": "原创教学插画：一座由积木搭起的桥通向网页画布，画布上有按钮与问候卡，旁边放着修改用的铅笔。"},
+      "intro": "这次真的做一个能在浏览器里运行的小网页。你可以从打招呼按钮开始，先让它有反应，再改成自己的话。作品的变化和你的解释要分别留下。",
+      "steps": [
+        {"id": "understand", "title": "先认识：按钮要有反应", "instruction": "HTML 可以放内容，JavaScript 可以让网页响应点击。先约定最小目标：点按钮后出现问候语。网页能打开，还不等于交互正确。", "example": "目标：页面有一个“打招呼”按钮，点它后显示“你好，小松”。检查时先看点击前，再看点击后。", "prompt": "写出你的按钮名字，以及点击后应该显示的内容。"},
+        {"id": "try", "title": "动手试：进入创作工作台", "instruction": "进入创作工作台，先保存“打招呼按钮”这个新想法。打开代码区，选择 index.html，把它改成下方从 <button 开始的最小 HTML；填写修改说明并保存，切到预览点按钮。再把问候语改成自己的话，保存并重新运行。模型未配置时也可手动编辑；若工作台未开放，先保留设计与代码。", "example": "最小 HTML：<button id=\"hello\">打招呼</button><p id=\"message\"></p><script>document.getElementById('hello').addEventListener('click', () => { document.getElementById('message').textContent = '你好，小松'; });</script>", "prompt": "回到本课记录：你改了哪一句、点击前看到了什么、点击后看到了什么？若没有运行成功，原样记录现象。"},
+        {"id": "reflect", "title": "说说发现：改变的是名字还是行为", "instruction": "只改按钮上的字，通常不会自动改变它执行的代码。把你改的地方与运行结果对照；如果没有达到目标，提出下一次要改的一处。", "example": "我只把按钮名改成“向森林问好”，问候语仍是“你好，小松”。要改变输出，还要修改写入 message 的文字。", "prompt": "写一条有证据的发现：我改了……，运行后……。再写一个仍需检查的问题。"}
+      ],
+      "activity": {"kind": "project", "title": "运行、修改、再运行", "instruction": "进入已有创作工作台完成按钮网页。课内记录保留你的目标、修改与观察；没有绑定项目也能先保存记录，不把文字记录当成已创建作品。"},
+      "sources": [
+        {"title": "MDN · JavaScript: Adding interactivity", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website/Adding_interactivity", "supports": "JavaScript 可响应浏览器点击事件并更新页面内容；起步代码是本项目原创最小例子，需实际运行检查。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "plugins", "version": "1", "title": "认识与使用插件",
+      "chapter": {"id": "tools", "title": "AI 工具篇", "order": 1}, "order": 4,
+      "status": "trial",
+      "goal": "在课程画布启用再停用一个扩展，记录增加了什么、关闭后有什么变化。",
+      "preparation": "不用下载文件，也不用安装外部插件。直接使用本课的“重点高亮扩展”。",
+      "duration": "约 20 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-plugins.svg", "alt": "原创教学插画：基础小机器旁有可拆卸的格线与装饰模块，连接口和开关展示接入扩展前后的变化。"},
+      "intro": "插件是给原有软件增加功能的一种方式。本课借用这个思路，在小画布里体验白名单扩展。这里的开关只影响课程画布，没有给浏览器或外部编程工具安装插件。",
+      "steps": [
+        {"id": "understand", "title": "先认识：主体和扩展", "instruction": "先看画布原来能做什么，再看扩展增加什么。扩展需要适合它的运行环境；网页课程里的开关，不等于已经装好了其他软件的插件。", "example": "纸本本身可以画画，套上格线尺后更容易对齐。这个比喻帮助区分原有能力和附加能力；真实软件扩展由程序实现。", "prompt": "在打开任何扩展前，描述当前画布。你打算观察哪一种变化？"},
+        {"id": "try", "title": "动手试：打开重点高亮", "instruction": "先观察读书会小卡片，再打开“重点高亮扩展”，看看“记得带一本喜欢的书”这句提醒的显示怎样变化，然后关闭。分别填入关闭时与开启后的观察。", "example": "观察句式：我打开的是重点高亮；打开前……；打开后……；关闭后……。检查文字内容和强调样式是否变化；如果没有变化，也要如实写下来。", "prompt": "留下同一个扩展开启与停用后的对比。它解决了什么小问题？"},
+        {"id": "reflect", "title": "说说发现：需要时再加", "instruction": "功能多不一定更适合当前任务。根据刚才的对比，决定保留还是关闭。以后遇到外部插件，还要看清来源、作用与权限，再决定是否使用。", "example": "如果我要让带书提醒更醒目，可以保留重点高亮；如果我在比较原来的排版，就先关闭。开关改变课程画布的显示，不会替我带好书。", "prompt": "你会保留还是关闭重点高亮，理由是什么？再解释为什么本课操作不等于给外部工具安装插件。"}
+      ],
+      "activity": {"kind": "plugin-lab", "title": "课程内插件体验", "instruction": "在可控画布启停白名单扩展，逐个比较前后变化。这是课程内功能扩展，不安装 Codex、WorkBuddy 或浏览器的原生插件，不执行任意代码。"},
+      "sources": [
+        {"title": "MDN · What are extensions?", "url": "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/What_are_WebExtensions", "supports": "以浏览器扩展为真实例子，说明扩展可添加或修改宿主功能；不能据此声称本课安装了浏览器扩展。"},
+        {"title": "MDN · permissions — manifest.json", "url": "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions", "supports": "浏览器扩展通过权限声明请求使用特定能力；来源与权限检查是外部扩展的注意事项，不是本课新增认证门槛。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "models", "version": "1", "title": "认识大模型",
+      "chapter": {"id": "advanced", "title": "进阶篇", "order": 2}, "order": 5,
+      "status": "trial",
+      "goal": "对照同一个任务比较两份固定模型输出样例，指出一处问题并解释选择理由。",
+      "preparation": "可以直接开始，不需要模型账号。练习使用人为编写的固定示例，不发起在线模型调用。",
+      "duration": "约 25 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-models.svg", "alt": "原创教学插画：同一张任务纸分送到圆形与方形模型装置，两个输出卡并排放在比较台上，旁边有放大镜。"},
+      "intro": "模型是 AI 工具里处理输入、产生输出的一部分。大语言模型会根据上下文和训练中学到的规律生成文字；语言流畅不保证内容正确。本课的两份输出是教学固定示例，不代表任何真实供应商的排名。",
+      "steps": [
+        {"id": "understand", "title": "先认识：同题才能对照", "instruction": "先读清同一个任务的要求，再比较两份输出。不能让一个回答简单问题、另一个回答难题，就说谁一定更好。这里的样例只用来练习检查。", "example": "本课任务是写一条提醒：周五 15:00，图书角，带一本书，不添加未提供的信息。先圈出时间、地点、物品，再看两份人为编写的样例。", "prompt": "读互动区的共同任务，写下你要检查的两项要求。"},
+        {"id": "try", "title": "动手试：找依据再选择", "instruction": "逐条对照固定输出与任务要求，记录哪句符合、哪句有问题。选择时说明理由；两份都有问题时，也可以明确说都需要修改。", "example": "检查清单：周五有没有变成周六？图书角有没有变成操场？有没有增加没提过的奖品？文字更长或更漂亮，不是唯一标准。", "prompt": "指出样例中的一处具体问题，写出你会怎样修改，再说明你更愿意采用哪份以及条件。"},
+        {"id": "reflect", "title": "说说发现：一次比较的边界", "instruction": "这次选择只针对眼前的任务和样例。想判断真实模型是否适合，还需要更多任务、真实输出和清楚的检查标准，不能拿固定样例下总排名。", "example": "“在这组固定例子里，这份保留了时间和地点”比“这个模型永远最好”更准确。模型输出像回答，也仍需要核查。", "prompt": "如果把任务换成写故事，你会保留哪条检查标准、增加哪条？说明本次没有验证什么。"}
+      ],
+      "activity": {"kind": "model-compare", "title": "同题样例比较台", "instruction": "阅读同一个任务和两份人为编写的固定模型输出样例，记录问题与取舍。非实时模型输出，不代表实际模型性能或排名。"},
+      "sources": [
+        {"title": "Google · Introduction to Large Language Models", "url": "https://developers.google.com/machine-learning/crash-course/llm", "supports": "语言模型使用上下文估计 token 序列的概率；token 可以是字、词或词的一部分。支持生成机制的简化说明。"},
+        {"title": "GitHub Docs · Responsible use of Copilot inline suggestions", "url": "https://docs.github.com/en/copilot/responsible-use/inline-suggestions", "supports": "AI 生成内容可能不准确，需要人工检查；不支持本课固定示例对真实模型进行性能排名。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "api", "version": "1", "title": "认识并调用 API",
+      "chapter": {"id": "advanced", "title": "进阶篇", "order": 2}, "order": 6,
+      "status": "trial",
+      "goal": "向本站教学接口发送一次请求，看懂输入与响应，并观察一次输入校验错误。",
+      "preparation": "使用现有学习身份进入实验。不需要 API 密钥；只填虚构昵称，例如“小松”。",
+      "duration": "约 25 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-api.svg", "alt": "原创教学插画：左侧客户端与右侧服务器之间架起双向桥梁，紫色请求包送过去，绿色响应包返回。"},
+      "intro": "API 是程序之间按约定使用功能的接口。有些 API 在浏览器里，有些要向服务器发请求。本课使用后者：请求真的到本站服务器，问候语按固定规则返回，没有调用大模型。",
+      "steps": [
+        {"id": "understand", "title": "先认识：请求与响应", "instruction": "客户端是你正在使用的网页；服务器收到请求后，按接口约定处理并返回响应。本课的操作叫 greet，意思是打招呼；name 是要使用的虚构昵称。", "example": "输入小松；网页发送 operation 为 greet、name 为小松的请求，服务器返回含问候语的响应。页面会显示实际请求与响应，请以实测结果为准。", "prompt": "发送前预测：改动昵称后，响应中哪部分可能改变？哪些规则应保持不变？"},
+        {"id": "try", "title": "动手试：成功一次，再试错误", "instruction": "先用“小松”发送请求，比较输入与响应。再发送空白昵称，观察校验错误。这里昵称去掉首尾空白后需要 1–40 个字符；不符合规则时应拒绝处理。", "example": "有效输入：小松。错误输入：留空或只输入空格。成功后记录返回内容；错误后记录提示，而不是把错误当成问候语。", "prompt": "分别记录一次成功和一次错误：你输入了什么，服务器或界面告诉了你什么？改正后再试一次。"},
+        {"id": "reflect", "title": "说说发现：有接口，不一定有 AI", "instruction": "固定规则也能通过 API 提供服务。看到响应不能证明调用了模型；请求失败时，页面也应清楚提示，不能假装获得了新的答案。", "example": "本课 notice 会说明“这是固定规则的教学接口，没有调用大模型。”网页调用是真的，模型生成并没有发生。", "prompt": "用自己的话区分请求、响应和模型。若网络断开，你希望页面怎样提示？"}
+      ],
+      "activity": {"kind": "api-lab", "title": "请求小包往返实验", "instruction": "实际调用本站 greet 教学接口：先输入虚构昵称，再测试空白输入的错误。查看真实请求、响应与提示；返回值由固定规则产生，不需要用户密钥。"},
+      "sources": [
+        {"title": "MDN · Overview of HTTP", "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview", "supports": "HTTP 客户端发请求、服务器回响应，响应状态可表示成功或失败；本课 greet 字段与长度规则由项目冻结契约规定。"},
+        {"title": "MDN · Introduction to web APIs", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Client-side_APIs/Introduction", "supports": "API 暴露可供程序使用的功能；浏览器 API 与远程服务 API 不应混为一谈。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    },
+    {
+      "id": "model-powered-app", "version": "1", "title": "用不同模型增强作品",
+      "chapter": {"id": "advanced", "title": "进阶篇", "order": 2}, "order": 7,
+      "status": "trial",
+      "goal": "为一个小应用写清输入、模型职责、输出与失败回退，并用固定样例检查一次。",
+      "preparation": "不用完成其他课。可用本课的故事卡应用，也可带来自己的作品想法；练习不需要真实模型账号。",
+      "duration": "约 30 分钟，可分次做",
+      "cover": {"src": "/static/platform/illustrations/course-model-powered-app.svg", "alt": "原创教学插画：孩子的小应用连向文字与图像能力卡，旁边有人工检查卡和可切回普通内容的回退开关。"},
+      "intro": "让模型只负责作品中的一件明确任务：例如写一句故事开头，或提供一幅配图。应用还要负责显示、检查和失败提示。本课用固定样例推演；真实模型接入未配置时，不能说已经接通。",
+      "steps": [
+        {"id": "understand", "title": "先认识：给能力分工", "instruction": "先决定用户输入什么、模型只做什么、应用拿什么输出。文字和图像任务需要相应能力，并不是接上一个模型就能完成所有事情。选能力要看任务，也要考虑等待与费用。", "example": "故事卡方案：输入“会发光的种子”；文字能力负责一句故事开头；如果要配图，再把清楚的画面描述交给图像能力。它们都是设计方案，还没有真实调用。", "prompt": "为你的小应用写清输入、模型职责和输出。哪些部分用普通按钮或固定规则就可以完成？"},
+        {"id": "try", "title": "动手试：拿固定样例走一遍", "instruction": "填好输入、职责、输出与回退，点击“用固定规则验证方案”，查看正常和失败两条路径。按钮只检查四格有没有填写，不判断内容对错；还要由你对照下面的固定样例检查。", "example": "人为编写的固定样例：输入“会发光的种子”，输出“小松发现一颗在夜里发光的种子。”失败样例：没有返回文字。回退可以显示“暂时没得到新故事，请先自己写一句”；配图失败则保留文字卡。", "prompt": "用正常与空输出两个固定样例检查你的方案。记录发现的问题、采用的回退，以及一次修改后的方案；不要把样例标成刚刚生成。"},
+        {"id": "reflect", "title": "说说发现：增强也要可检查", "instruction": "加模型是为了完成具体任务，不是为了堆功能。用固定样例能检查设计想法，却不能证明真实模型的质量、速度或费用。真实接入需要服务端配置，密钥不能写进网页或学习答案。", "example": "我可以证明“方案考虑了空输出”，还不能证明“真实模型每次都写得好”。如果只显示固定样例，就明确标“固定示例”。", "prompt": "说出你保留的一项模型职责、一项普通程序职责，以及真实接入后还要验证的一件事。"}
+      ],
+      "activity": {"kind": "model-app", "title": "给小应用画能力说明书", "instruction": "填写输入、模型职责、输出与失败回退，用人为编写的固定样例检查。练习不发起真实模型或图片调用；真实模型未配置时如实标明，不把样例冒充新生成结果。"},
+      "sources": [
+        {"title": "Anthropic · Building effective agents", "url": "https://www.anthropic.com/research/building-effective-agents", "supports": "任务可按职责拆分或路由给不同能力，应从简单方案开始，并评估质量、延迟和成本；不是本平台学习效果证明。"},
+        {"title": "Google Cloud · API key best practices", "url": "https://cloud.google.com/docs/authentication/api-keys-best-practices", "supports": "避免在客户端代码中嵌入密钥；支持真实接入的密钥边界，不表示本平台已配置或调用该服务。"}
+      ],
+      "review": {"technical": "draft", "education": "pending", "pilot": "pending"}
+    }
+  ]
+}

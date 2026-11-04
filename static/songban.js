@@ -10,9 +10,26 @@ const state = {token:identityStorage.getItem('studio-token') || '',team:identity
 const endpoint = suffix => '/api/core/teams/' + encodeURIComponent(state.team) + suffix;
 const learningIdentityEnabled=!!document.querySelector('meta[name="songban-learning-v2"]');
 const learningNavigationEnabled=learningIdentityEnabled&&!!document.querySelector('meta[name="songban-learning-navigation"]');
+const platformEnabled=learningNavigationEnabled&&!!document.querySelector('meta[name="songban-platform"]');
+if(platformEnabled){routePages.hackathon='hackathon';routePages['hackathon/intro']='hackathonIntro';pageRoutes.hackathonIntro='hackathon/intro';}
 function wantsLearning(){return learningNavigationEnabled&&sessionStorage.getItem('songban-learning-intent')==='learn';}
-function learningStageNavigation(){return learningNavigationEnabled?`<nav data-stage-nav aria-label="主导航"><a href="/learning-prep#/learn/first" ${wantsLearning()?'aria-current="page"':''}>AI 学习</a><a href="#/events" ${wantsLearning()?'':'aria-current="page"'}>黑客松</a></nav>`:'';}
-function learningEntryCards(){return learningNavigationEnabled?'<section class="learning-entry-cards" aria-label="选择你的创作方式"><a href="#/interview?entry=learn" class="learning-entry-card"><span>从一个小作品开始</span><h2>AI 学习</h2><p>和松伴聊一聊，学着做出自己的作品。</p><strong>开始我的创作 ↗</strong></a><a href="#/events" class="learning-entry-card"><span>和伙伴一起挑战</span><h2>黑客松</h2><p>寻找比赛、组队合作，把想法做出来。</p><strong>看看比赛活动 ↗</strong></a></section>':'';}
+function learningStageNavigation(){
+  if(platformEnabled)return '';
+  return learningNavigationEnabled?`<nav data-stage-nav aria-label="主导航"><a href="/learning-prep#/learn/first" ${wantsLearning()?'aria-current="page"':''}>AI 学习</a><a href="#/events" ${wantsLearning()?'':'aria-current="page"'}>黑客松</a></nav>`:'';
+}
+function platformSideNavigation(){
+  return `<a class="sb-new-exploration" href="/learning-prep#/learn/course?id=ai-tools">＋ 和松伴开始探索</a><nav class="sp-primary-nav" aria-label="主导航"><a href="/learning-prep#/learn/courses" aria-label="AI 教学大厅" title="AI 教学大厅">${icon('learn')}<span>AI 教学大厅</span></a><a href="#/hackathon" aria-label="黑客松教学大厅" title="黑客松教学大厅" ${state.page!=='login'?'aria-current="page"':''}>${icon('hackathon')}<span>黑客松教学大厅</span></a><a href="/learning-prep#/portfolio" aria-label="作品集" title="作品集">${icon('portfolio')}<span>作品集</span></a></nav><div class="sb-competition-shortcuts"><span>黑客松实践</span><a href="#/events">查看活动</a><a href="#/work">继续团队任务</a></div>`;
+}
+function demoEntryHref(){
+  if(['127.0.0.1','localhost','[::1]'].includes(location.hostname)){const target=new URL(location.href);target.protocol='http:';target.port='8895';target.pathname='/';target.search='';target.hash='/login';return target.href;}
+  return '/demo/';
+}
+function learningEntryCards(){
+  if(!learningNavigationEnabled)return '';
+  const demo=!!window.SongbanDemo?.learning_enabled;
+  if(platformEnabled)return `<section class="learning-entry-cards" aria-label="选择你的创作方式"><a href="/learning-prep#/learn/course?id=ai-tools" class="learning-entry-card"><span>先学会用 AI，再做点喜欢的</span><h2>AI 教学大厅</h2><p>和松伴一起提要求、改一改，留下自己的第一份成果。</p><strong>第一次用 AI ↗</strong></a><a href="#/hackathon" class="learning-entry-card"><span>先认识，再一起实践</span><h2>黑客松教学大厅</h2><p>认识黑客松，和伙伴把一个想法做出来。</p><strong>认识黑客松 ↗</strong></a></section>`;
+  return `<section class="learning-entry-cards" aria-label="选择你的创作方式"><a href="${demo?'/learning-prep#/learn/first':'#/interview?entry=learn'}" class="learning-entry-card"><span>从一个小作品开始</span><h2>AI 学习</h2><p>${demo?'从准备好的虚构访谈开始，体验孩子做作品的过程。':'和松伴聊一聊，学着做出自己的作品。'}</p><strong>开始我的创作 ↗</strong></a><a href="#/events" class="learning-entry-card"><span>和伙伴一起挑战</span><h2>黑客松</h2><p>寻找比赛、组队合作，把想法做出来。</p><strong>看看比赛活动 ↗</strong></a></section>`;
+}
 let learningRestricted=false,learningIdentityCheck=null;
 function learningBoundaryPage(message='当前是孩子学习模式。请在学习入口继续，返回管理需要重新认证。'){
   root.innerHTML=`<main id="main-content" class="starting-page" style="max-width:760px;margin:80px auto;padding:24px"><a class="wordmark" href="/learning-prep#/learn"><b>松伴</b><span>SONGBAN</span></a><h1 style="margin-top:32px">继续你的学习</h1><p class="subtitle">${esc(message)}</p><a class="primary" style="margin-top:24px" href="/learning-prep#/learn">打开学习准备</a></main>`;
@@ -33,7 +50,7 @@ async function protectLegacyLearning(){
         if(!restricted&&![200,401].includes(probe.status))throw Error('identity_unavailable');
       }
       learningRestricted=restricted;
-      if(restricted){clearIdentity();learningBoundaryPage();}
+      if(restricted){clearIdentity();if(platformEnabled&&['#/hackathon','#/hackathon/intro'].includes(location.hash)){location.replace('/learning-prep'+location.hash);}else learningBoundaryPage();}
       else if(response.ok&&state.me&&state.me.person.id!==session.actor_id){clearIdentity();state.page='login';render();}
       return restricted;
     }catch{
@@ -64,6 +81,7 @@ async function api(path, body, method) {
 let workbenchMount=null;
 function unmountWorkbench(){if(workbenchMount){workbenchMount.unmount();workbenchMount=null;}}
 function clearIdentity(persist=true) {
+  window.SongbanPlatformNative?.reset();
   clearArchiveState();
   unmountWorkbench();state.personal=false;sessionStorage.removeItem('songban-personal');
   root.querySelector('#parent-report-section')?.remove();
@@ -116,7 +134,7 @@ function restoreDrafts() {
   });
 }
 function icon(kind) {
-  const paths={events:'M5 5h14v15H5z M8 2v6 M16 2v6 M5 10h14',work:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',arrow:'M4 12h16 M14 6l6 6-6 6'};
+  const paths={learn:'M4 4h6a3 3 0 0 1 2 1 3 3 0 0 1 2-1h6v15h-6a3 3 0 0 0-2 1 3 3 0 0 0-2-1H4z M12 5v15',hackathon:'M5 21V3 M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0',portfolio:'M3 5h18v15H3z M3 15l5-5 5 5 3-3 5 5 M16 8h.01',events:'M5 5h14v15H5z M8 2v6 M16 2v6 M5 10h14',work:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',arrow:'M4 12h16 M14 6l6 6-6 6'};
   return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[kind]||paths.arrow}"/></svg>`;
 }
 function pine(small=false){return `<div class="pine ${small?'pine-small':''}" role="img" aria-label="松伴小松树"><div class="pine-shape"></div><div class="pine-eyes"><i></i><i></i></div></div>`;}
@@ -153,8 +171,14 @@ function shell() {
   unmountWorkbench();
   const learningIntro=wantsLearning()&&['interview','onboarding'].includes(state.page);
   const activity=learningIntro||['events','event','onboarding'].includes(state.page);
-  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-learning-intro="${learningIntro}" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}${learningStageNavigation()}<div class="header-actions"><span class="status" id="sync-state">${state.me?(state.me.guest?'访客体验':'已连接团队服务'):'可直接体验'}</span>${state.me?`<button class="ghost" id="account-settings">账号</button><button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}${!window.SONGBAN_DEMO?'<a class="text-link" href="/demo/">演示</a>':''}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="${learningNavigationEnabled?'黑客松页面':'主导航'}"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav><a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['ideas','选题'],['direction','方向'],['division','分工'],['work','任务'],['delivery','提交'],['review','复盘']].filter(([route])=>state.data?.topic_confirmed||route==='ideas').filter(([route])=>state.data?.division_status==='published'||(!state.data?.division_status&&state.data?.plan_version>0)||!['work','delivery','review'].includes(route)).map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队"><option value="__personal" ${state.personal?'selected':''}>我的个人空间</option>${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div>${!activity&&state.me?`<details class="stage-support"><summary>队伍、连接器与赛事资料</summary><div class="action-row"><a href="#/team">队伍与邀请码</a><a href="#/members">我的能力与时间</a><a href="#/tools">松伴连接器</a><a href="#/contest-materials">本场赛事关键信息</a><a href="#/materials">其他原件</a><a href="#/idea-library">选题原文</a><a href="#/library">开发资料</a></div></details>`:''}</main><footer class="page-footer">${learningIntro?'先聊聊你的想法，再动手做一个小作品。':activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
-  if(learningIntro)root.querySelector('.sidebar')?.remove();
+  root.innerHTML=`<div class="app-shell" data-shell="songban-v1" data-learning-intro="${learningIntro}" data-route="${pageRoutes[state.page]||state.page}"><header class="app-header">${brand()}${learningStageNavigation()}<div class="header-actions"><span class="status" id="sync-state">${state.me?(state.me.guest?'访客体验':'已连接团队服务'):'可直接体验'}</span>${state.me?`<button class="ghost" id="account-settings">账号</button><button class="ghost" id="logout">退出</button>`:'<button class="ghost" data-auth>登录</button>'}${!isDemoExperience()?`<a class="text-link" href="${demoEntryHref()}">演示</a>`:''}<button class="help-button" data-help aria-label="使用帮助">?</button></div></header><aside class="sidebar"><a class="sidebar-brand" href="#/events" aria-label="返回活动">松</a><nav aria-label="${learningNavigationEnabled?'黑客松页面':'主导航'}"><a href="#/events" class="${activity?'active':''}" ${activity?'aria-current="page"':''}>${icon('events')}<span>活动</span></a><a href="#/work" class="${!activity?'active':''}" ${!activity?'aria-current="page"':''}>${icon('work')}<span>实践</span></a></nav>${platformEnabled?platformSideNavigation():''}<a class="side-profile" href="#/members" aria-label="我的团队设置">${esc(state.me?.person.name?.slice(0,1)||'我')}</a></aside><main id="main-content" tabindex="-1" class="app-content">${!activity?`<div class="practice-bar"><div class="practice-tabs" aria-label="实践页面">${[['ideas','选题'],['direction','方向'],['division','分工'],['work','任务'],['delivery','提交'],['review','复盘']].filter(([route])=>state.data?.topic_confirmed||route==='ideas').filter(([route])=>state.data?.division_status==='published'||(!state.data?.division_status&&state.data?.plan_version>0)||!['work','delivery','review'].includes(route)).map(([route,label])=>`<a href="#/${route}" class="${(pageRoutes[state.page]||state.page)===route?'active':''}">${label}</a>`).join('')}</div>${state.me?.teams.length?`<select id="team-switch" aria-label="切换团队"><option value="__personal" ${state.personal?'selected':''}>我的个人空间</option>${state.me.teams.map(t=>`<option value="${esc(t.id)}" ${t.id===state.team?'selected':''}>${esc(t.name)}</option>`).join('')}<option value="__new">＋ 创建或加入团队</option></select>`:''}</div>`:''}<div id="content"></div>${!activity&&state.me?`<details class="stage-support"><summary>队伍、连接器与赛事资料</summary><div class="action-row"><a href="#/team">队伍与邀请码</a><a href="#/members">我的能力与时间</a><a href="#/tools">松伴连接器</a><a href="#/contest-materials">本场赛事关键信息</a><a href="#/materials">其他原件</a><a href="#/idea-library">选题原文</a><a href="#/library">开发资料</a></div></details>`:''}</main><footer class="page-footer">${learningIntro?'先聊聊你的想法，再动手做一个小作品。':activity?'活动目录包含虚构样例，请以主办方公告为准。':'团队资料与操作结果以服务端保存记录为准。'}</footer></div>`;
+  if(learningIntro&&!platformEnabled)root.querySelector('.sidebar')?.remove();
+  if(platformEnabled){
+    const chrome=root.querySelector('.app-shell');chrome.classList.add('sb-workbench-shell');
+    const rail=root.querySelector('.sidebar');
+    rail.querySelector('nav[aria-label="黑客松页面"]')?.remove();
+    const mark=rail.querySelector('.sidebar-brand');mark.href='/learning-prep#/learn/courses';mark.setAttribute('aria-label','返回 AI 教学大厅');mark.innerHTML='松伴 <small>SONGBAN</small>';
+  }
   root.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>openAuth());
   $('[data-help]').onclick=()=>showHelp();
   if($('#account-settings'))$('#account-settings').onclick=openAccount;
@@ -167,14 +191,30 @@ function shell() {
     try{state.data=await api(endpoint(''));render();}catch(error){$('#content').innerHTML=`<p class="error">${esc(error.message)}</p>`;}
   };
 }
+let platformHallMount=null;
+function platformHallPage(){
+  shell();root.querySelector('.app-shell').dataset.platformHall='true';
+  const host=$('#content');
+  if(!window.SongbanHalls){host.innerHTML='<h1>大厅暂时没有加载好</h1><p>请刷新页面，已经保存的比赛仍可继续。</p><a href="#/events">查看活动</a>';return;}
+  const team=state.me?.teams.find(t=>t.id===state.team);
+  const practice=team?{teamId:team.id,title:team.name,stageLabel:state.data?.topic_confirmed?'继续团队分工与作品':'继续选题讨论'}:null;
+  const page=state.page==='hackathonIntro'?'hackathon-intro':'hackathon';
+  platformHallMount=window.SongbanHalls.mount(host,{contextKey:String(state.epoch)+':'+(state.me?.person.id||'public'),
+    state:{page,...(page==='hackathon'?{status:'ready'}:{}),practice,practiceEnabled:true},
+    onAction:action=>{if(action.type==='hackathon-intro')go('hackathon/intro');else if(action.type==='hackathon-hall')go('hackathon');else if(action.type==='resume-practice')go('work');else if(action.type==='begin-practice')go('events');else if(action.type==='retry')render();}});
+}
 function render() {
+  if(platformEnabled)queueMicrotask(()=>window.SongbanPlatformNative?.update({token:state.token,epoch:state.epoch,page:state.page,team:state.team,restricted:learningRestricted,onNavigate:go}));
+  if(platformHallMount){platformHallMount.unmount();platformHallMount=null;}
   if(learningRestricted){learningBoundaryPage();return;}
+  if(platformEnabled&&['hackathon','hackathonIntro'].includes(state.page)){history.replaceState(null,'','#/'+(pageRoutes[state.page]||state.page));platformHallPage();return;}
   gateJourney();
   const guided=usesIdeaWorkflow();
   if(guided&&state.data?.topic_confirmed&&(state.data.division_status?state.data.division_status!=='published':!state.data.plan_version)&&['myTasks','teamTasks','overview','delivery','recap','workbench'].includes(state.page))state.page=state.data.division_status?'division':'direction';
   if(guided&&state.data&&!state.data.topic_confirmed&&['division','direction','myTasks','teamTasks','overview','library','delivery','recap'].includes(state.page))state.page='discussion';
   if(state.page==='overview'&&guided)state.page='myTasks';
-  const route=pageRoutes[state.page]||state.page;history.replaceState(null,'','#/'+route+(wantsLearning()&&['interview','onboarding'].includes(route)?'?entry=learn':''));
+  const route=pageRoutes[state.page]||state.page,learningReturn=state.page==='login'?learningLoginReturn():'';
+  history.replaceState(null,'','#/'+route+(learningReturn?'?next='+encodeURIComponent(learningReturn):wantsLearning()&&['interview','onboarding'].includes(route)?'?entry=learn':''));
   if(state.page==='login'){landing();return;}
   shell();journeyChrome();
   if(state.page==='onboarding'){onboardingPage();return;}
@@ -273,6 +313,23 @@ function modal(title,body){
 }
 function showHelp(){modal('我们一步步来。','<p>先了解活动、收集个人材料，在「实践 → 工作台」整理思路。还没有小队也可以开始个人讨论。</p><p>准备与同伴合作时创建或加入小队，用队伍码邀请队友。个人讨论仍在「我的个人空间」；选择内容、编辑摘要并预览后，才会共享给指定团队。</p><p>队长确认共同方向，在「任务」里生成并核对分工。成员同步成果与依据，再由另一位队友检查。</p><p>工作台会显示当前项目的下一步。可以随时回个人空间继续旧讨论；「交付」导出交接清单，「复盘」记录收获。</p><p>无需安装外部工具，也能在网页完成讨论、进展同步和检查。「个人工具」用于连接已有工具。</p><p class="muted">活动样例不代表真实报名。任务检查通过也不等于主办方已经收到作品。</p>');}
 function renderAuth(){state.page='login';landing();openAuth();}
+function learningLoginReturn(){
+  if(!platformEnabled || isDemoExperience() || !location.hash.startsWith('#/login?'))return '';
+  const query=new URLSearchParams(location.hash.slice(location.hash.indexOf('?')+1));
+  if(query.getAll('next').length!==1)return '';
+  const target=query.get('next')||'';
+  if(!target.startsWith('/learning-prep#/'))return '';
+  const hash=target.slice('/learning-prep'.length),[route,search='',...extra]=hash.split('?');
+  if(extra.length)return '';
+  if(['#/learn','#/learn/first','#/learn/courses','#/learn/start','#/portfolio'].includes(hash))return target;
+  if(!['#/learn/create','#/learn/run','#/learn/works','#/learn/course'].includes(route))return '';
+  const args=new URLSearchParams(search),keys=[...args.keys()],identifier=v=>v!==null&&/^[A-Za-z0-9_.:-]{1,100}$/.test(v);
+  if(new Set(keys).size!==keys.length)return '';
+  if(route==='#/learn/course')return keys.length===1&&keys[0]==='id'&&['ai-tools','imagination','first-project','plugins','models','api','model-powered-app'].includes(args.get('id'))?target:'';
+  if(route==='#/learn/create')return keys.every(k=>k==='id')&&(!args.has('id')||identifier(args.get('id')))?target:'';
+  if(route==='#/learn/run')return identifier(args.get('id'))&&keys.every(k=>['id','view'].includes(k))&&(!args.has('view')||args.get('view')==='review')?target:'';
+  return keys.every(k=>['id','version'].includes(k))&&(!args.has('id')||identifier(args.get('id')))&&(!args.has('version')||(identifier(args.get('version'))&&args.has('id')))?target:'';
+}
 function isDemoExperience(){return !!(window.SONGBAN_DEMO||window.SongbanDemo);}
 function accountLoginHref(){
   const target=window.SongbanDemo?.login_url||(window.SONGBAN_DEMO_BASE?'/#/login':'');
@@ -349,7 +406,7 @@ function openAuth(initial='password',prefill={}){
       unmountWorkbench();state.epoch++;
       if(!binding){state.personal=false;sessionStorage.removeItem('songban-personal');state.team='';state.data=null;state.drafts.clear();}
       state.token=auth.token;identityStorage.setItem('studio-token',auth.token);dialog.close();
-      try{await load();if(state.page==='login')state.page=state.me.teams.length?'workbench':state.me.preferences?'events':'onboarding';render();toast(binding?'邮箱已绑定，团队和资料保持不变。':'已登录，欢迎回来。');}
+      try{await load();const learningReturn=!binding&&learningLoginReturn();if(learningReturn){location.assign(learningReturn);return;}if(state.page==='login')state.page=state.me.teams.length?'workbench':state.me.preferences?'events':'onboarding';render();toast(binding?'邮箱已绑定，团队和资料保持不变。':'已登录，欢迎回来。');}
       catch(error){shell();$('#content').innerHTML='<p class="error">'+esc(error.message)+'</p><button id="retry-load">重新连接</button>';$('#retry-load').onclick=()=>load().then(render).catch(e=>toast(e.message));}
     });
     contact.focus();
@@ -462,7 +519,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
   }
   if(window.SONGBAN_DEMO){const demo=await api('/api/demo/bootstrap',{});state.token=demo.token;state.team='';identityStorage.setItem('studio-token',demo.token);}
   routeFromHash();
-  if(state.token){try{await load();routeFromHash();if(!location.hash&&state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
+  if(state.token){try{await load();const learningReturn=learningLoginReturn();if(learningReturn){location.assign(learningReturn);return;}routeFromHash();if(!location.hash&&state.page==='login'&&state.me.teams.length)state.page='myTasks';}catch(error){if(state.token)toast(error.message);}}
   render();
   const markDirty=e=>{if(e.target.form&&e.target.form.id!=='starting-form'){e.target.form.dataset.dirty='true';delete e.target.form.dataset.eventId;}};
   root.addEventListener('input',markDirty);
