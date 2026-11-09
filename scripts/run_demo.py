@@ -10,6 +10,7 @@ from pathlib import Path
 import secrets
 import sqlite3
 import sys
+import tempfile
 from datetime import datetime
 from contextlib import closing
 from unittest.mock import patch
@@ -103,7 +104,7 @@ def account_login_url(app_url):
     return urlunsplit((url.scheme, url.netloc, url.path.rstrip('/') + '/', '', '/login'))
 
 
-def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report_runner=None, app_url='http://127.0.0.1:8893', real_connector=False):
+def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report_runner=None, app_url='http://127.0.0.1:8893', real_connector=False, learning_settings=None, learning_demo=None, platform_settings=None):
     login_url = account_login_url(app_url)
     # The caller chooses a new dedicated DB before app.main's module-level app is imported.
     from app.main import create_app, digest, now
@@ -112,7 +113,7 @@ def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report
 
     app = create_app(db_path, core_only=True, enforce_journey=False, core_model_runner=demo_plan,
                      materials_model_runner=demo_materials, workbench_model_runner=demo_workbench, topic_model_runner=demo_ranking,
-                     parent_report_options={'config': parent_report_config or {}, 'runner': parent_report_runner, 'event': CONTENT.get('event', {}), 'demo': True})
+                     parent_report_options={'config': parent_report_config or {}, 'runner': parent_report_runner, 'event': CONTENT.get('event', {}), 'demo': True}, learning_settings=learning_settings, platform_settings=platform_settings)
     users = []
     if resume:
         users.extend(resume['users'])
@@ -132,14 +133,29 @@ def build_demo(db_path, *, resume=None, parent_report_config=None, parent_report
             con.commit()
     deadline = CONTENT['deadline']
     bootstrap = {}
+    if learning_settings is not None and learning_demo:
+        from scripts.demo_learning_entry import register_demo_learning_entry
+        register_demo_learning_entry(app, db_path, learning_demo, [user['id'] for user in users])
     @app.middleware('http')
     async def demo_only(request, call_next):
+        from app.platform_v1.pages import platform_page
         path = request.url.path
-        if path in ('/', '/learning', '/demo', '/static/songban.html'):
+        if path in ('/', '/learning', '/demo', '/demo/', '/static/songban.html'):
             html = (ROOT / 'static/songban.html').read_text(encoding='utf-8')
             html = html.replace('<head>', '<head>\n<script src="/demo/bootstrap.js"></script>\n<link rel="stylesheet" href="/static/songban-demo.css?v=20261101-account-entry">')
+            if learning_settings is not None:
+                extra = '<meta name="songban-learning-v2" content="1">'
+                if learning_settings.navigation_enabled:
+                    extra += '<meta name="songban-learning-navigation" content="1"><link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-unified-demo">'
+                html = html.replace('<head>', '<head>\n'+extra, 1)
             html = html.replace('</head>', '<script defer src="/static/songban-demo.js?v=20261101-real-connector"></script>\n</head>')
-            return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
+            return HTMLResponse(platform_page(html, platform_settings), headers={'Cache-Control': 'no-store'})
+        if path == '/learning-prep' and learning_settings is not None and learning_demo:
+            html = (ROOT / 'static/learning-prep.html').read_text(encoding='utf-8')
+            html = html.replace('</head>', '<meta name="songban-learning-demo-entry" content="1"><link rel="stylesheet" href="/static/learning-navigation.css?v=20261102-unified-demo"><script defer src="/static/learning-demo-guide.js?v=20261103-child-entry"></script></head>', 1)
+            if learning_settings.navigation_enabled:
+                html = html.replace('<a class="text-link" href="/#/events" data-learning-exit>返回活动与比赛</a>', '<nav data-stage-nav aria-label="主导航"><a href="/learning-prep#/learn/first" aria-current="page">AI 学习</a><a href="/#/events" data-learning-exit>黑客松</a></nav>', 1)
+            return HTMLResponse(platform_page(html, platform_settings, learning=True), headers={'Cache-Control': 'no-store'})
         if path == '/demo/bootstrap.js':
             code = 'window.SongbanDemo=' + json.dumps(bootstrap, ensure_ascii=False) + ';\n'
             code += '''const demo=window.SongbanDemo;
@@ -238,7 +254,7 @@ if(!location.hash)location.hash='/onboarding';
                              'team_id': scope, 'summary': f'【模拟共享】{users[index]["name"]}：' + users[index]['willingness'] + '\n' + CONTENT['share'], 'selected': True}, index)
                 call('POST', base + '/connections', {'label': users[index]['name'] + '的演示工具'}, index)
 
-    bootstrap.update(users=users, team=team, topic_team=topic_team, direction={**DIRECTION, 'deadline': deadline}, rules=RULES, parent_reports=True, login_url=login_url, real_connector=real_connector)
+    bootstrap.update(users=users, team=team, topic_team=topic_team, direction={**DIRECTION, 'deadline': deadline}, rules=RULES, parent_reports=True, login_url=login_url, real_connector=real_connector, learning_enabled=learning_settings is not None)
 
     from fastapi import Header
     @app.post('/demo/advance')
@@ -300,6 +316,18 @@ if(!location.hash)location.hash='/onboarding';
     return app
 
 
+def build_demo_isolated_import(db_path, **options):
+    """Keep app.main's unused module app away from the real resume database.
+
+    A migrated learning DB requires explicit settings. Its CLI import must not
+    construct app.main.app with default (paused/absent) settings against it.
+    The actual walkthrough is still built explicitly from db_path and options.
+    """
+    with tempfile.TemporaryDirectory(prefix='songban-demo-import-') as folder:
+        with patch.dict(os.environ, {'DATABASE_PATH': str(Path(folder) / 'import-only.sqlite3')}), patch('app.environment.load_env'):
+            return build_demo(db_path, **options)
+
+
 if __name__ == '__main__':
     import uvicorn
     from app import environment
@@ -308,6 +336,7 @@ if __name__ == '__main__':
     parser.add_argument('--app-url', default='http://127.0.0.1:8893', help='Account service URL used by the demo login link')
     parser.add_argument('--real-connector', action='store_true', help='Enable real native Codex connector installation and binding to the synthetic demo team')
     parser.add_argument('--resume', help='Private resume manifest containing the existing demo DB and bootstrap identities')
+    parser.add_argument('--creative-studio', action='store_true', help='Enable real local code editing and sandbox preview; does not configure or call a model')
     args = parser.parse_args()
     # Capture only the report's model configuration before clearing demo services.
     environment.load_env()
@@ -315,12 +344,27 @@ if __name__ == '__main__':
     parent_report_config = team_model_config()
     allowed_model_hosts = os.environ.get('MODEL_ALLOWED_HOSTS')
     resume = None
+    learning_demo = None
+    learning_settings = None
+    platform_settings = None
     if args.resume:
         receipt = json.loads(Path(args.resume).read_text(encoding='utf-8-sig'))
         db = Path(receipt['db']).resolve()
         if not db.is_file(): raise SystemExit('The existing demo database was not found.')
         folder = db.parent
         resume = receipt['bootstrap']
+        if receipt.get('learning'):
+            from scripts.serve_learning_preview import _settings
+            learning_demo = receipt['learning']
+            learning_settings = _settings('http://127.0.0.1:'+str(args.port))
+            if receipt.get('canonical_demo'):
+                from app.platform_v1 import PlatformSettings
+                from app.platform_v1.images import ImageSettings
+                images = ImageSettings(storage_dir=folder/'platform-assets', config_version='demo-local-sample-v1',
+                                       sample_enabled=True, sample_path=ROOT/'static/design/pine-mascot.png',
+                                       sample_limit=100, live_enabled=False, image_limit=0)
+                platform_settings = PlatformSettings(enabled=True, navigation_enabled=True, demo_mode=True,
+                                                     image_settings=images, creative_studio_enabled=args.creative_studio)
     else:
         folder = ROOT / '.browser-cache/demo' / (datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + secrets.token_hex(3))
         folder.mkdir(parents=True)
@@ -329,8 +373,11 @@ if __name__ == '__main__':
         os.environ.pop(key, None)
     if allowed_model_hosts: os.environ['MODEL_ALLOWED_HOSTS'] = allowed_model_hosts
     os.environ['DATABASE_PATH'] = str(db)
-    with patch('app.environment.load_env'):
-        app = build_demo(db, resume=resume, parent_report_config=parent_report_config, app_url=args.app_url, real_connector=args.real_connector)
+    app = build_demo_isolated_import(db, resume=resume, parent_report_config=parent_report_config, app_url=args.app_url,
+                                    real_connector=args.real_connector, learning_settings=learning_settings,
+                                    learning_demo=learning_demo, platform_settings=platform_settings)
     (folder / 'runtime.json').write_text(json.dumps({'pid': os.getpid(), 'port': args.port, 'db': str(db)}, ensure_ascii=False), encoding='utf-8')
     print(f'Songban demo: http://127.0.0.1:{args.port}/#/onboarding', flush=True)
+    if platform_settings is not None:
+        print('Platform companion live model is not configured; prior test authorization is exhausted. Local guidance and original sample-image saving are available.', flush=True)
     uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning')

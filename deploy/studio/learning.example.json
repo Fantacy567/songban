@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "settings": {
+  "enabled": true,
+  "navigation_enabled": true,
+  "studio_enabled": true,
+  "catalog_enabled": true,
+  "course_enabled": true,
+  "mock_enabled": false,
+  "models_enabled": false,
+  "reports_enabled": false,
+  "publication_enabled": false,
+  "consent_version": "unconfigured",
+  "age_band_options": ["小学阶段", "初中阶段", "高中及职业学校阶段", "暂不填写"]
+  }
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">搭起能运行的第一个小网页</title>
+  <desc id="desc">原创教学插画：积木桥从前景延伸到右上方的网页画布，按钮旁弹出问候卡，虚构孩子在桥边拿着一块积木，铅笔标记着一处修改。不是实际工作台截图。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Joint ownership: COPYRIGHT.md. Original repo-native SVG for Songban; AI workbench attribution: 2292576833. Fictional teaching illustration, not a learner artifact or generated service output.</metadata>
+  <rect width="900" height="600" fill="#e9eddc"/><circle cx="751" cy="78" r="174" fill="#e1e7cf"/>
+  <path d="M0 454q227-53 444 5t456-4v145H0Z" fill="#dbe1cf"/><ellipse cx="485" cy="511" rx="306" ry="32" fill="#c7cfb6"/>
+  <rect x="364" y="90" width="425" height="327" rx="18" fill="#bac5a4" transform="rotate(3 576 253)"/>
+  <rect x="352" y="78" width="425" height="327" rx="18" fill="#fffdf7"/>
+  <path d="M353 119h423" stroke="#e0d8e9" stroke-width="3"/><circle cx="377" cy="99" r="5" fill="#c3aed9"/><circle cx="395" cy="99" r="5" fill="#bdd27d"/><circle cx="413" cy="99" r="5" fill="#e8bf91"/>
+  <rect x="376" y="142" width="142" height="195" rx="9" fill="#eee8fb"/><path d="m396 172 14-12-14-12m56 0-14 12 14 12" fill="none" stroke="#ab91ca" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M395 208h98m-98 19h68m-54 19h77m-91 20h64m-64 20h98m-98 20h79" stroke="#c6b4dd" stroke-width="7" stroke-linecap="round"/>
+  <path d="M550 155h184m-184 21h124" stroke="#b7a1d1" stroke-width="9" stroke-linecap="round"/>
+  <rect x="550" y="205" width="181" height="59" rx="13" fill="#e3edbd"/><path d="M577 229h100m-100 15h71" stroke="#95aa61" stroke-width="6" stroke-linecap="round"/>
+  <rect x="550" y="292" width="134" height="44" rx="21" fill="#8a6acb"/><path d="m605 304 17 10-17 10Z" fill="#fffdf7"/>
+  <path d="m667 324 5 31 10-12 14-3Z" fill="#4f445e" stroke="#fffdf7" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M377 365h168" stroke="#ded4e9" stroke-width="8" stroke-linecap="round"/>
+  <path d="M209 496 370 363h179L382 496Z" fill="#c4afd9"/><path d="M209 496h173v29H209Zm173 0 167-133v29L382 525Z" fill="#9475b5"/>
+  <path d="M237 473h176m-144-29h180m-146-29h181m-147-29h180" stroke="#f0e8fa" stroke-width="5"/>
+  <path d="M255 500v42h46v-42m160-122v75h39v-75" fill="#b89dcf"/>
+  <path d="M219 477v-47m157-64v-44m-157 108 157-108m24 157v-47m157-64v-44m-157 108 157-108" fill="none" stroke="#aa90c2" stroke-width="8" stroke-linecap="round"/>
+  <rect x="62" y="475" width="66" height="38" rx="4" fill="#d5e39f"/><path d="m62 475 18-15h67l-19 15m0 0v38l19-15v-38" fill="#aabd72"/>
+  <rect x="111" y="524" width="89" height="24" rx="3" fill="#e8bd8c"/><path d="m111 524 15-12h89l-15 12m0 0v24l15-12v-24" fill="#c89c6c"/>
+  <path d="M158 298c-32 0-48 29-36 55 10 25 43 34 63 11 22-27 7-66-27-66" fill="#c99271"/>
+  <path d="M119 330q-13-48 32-52 45-4 46 48-24-6-35-22-15 20-43 26" fill="#3f4439"/><circle cx="173" cy="337" r="4" fill="#34382e"/>
+  <path d="M126 370q33-16 59 8l23 66-100 4Z" fill="#8a6acb"/><path d="m182 392 26 24 34-19m-117-1 13 37 49 5" fill="none" stroke="#c99271" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m130 448-3 44m48-44 11 40" stroke="#6b6078" stroke-width="19" stroke-linecap="round"/>
+  <rect x="224" y="369" width="43" height="31" rx="4" fill="#dfb48b"/><path d="m224 369 11-10h43l-11 10m0 0v31l11-10v-31" fill="#efcda8"/>
+  <g transform="rotate(31 721 459)"><rect x="709" y="388" width="23" height="117" rx="4" fill="#b8a0d5"/><rect x="709" y="388" width="23" height="23" rx="4" fill="#dfb48b"/><path d="m709 505 12 26 11-26" fill="#fffdf7"/><path d="m717 522 4 9 4-9" fill="#6e577e"/></g>
+  <path d="m285 177 10-22 10 22 22 10-22 10-10 22-10-22-22-10Z" fill="#d0dcae"/>
+</svg>

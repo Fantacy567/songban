@@ -1,0 +1,75 @@
+{
+  "scope": "Catalog and local SVG/snippet checks only; education/pilot pending.",
+  "courses": [
+    {
+      "id": "ai-tools",
+      "svgSha256": "b995ab719f0433820911b55c686b0d9688ded40b34d4508b7c2fe9c95c05ff58",
+      "geometrySha256": "209f9b44280da1d6a4a7e06f5c2388adf8e260037df104161bcfd271c05e5bee",
+      "pngSha256": "04dd4cb64a9aae5eb95c92aba4362250c563b1ff028e85371991760d7ac50bcb",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "imagination",
+      "svgSha256": "7426d509ca602ca70bed0c16eb19bc4704d5ab6725976e5e85962d9dd38c84d5",
+      "geometrySha256": "2e067dd0f55601d354db6d9e7d565f27c8bbaef2c7047881be573ec761fa56ac",
+      "pngSha256": "9c92f45b10644fc9c5a6c7fcc60cc9b3673a609d7060bc2a4570bfd1ca9c49c1",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "first-project",
+      "svgSha256": "45af6951184fc94eb6a6bacc3b9fc66cbb17144ccfe05bdc7c274f453f50bfce",
+      "geometrySha256": "cac8b9c13db82d587b20836562a8716b5a3f641d02d786c1214ed69f46753724",
+      "pngSha256": "03f1b98c80c85aa94bbea8c6be4b15f21a765c236482e55344377a86b349410f",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "plugins",
+      "svgSha256": "6981cfc48f836ef7c963125f3bbcfaf61710d89fdc98a5922a738e6eff9a26a2",
+      "geometrySha256": "b34aec566b214d4ecde971de85b1bfd9a08a75b45a27833b6c3d52731fd35200",
+      "pngSha256": "3c640767742e6ebe613997af2f70dec8c9238b30eb4482c79277a2788280579f",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "models",
+      "svgSha256": "420acab50af091030e878689ed654a49f03d7b421af6dc894d2181d60be2480a",
+      "geometrySha256": "2b2b28a92aa3ab723348ca3f5a6f9250269ecd8a10047055391746d0c0ba0bc9",
+      "pngSha256": "0b8caef7d3730205c0f75d6b780d0d5a4470b6d4ffc578f314779750933b355e",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "api",
+      "svgSha256": "6eee5733c9f1c65887f288579d47059d223c3da325f8a7bd4c8bea46e73ac3aa",
+      "geometrySha256": "5cb34d1954a8793e8ac3d0eb271647a9b5de674cd8eb1ca94883d8dbd7e71af9",
+      "pngSha256": "b7a623a93bbbfa48ac314f0a56f62d243e1957d355d9fbb3cc8534dc81b39461",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    },
+    {
+      "id": "model-powered-app",
+      "svgSha256": "eff6e6313727d4a00cbf28760568250b0fd995d7b0f1d47d0bbcddd053decd1e",
+      "geometrySha256": "59216c359c8986bee52fa88c989b912c1b278be58a78d1d5b0eea2fa782e1045",
+      "pngSha256": "94a93f3da3846c3516e099c9b604c5ccd88ec7f583ebf65f083ff9a20a61372d",
+      "loaded": true,
+      "width": 900,
+      "height": 600
+    }
+  ],
+  "checks": [
+    "7 XML documents, local decoding, 900x600 dimensions, accessible metadata, static-only elements, unique file/geometry/render hashes",
+    "Exact catalog starter HTML runs; changing output changes behavior; changing button label alone preserves output"
+  ],
+  "outsideRequests": [],
+  "checkedAt": "2026-11-03T02:24:11.720Z",
+  "catalogSha256": "fa0a66baaa522e012f156968a231c18dca77fb63962915fa22500886a26d152f"
+}

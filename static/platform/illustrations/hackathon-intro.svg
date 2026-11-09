@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">小松的小队，把一个想法摆上桌</title>
+  <desc id="desc">原创教学示意：三位虚构伙伴围桌讨论一张活动邀请卡。桌上有问题便签、画笔和草图，松树向导在旁陪伴。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Original SVG illustration for Songban. Fictional teaching example; no real child record. See COPYRIGHT.md.</metadata>
+  <rect width="900" height="600" fill="#eee8fb"/>
+  <circle cx="784" cy="82" r="154" fill="#e5dcf6"/>
+  <path d="M0 440Q238 389 465 455T900 434V600H0Z" fill="#e0d5f0"/>
+  <rect x="73" y="70" width="264" height="205" rx="15" fill="#fffdf7"/>
+  <rect x="97" y="94" width="112" height="17" rx="8" fill="#8a6acb"/>
+  <rect x="97" y="129" width="214" height="11" rx="5" fill="#d8cfdf"/>
+  <rect x="97" y="151" width="180" height="11" rx="5" fill="#d8cfdf"/>
+  <rect x="98" y="190" width="60" height="58" rx="4" fill="#e5ecb2" transform="rotate(-7 128 219)"/>
+  <path d="M112 209h30m-31 13h24" stroke="#758042" stroke-width="5" stroke-linecap="round"/>
+  <rect x="179" y="186" width="109" height="65" rx="5" fill="#eee8fb" transform="rotate(5 233 218)"/>
+  <path d="m195 224 19-19 18 17 17-10 18 17" fill="none" stroke="#ad98d2" stroke-width="5" stroke-linecap="round"/>
+  <path d="M174 432v112m491-112v112" stroke="#a493b7" stroke-width="23" stroke-linecap="round"/>
+  <ellipse cx="428" cy="408" rx="301" ry="85" fill="#c6b3dc"/>
+  <ellipse cx="428" cy="391" rx="301" ry="85" fill="#fffdf7"/>
+  <path d="M232 343c-55-11-80-68-54-105 24-35 70-26 84 8 13 35 3 65-30 97" fill="#d9b69c"/>
+  <path d="M183 269c-19-59 57-84 81-42 9 15 7 28 3 44-14-14-25-22-41-23-11 14-25 21-43 21" fill="#3f4439"/>
+  <path d="M171 337q43-30 81 6l28 48-100 25-30-34z" fill="#8a6acb"/>
+  <path d="m246 358 60 24m-123-9 50 27" stroke="#d9b69c" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="238" cy="275" r="4" fill="#34382e"/>
+  <path d="m244 301-12 2" stroke="#9b745e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M478 311c-45 2-71-43-55-80 16-34 69-42 89-5 19 36-1 70-34 85" fill="#ddbfa6"/>
+  <path d="M420 255c-18-42 4-66 44-65 39 0 61 34 47 62-9-4-20-18-24-34-17 16-38 24-67 37" fill="#6c576b"/>
+  <path d="M435 305q44-20 75 7l30 51-120 5z" fill="#73805b"/>
+  <path d="m445 331-44 34m96-27 24 32" stroke="#ddbfa6" stroke-width="21" stroke-linecap="round"/>
+  <circle cx="458" cy="261" r="4" fill="#34382e"/><circle cx="487" cy="258" r="4" fill="#34382e"/>
+  <path d="m466 281 13 2" stroke="#a88670" stroke-width="4" stroke-linecap="round"/>
+  <path d="M651 356c49 11 85-23 78-62-5-33-48-52-76-27-22 21-29 58-2 89" fill="#c99271"/>
+  <path d="M644 292c4-41 32-52 62-41 27 10 37 43 24 66-9-22-21-33-34-36-17 14-32 13-52 11" fill="#363c38"/>
+  <path d="M627 354q43-25 81 12l20 43-103 18-25-35z" fill="#b49fcb"/>
+  <path d="m639 382-62 17m115-12-29 33" stroke="#c99271" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="666" cy="306" r="4" fill="#34382e"/>
+  <path d="m660 330 12 4" stroke="#915f48" stroke-width="4" stroke-linecap="round"/>
+  <g transform="rotate(-5 408 395)"><rect x="333" y="347" width="151" height="105" rx="7" fill="#eee8fb" stroke="#b5a0d7" stroke-width="3"/><rect x="350" y="365" width="70" height="10" rx="5" fill="#8a6acb"/><path d="M351 392h115m-115 17h75m-75 17h91" stroke="#bcacd4" stroke-width="6" stroke-linecap="round"/></g>
+  <rect x="534" y="352" width="52" height="42" rx="4" fill="#dcebb3" transform="rotate(12 560 373)"/>
+  <path d="m290 434 27-27" stroke="#efb17e" stroke-width="9" stroke-linecap="round"/>
+  <g transform="translate(751 352)"><path d="M43 0 12 47h17L1 84h27L0 121h34v24h20v-24h35L60 84h27L58 47h16Z" fill="#d3ed4b"/><ellipse cx="34" cy="88" rx="9" ry="14" fill="#fffdf7"/><ellipse cx="54" cy="88" rx="9" ry="14" fill="#fffdf7"/><ellipse cx="36" cy="91" rx="4" ry="7" fill="#34382e"/><ellipse cx="56" cy="91" rx="4" ry="7" fill="#34382e"/></g>
+  <path d="m361 119 9-21 9 21-21-11h24z" fill="#bba7db"/>
+  <path d="M578 99h88q13 0 13 13v52q0 13-13 13h-42l-22 17v-17h-24q-13 0-13-13v-52q0-13 13-13" fill="#fffdf7"/>
+  <path d="M590 123h60m-60 17h44m-44 17h53" stroke="#b6a3d1" stroke-width="6" stroke-linecap="round"/>
+</svg>

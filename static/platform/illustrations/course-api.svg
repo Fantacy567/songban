@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">请求过去，响应回来</title>
+  <desc id="desc">原创教学插画：左岸的笔记本客户端通过上层桥送出紫色请求包，右岸服务器通过下层桥送回绿色响应包。方向箭头与不同包裹样式帮助分清往返，服务器按固定规则工作。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Joint ownership: COPYRIGHT.md. Original repo-native SVG for Songban; AI workbench attribution: 2292576833. Fictional teaching illustration of a rule-based local API, not a live model call or learner artifact.</metadata>
+  <rect width="900" height="600" fill="#eee8fb"/><circle cx="733" cy="62" r="165" fill="#e4daf3"/>
+  <path d="M0 458q151-46 279-8t311 0 310 7v143H0Z" fill="#dcd2eb"/>
+  <path d="M368 381q-68 74-19 125t-3 94h244q-79-55-19-102t-11-117Z" fill="#c9c3e4"/>
+  <path d="M400 468q33-12 62 0m-62 44q33-12 62 0m13 50q33-12 62 0" fill="none" stroke="#e8e3f5" stroke-width="6" stroke-linecap="round"/>
+  <path d="M270 282h352v27H270Z" fill="#ad95c5"/><path d="M286 309v87m320-87v87" stroke="#ad95c5" stroke-width="17"/>
+  <path d="M279 266v-48m336 48v-48m-336 12h336" fill="none" stroke="#c7b3db" stroke-width="7" stroke-linecap="round"/>
+  <path d="M280 409h342v24H280Z" fill="#a9b97c"/><path d="M295 431v69m312-69v69" stroke="#a9b97c" stroke-width="15"/>
+  <path d="M288 397v-42m327 42v-42m-327 12h327" fill="none" stroke="#c4d29e" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="172" cy="466" rx="117" ry="27" fill="#c6b8d7"/><rect x="76" y="229" width="200" height="154" rx="13" fill="#9e85b9"/>
+  <rect x="88" y="241" width="176" height="128" rx="6" fill="#fffdf7"/>
+  <rect x="103" y="258" width="145" height="37" rx="7" fill="#eee8fb"/><circle cx="120" cy="276" r="6" fill="#af96cc"/><path d="M136 276h93" stroke="#c3b1d8" stroke-width="6" stroke-linecap="round"/>
+  <rect x="116" y="318" width="119" height="30" rx="15" fill="#8a6acb"/><path d="m167 327 10 6-10 6" fill="none" stroke="#fffdf7" stroke-width="3" stroke-linecap="round"/>
+  <path d="m76 383-27 47q1 13 18 13h216q18 0 18-13l-25-47Z" fill="#c2acd6"/><path d="M91 397h170m-176 13h181" stroke="#e6dcef" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="724" cy="466" rx="112" ry="27" fill="#c6b8d7"/>
+  <rect x="630" y="174" width="188" height="269" rx="19" fill="#b29ac8"/><rect x="643" y="188" width="163" height="241" rx="12" fill="#fffdf7"/>
+  <rect x="658" y="208" width="132" height="50" rx="8" fill="#eee8fb"/><rect x="658" y="273" width="132" height="50" rx="8" fill="#eee8fb"/><rect x="658" y="338" width="132" height="50" rx="8" fill="#e3edc4"/>
+  <path d="M676 229h61m-61 65h61m-61 65h61" stroke="#bba4d1" stroke-width="6" stroke-linecap="round"/><circle cx="768" cy="233" r="7" fill="#a9be72"/><circle cx="768" cy="298" r="7" fill="#a9be72"/><circle cx="768" cy="363" r="7" fill="#8ea653"/>
+  <g transform="translate(383 203)"><rect width="103" height="69" rx="8" fill="#8a6acb"/><path d="m6 9 45 29L97 9M6 61l33-25m58 25L63 36" fill="none" stroke="#d5c5ec" stroke-width="4" stroke-linejoin="round"/></g>
+  <path d="M506 249h65m-14-13 15 13-15 13" fill="none" stroke="#8a6acb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(421 333)"><rect width="108" height="68" rx="8" fill="#b4ca7d"/><path d="m8 9 46 29L100 9M8 60l33-25m59 25L67 35" fill="none" stroke="#eef4d9" stroke-width="4" stroke-linejoin="round"/><circle cx="87" cy="49" r="12" fill="#fffdf7"/><path d="m81 49 4 4 8-10" fill="none" stroke="#829d49" stroke-width="3" stroke-linecap="round"/></g>
+  <path d="M398 374h-64m14-13-15 13 15 13" fill="none" stroke="#8aa052" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M102 145h87q14 0 14 14v33q0 14-14 14h-22l-21 17v-17h-44q-14 0-14-14v-33q0-14 14-14Z" fill="#fffdf7"/><path d="m119 163-8 10 8 10m48-20 8 10-8 10m-22-25-9 30" fill="none" stroke="#b19ac9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m563 111 8-17 8 17 17 8-17 8-8 17-8-17-17-8Z" fill="#c8b5db"/>
+</svg>

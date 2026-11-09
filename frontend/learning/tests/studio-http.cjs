@@ -37,7 +37,7 @@ const labels = { event_name: '活动名称', audience: '邀请谁', date: '日�
   const shot = name => page.screenshot({ path: path.join(out, name + '.png'), fullPage: true });
   async function read(context, suffix) { const response = await context.request.get(origin + '/api/learning/v2' + suffix); assert.equal(response.status(), 200, `${suffix} must remain readable`); return response.json(); }
   async function login(p, account, route) {
-    await p.goto(origin + '/learning-prep' + route);
+    await p.goto(origin + '/learning-prep' + (route === '#/learning-admin' ? route : '#/family'));
     await p.getByLabel('已有账号', { exact: true }).fill(account);
     await p.getByLabel('密码', { exact: true }).fill(metadata.password);
     await p.getByRole('button', { name: '重新认证并进入管理', exact: true }).click();
@@ -59,6 +59,8 @@ const labels = { event_name: '活动名称', audience: '邀请谁', date: '日�
     assert.equal((await read(childContext, `/learners/${metadata.learner_id}/entry`)).status, 'offered');
     record('manager-explicit-subject-mapping-still-requires-child-acceptance');
     await button('进入孩子学习模式').click(); await button('确认进入').click();
+    // Historical invitation flow is now an explicit tool under the new AI-first entry.
+    await page.getByText('以前的邀请卡与访谈记录', { exact: true }).click();
     // A supplied prior interview is offered for explicit confirmation, never silently imported.
     await page.waitForFunction(() => ['这是我的想法，继续', '开始我的第一个作品'].some(t => [...document.querySelectorAll('button')].some(b => b.textContent === t)));
     if (await button('这是我的想法，继续').count()) await button('这是我的想法，继续').click();

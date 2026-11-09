@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-labelledby="title desc">
+  <title id="title">同一个任务，两份输出，一起检查</title>
+  <desc id="desc">原创教学插画：顶端同一张任务纸分成两条路径，分别进入圆形和方形模型装置；下方两张不同内容的输出卡放在同一比较台上，右下角放大镜提示检查。装置不是供应商品牌或性能排名。</desc>
+  <metadata>Copyright (c) 2026 2292576833, Fantacy567, andorwu5-dev. Joint ownership: COPYRIGHT.md. Original repo-native SVG for Songban; AI workbench attribution: 2292576833. Fictional fixed-example teaching illustration, not live model results, supplier ranking or learner artifact.</metadata>
+  <rect width="900" height="600" fill="#f4efe5"/><circle cx="807" cy="120" r="171" fill="#e8e1f1"/>
+  <path d="M0 480q236-43 440-6t460-9v135H0Z" fill="#e7e1d5"/>
+  <rect x="390" y="44" width="120" height="114" rx="11" fill="#fffdf7" stroke="#d6c7e5" stroke-width="3"/>
+  <circle cx="417" cy="71" r="8" fill="#b5c979"/><path d="M437 71h49m-70 28h70m-70 19h56m-56 19h63" stroke="#b9a1d2" stroke-width="6" stroke-linecap="round"/>
+  <path d="M450 159v22H269v30m181-30h181v30" fill="none" stroke="#b39bcd" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m258 201 11 14 11-14m340 0 11 14 11-14" fill="none" stroke="#b39bcd" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <ellipse cx="269" cy="306" rx="106" ry="87" fill="#b69ad2"/><ellipse cx="269" cy="289" rx="106" ry="86" fill="#e5d9f2"/>
+  <circle cx="269" cy="289" r="58" fill="#fffdf7"/>
+  <path d="m240 272 29-19 29 19v34l-29 17-29-17Zm29-19v70m-29-51 29 17 29-17m-58 34 29-17 29 17" fill="none" stroke="#b297cf" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="531" y="217" width="200" height="164" rx="20" fill="#b2c77c"/><rect x="531" y="203" width="200" height="164" rx="20" fill="#e0e9c4"/>
+  <rect x="568" y="232" width="127" height="105" rx="14" fill="#fffdf7"/>
+  <path d="M589 257h84m-84 28h84m-84 28h84m-63-56v56m42-56v56" stroke="#b0c185" stroke-width="4"/>
+  <circle cx="610" cy="285" r="8" fill="#93a958"/><circle cx="652" cy="257" r="8" fill="#93a958"/><circle cx="652" cy="313" r="8" fill="#93a958"/>
+  <rect x="223" y="354" width="92" height="13" rx="6" fill="#9172ad"/><rect x="585" y="348" width="92" height="13" rx="6" fill="#8a9e57"/>
+  <path d="M138 475h598v30H138Zm35 31v45m526-45v45" fill="#c2b5cc" stroke="#c2b5cc" stroke-width="11" stroke-linecap="round"/>
+  <g transform="rotate(-5 281 422)"><rect x="176" y="382" width="213" height="109" rx="10" fill="#fffdf7" stroke="#d4c5e3" stroke-width="2"/>
+    <circle cx="201" cy="409" r="7" fill="#ad92c9"/><circle cx="201" cy="443" r="7" fill="#ad92c9"/><path d="M222 407h142m-142 14h105m-105 20h142m-142 14h128" stroke="#d1c2e0" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(4 601 422)"><rect x="493" y="382" width="213" height="109" rx="10" fill="#fffdf7" stroke="#c3d292" stroke-width="2"/>
+    <circle cx="518" cy="407" r="6" fill="#a6b975"/><circle cx="518" cy="434" r="6" fill="#a6b975"/><circle cx="518" cy="461" r="6" fill="#a6b975"/><path d="M537 407h141m-141 27h121m-121 27h141" stroke="#c8d7aa" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <path d="M417 416h50m-9-9 9 9-9 9m9 19h-50m9-9-9 9 9 9" fill="none" stroke="#af9cbe" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="753" cy="449" r="42" fill="#f4efe5" fill-opacity=".8" stroke="#9c83b7" stroke-width="11"/><path d="m783 481 35 35" stroke="#7c6394" stroke-width="18" stroke-linecap="round"/>
+  <path d="M740 437q0-12 12-12t12 11q0 8-12 15v8m0 13v1" fill="none" stroke="#9c83b7" stroke-width="6" stroke-linecap="round"/>
+  <path d="m118 218 7-15 7 15 15 7-15 7-7 15-7-15-15-7Z" fill="#d5c3e6"/><circle cx="765" cy="279" r="8" fill="#c4d0a1"/>
+</svg>

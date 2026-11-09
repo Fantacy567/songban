@@ -20,7 +20,8 @@ function journeyChrome(){
 }
 async function interviewPage(){
  const learning=typeof wantsLearning==='function'&&wantsLearning();
- const host=$('#content');host.innerHTML=head('你的起点','先认识一下你。',learning?'通常聊 5～6 题，最多 8 题。确认后，和松伴开始第一个小作品。':'通常聊 5～6 题，最多 8 题。随时可以先看总结，确认后选择比赛。');
+ const host=$('#content');host.innerHTML=head('你的起点','先认识一下你。',learning?'这段交流可以暂时跳过，先和松伴试试 AI 工具；已有回答会保留。':'通常聊 5～6 题，最多 8 题。随时可以先看总结，确认后选择比赛。');
+ if(learning)host.insertAdjacentHTML('beforeend','<p><a class="primary" href="/learning-prep#/learn/course?id=ai-tools">先和松伴试用 AI</a></p>');
  try{const d=await api('/api/core/interview');if(!host.isConnected)return;
  if(d.status==='not_started'){host.insertAdjacentHTML('beforeend','<section class="card"><p>聊聊想做什么、会做什么，以及这次能投入的时间。</p><button class="primary" id="iv-start">开始访谈</button><button id="iv-manual">使用三问手动访谈</button><p id="iv-error" role="status"></p></section>');for(const [id,action] of [['#iv-start','start'],['#iv-manual','manual-start']])$(id).onclick=async()=>{try{$(id).disabled=true;await api('/api/core/interview/'+action,{});await interviewPage();}catch(e){$('#iv-error').textContent=e.message+' 可选择三问手动访谈继续。';$(id).disabled=false;}};return;}
  if(d.status==='asking'){

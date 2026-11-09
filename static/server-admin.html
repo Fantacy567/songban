@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>松伴 · 服务端管理</title><link rel="stylesheet" href="/static/server-admin.css"><script defer src="/static/server-admin.js"></script></head>
+<body><header><a href="/">松伴 SONGBAN</a><span>服务端管理</span><a href="/#/login">返回平台</a></header><main>
+<h1>服务端管理</h1><p class="muted">使用已授权的管理员邮箱。普通账号和演示身份无法进入。</p>
+<p id="status" role="status" aria-live="polite">正在核对登录身份…</p>
+<section id="login" hidden><h2>管理员邮箱登录</h2><form id="login-form"><label>邮箱<input name="email" type="email" autocomplete="email" required></label><div class="code"><label>邮箱验证码<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label><button id="send-code" type="button">获取验证码</button></div><button type="submit">验证并进入</button></form><p class="muted">请先在平台注册或绑定这个邮箱。已有学习管理会话优先；切换账号前请在平台退出原账号。</p></section>
+<div id="workspace" hidden><div class="toolbar"><span id="administrator"></span><button id="refresh" type="button">重新读取</button><button id="leave" type="button">退出管理</button></div>
+<nav aria-label="管理功能"><button data-section="providers" aria-pressed="true">模型与额度</button><button data-section="operations" aria-pressed="false">运行状态</button><button data-section="audit" aria-pressed="false">配置记录</button></nav>
+<section id="providers"><h2>模型与额度</h2><p>密钥仅写入服务端私密目录，保存后不回显。额度为累计上限，调整配置不会清零已消耗调用。</p><div id="provider-forms"></div></section>
+<section id="operations" hidden><h2>运行状态</h2><div id="runtime"></div><h3>未知模型任务核对</h3><p>先核对执行和供应商记录，再记录证据关闭对应任务。关闭保留额度，不自动重试，也不认定孩子已完成作品。请勿在证据中填写密钥或孩子的聊天原文。</p><button id="read-unknown" type="button">读取待核对任务</button><div id="unknown-jobs"></div><h3>教学内容规则</h3><p>课程必须有真实来源、清楚的学习目标、可观察的练习和检查，并经过人工审核。游戏是呈现方式，奖励与通关不能作为已掌握知识的唯一依据。</p></section>
+<section id="audit" hidden><h2>最近配置记录</h2><p>记录操作者、时间和改动字段，不记录密钥内容。</p><ol id="audit-list"></ol></section></div>
+</main></body></html>

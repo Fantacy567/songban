@@ -1,0 +1,102 @@
+{
+  "version": "1",
+  "checked_at": "2026-11-04",
+  "method": "Read primary documentation with web.open/web.find; summaries are paraphrases, no provider execution.",
+  "scope": "Technical source reading only; no educational review, child trial or real model quality evidence.",
+  "sources": [
+    {
+      "id": "check",
+      "title": "GitHub Docs · Responsible use of Copilot inline suggestions",
+      "url": "https://docs.github.com/en/copilot/responsible-use/inline-suggestions",
+      "supports": "AI 代码建议需要人工审查和测试。角色卡的修改检查是本课程设计，不是该资料验证过的儿童教学方法。",
+      "checked_at": "2026-11-04",
+      "section": "Human oversight / Best practices: review, test, validate suggestions"
+    },
+    {
+      "id": "idea",
+      "title": "MDN · What will your website look like?",
+      "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website/What_will_your_website_look_like",
+      "supports": "制作网页前可以规划内容、用途与草图，从简单作品开始；兴趣发散活动是本项目设计。",
+      "checked_at": "2026-11-04",
+      "section": "First things first: planning / Sketching out your design"
+    },
+    {
+      "id": "click",
+      "title": "MDN · JavaScript: Adding interactivity",
+      "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Your_first_website/Adding_interactivity",
+      "supports": "JavaScript 点击事件可更新页面；按钮文字与交互行为需分别检查。",
+      "checked_at": "2026-11-04",
+      "section": "Events: addEventListener click example"
+    },
+    {
+      "id": "extensions",
+      "title": "MDN · What are extensions?",
+      "url": "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/What_are_WebExtensions",
+      "supports": "浏览器扩展能够增加或修改宿主功能；课程内高亮开关不等于安装外部扩展。",
+      "checked_at": "2026-11-04",
+      "section": "Definition and examples of browser extension capabilities"
+    },
+    {
+      "id": "permissions",
+      "title": "MDN · permissions — manifest.json",
+      "url": "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/permissions",
+      "supports": "浏览器扩展可声明所需权限，应避免请求不必要权限；这不是所有插件共同的权限实现。",
+      "checked_at": "2026-11-04",
+      "section": "permissions introduction and avoiding unnecessary permissions"
+    },
+    {
+      "id": "llm",
+      "title": "Google · Introduction to Large Language Models",
+      "url": "https://developers.google.com/machine-learning/crash-course/llm",
+      "supports": "语言模型利用上下文估计 token 序列的概率并生成文字；token 不固定等于一个汉字。此资料不支持给固定样例所代表的模型排名。",
+      "checked_at": "2026-11-04",
+      "section": "What is a language model? / Context"
+    },
+    {
+      "id": "http",
+      "title": "MDN · Overview of HTTP",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview",
+      "supports": "HTTP 客户端发送请求，服务器返回含状态信息的响应；本站 greet 规则由本项目代码规定。",
+      "checked_at": "2026-11-04",
+      "section": "HTTP flow / HTTP Messages / Responses"
+    },
+    {
+      "id": "apis",
+      "title": "MDN · Introduction to web APIs",
+      "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Client-side_APIs/Introduction",
+      "supports": "API 向程序提供功能接口；浏览器 API 与远程服务 API 均存在，调用 API 不必涉及 AI。",
+      "checked_at": "2026-11-04",
+      "section": "What are APIs? / Browser APIs and third-party APIs"
+    },
+    {
+      "id": "agents",
+      "title": "Anthropic · Building effective agents",
+      "url": "https://www.anthropic.com/research/building-effective-agents",
+      "supports": "从简单方案开始，按任务拆分职责并考虑质量、等待和成本；本课方案推演不证明真实调用效果。",
+      "checked_at": "2026-11-04",
+      "section": "When (and when not) to use agents / Workflow: Routing"
+    },
+    {
+      "id": "keys",
+      "title": "Google Cloud · Best practices for managing API keys",
+      "url": "https://docs.cloud.google.com/docs/authentication/api-keys-best-practices",
+      "supports": "不要把服务密钥写入客户端代码或提交仓库；由服务端持有凭据并发请求。不表示本平台已调用 Google 服务。",
+      "checked_at": "2026-11-04",
+      "section": "Don't include API keys in client code or commit them to code repositories"
+    }
+  ],
+  "local_contracts": [
+    {
+      "path": "app/learning_courses/service.py",
+      "supports": "greet experiment returns a deterministic greeting and notice; no model call."
+    },
+    {
+      "path": "app/learning_courses/schemas.py",
+      "supports": "greet operation and 1–40 character trimmed nickname validation."
+    },
+    {
+      "path": "frontend/learning/CourseSeriesPage.tsx",
+      "supports": "plugin-lab fixed highlight toggle, fixed model comparison, api experiment and model-app exercise are optional existing activities."
+    }
+  ]
+}

@@ -51,15 +51,17 @@ export class LearningApi {
   }
   private onPageShow = () => { void this.revalidate(); };
   private onVisibility = () => { if (document.visibilityState === 'visible') void this.revalidate(); };
-  private async raw<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  private async raw<T>(path: string, method = 'GET', body?: unknown, binary = false): Promise<T> {
     const captured = this.generation;
     const c = new AbortController(); this.controllers.add(c);
     const timeout = window.setTimeout(() => c.abort(), 20000);
     try {
-      const response = await fetch(BASE + path, { method, credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: c.signal,
+      const target = path === '@demo/learning/start' ? '/api/demo/learning/start'
+        : path.startsWith('@platform/') ? '/api/platform/v1' + path.slice('@platform'.length) : BASE + path;
+      const response = await fetch(target, { method, credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: c.signal,
         headers: { Accept: 'application/json', ...(method !== 'GET' ? { 'Content-Type': 'application/json', 'X-CSRF-Token': this.boot?.csrf_token || '' } : {}) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-      const result = await response.json();
+      const result = binary && response.ok ? await response.blob() : await response.json();
       if (this.disposed || captured !== this.generation) throw new ApiError(0, 'stale', '身份已变化');
       if (!response.ok) throw new ApiError(response.status, result?.error?.code || 'request_failed', '请求未成功');
       return result as T;
@@ -94,11 +96,11 @@ export class LearningApi {
     })();
     return this.checking;
   };
-  async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  async request<T>(path: string, method = 'GET', body?: unknown, binary = false): Promise<T> {
     if (this.state.phase !== 'ready' || !this.state.session || !this.boot) throw new ApiError(401, 'session_unconfirmed', '请重新确认身份');
     const captured = this.generation, identity = key(this.state.session);
     try {
-      const value = await this.raw<T>(path, method, body);
+      const value = await this.raw<T>(path, method, body, binary);
       // Server is authoritative even if another tab has no BroadcastChannel support.
       const current = await this.readSession();
       if (captured !== this.generation) throw new ApiError(0, 'stale', '身份已变化');
@@ -116,7 +118,22 @@ export class LearningApi {
     const text = await this.request<import('./types').ConsentText>(`/consent-texts/${encodeURIComponent(version)}`);
     await verifyConsentText(text, version); return text;
   }
-  async changeIdentity(kind: 'authenticate' | 'enter-learner' | 'logout', fields: Record<string, unknown>) {
+  platform<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+    if (!path.startsWith('/') || path.startsWith('//')) throw new Error('Invalid platform path');
+    return this.request<T>('@platform'+path, method, body);
+  }
+  /** Public content only: never route private progress through this method. */
+  publicTeachers(): Promise<{ version: string; teachers: import('./workbench/types').Teacher[] }> {
+    return this.raw('@platform/learning-workbench/teachers');
+  }
+  publicCatalog<T>(courseId?: import('./types').CourseId): Promise<T> {
+    return this.raw<T>('@platform/learning-catalog' + (courseId ? '/' + encodeURIComponent(courseId) : ''));
+  }
+  platformBinary(path: string): Promise<Blob> {
+    if (!/^\/assets\/[A-Za-z0-9_.:@-]{1,150}\/content$/.test(path)) throw new Error('Invalid asset path');
+    return this.request<Blob>('@platform'+path, 'GET', undefined, true);
+  }
+  async changeIdentity(kind: 'authenticate' | 'enter-learner' | 'logout' | 'demo-start', fields: Record<string, unknown>) {
     if (this.transition) return;
     // Capture the current revision before hiding and cancelling all private views.
     const session = this.state.session;
@@ -124,10 +141,11 @@ export class LearningApi {
     let failure: unknown;
     try {
       this.boot = await this.raw<Bootstrap>('/session-bootstrap');
-      const body = kind === 'authenticate'
+      const body = kind === 'demo-start' ? { request_id: requestId(), browser_revision: this.boot.browser_revision }
+        : kind === 'authenticate'
         ? { request_id: requestId(), browser_revision: this.boot.browser_revision, method: 'password', ...fields }
         : { request_id: requestId(), expected_revision: session?.revision, ...fields };
-      await this.raw(`/sessions/${kind}`, 'POST', body);
+      await this.raw(kind === 'demo-start' ? '@demo/learning/start' : `/sessions/${kind}`, 'POST', body);
     } catch (e) { failure = e; }
     finally {
       this.transition = false; this.channel?.postMessage({ type: 'identity-changed' });

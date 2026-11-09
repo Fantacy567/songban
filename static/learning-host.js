@@ -2,14 +2,16 @@
 (() => {
   const host = document.querySelector('#learning-prep-root');
   const validRoute = hash => {
-    if (['#/learn', '#/learn/first', '#/learn/courses', '#/learn/start', '#/family', '#/learning-admin'].includes(hash)) return true;
+    if (['#/learn', '#/learn/first', '#/learn/courses', '#/learn/start', '#/learn/create', '#/family', '#/learning-admin', '#/hackathon', '#/hackathon/intro', '#/portfolio'].includes(hash)) return true;
     const [path, query = '', ...extra] = hash.split('?');
-    if (extra.length || !['#/learn/run', '#/learn/works'].includes(path)) return false;
+    if (extra.length || !['#/learn/run', '#/learn/works', '#/learn/create', '#/learn/course'].includes(path)) return false;
     const params = new URLSearchParams(query);
     const keys = [...params.keys()];
     if (new Set(keys).size !== keys.length) return false;
+    if (path === '#/learn/course') return keys.length === 1 && keys[0] === 'id' && ['ai-tools','imagination','first-project','plugins','models','api','model-powered-app'].includes(params.get('id'));
     const identifier = value => value !== null && /^[A-Za-z0-9_.:-]{1,100}$/.test(value);
     if (path === '#/learn/run') return identifier(params.get('id')) && keys.every(key => ['id', 'view'].includes(key)) && (!params.has('view') || params.get('view') === 'review');
+    if (path === '#/learn/create') return keys.every(key => key === 'id') && (!params.has('id') || identifier(params.get('id')));
     return keys.every(key => ['id', 'version'].includes(key)) && (!params.has('id') || identifier(params.get('id'))) && (!params.has('version') || (identifier(params.get('version')) && params.has('id')));
   };
   let handle, current = validRoute(location.hash) ? location.hash : '#/learn', reverting = false;
